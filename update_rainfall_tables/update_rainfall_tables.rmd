@@ -1,0 +1,163 @@
+---
+title: "Worker Script Report: Update Rainfall Tables"
+author:
+- Taylor Heffernan
+- Updating rainfall_gage
+date: "`r lubridate::now()`" #This doesn't use !r syntax (like the gagedb param below) because it's not a param. It's evaluated by default.
+output: html_document
+params:
+  gagedb: !r paste0(path.expand('~'), '/CSORain2010/CSORain2010.mdb') #Access DB containing rain gage data. !r evaluates the R expression. Doesn't use `r` syntax like the date flag above because params are treated as plain text (not evaluated) by default. 
+  database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
+  write: FALSE #Write changes to database?
+---
+
+```{r setup, include=FALSE}
+
+#Dplyr stuff
+library(magrittr)
+library(tidyverse)
+library(lubridate)
+
+#Database Stuff
+library(odbc)
+library(RODBC)
+
+#Other stuff
+library(knitr)
+options(stringsAsFactors=FALSE)
+```
+
+```{r Section 0 - Preamble and database connections, include=FALSE}
+###Section 0.1: Check parameter validity
+
+###Section 0.2: Connect to the database
+	#Indicate the database name: mars_testing or mars. 
+	#Only write to mars if you really know what you're doing.
+ 	database <- params$database
+
+ 	#Connect using the DSN.
+	marsDBCon <- dbConnect(odbc::odbc(), params$database)
+
+###Section 0.3: Load MARS analysis functions
+	source("A:/Scripts/Functions/mars_functions.R")
+	
+```
+  
+
+```{r Section 1 - Gathering rainfall data, include = FALSE}
+
+  #Read the rain gage data from the mars database
+  rainfall_gage <- dbGetQuery(marsDBCon, "SELECT * FROM rainfall_gage")  
+  
+  #Read the rain gage table from the mars database and attach it to the rainfall data
+  gage <- dbGetQuery(marsDBCon, "SELECT * FROM gage")
+  rainfall_gage <- left_join(rainfall_gage, gage, by = "gage_uid")
+  
+  #Read the rain gage data from the H&H database
+  hhdbcon <- odbcConnectAccess2007(params$gagedb)
+  hhrainfall_gage <- sqlFetch(hhdbcon, "tblModelRain", as.is = TRUE)
+  hhrainfall_gage %<>% transmute(gagename = as.character(GaugeNo), dtime_edt = ymd_hms(DateTime), rainfall_in = Rainfall)
+  odbcClose(hhdbcon)
+  
+  newdata <- anti_join(hhrainfall_gage, rainfall_gage, by = c("gagename", "dtime_edt")) %>%
+    left_join(gage, by = "gagename") %>%
+    select(gage_uid, dtime_edt, rainfall_in)
+
+```
+
+
+## Updates to `rainfall_gage` Table
+
+A new batch of rainfall data has been examined. There are `r nrow(newdata)` new rainfall measurements to add to the `rainfall_gage` table.
+
+`r if(nrow(newdata) > 0){ group_by(newdata, gage_uid) %>% summarize(new_measurements = n()) %>% kable }`
+
+```{r Section 1.5 - Writing to the smp_loc table, include = FALSE}	
+# Fail safe. If the block below doesn't run, we didn't append anything
+  outcome_newdata <- FALSE
+
+  #If there's new data to append
+	if(nrow(newdata) > 0 & params$write == TRUE){
+    outcome_newdata <- tryCatch({outcome_newdata <- dbWriteTable(marsDBCon, 
+        "rainfall_gage", 
+        newdata, 
+        append= TRUE, 
+        row.names = FALSE)
+      }, # append the data
+      error = function(e) e
+    )
+  }
+```
+  
+`r if(nrow(newdata) > 0){ paste("New rain events have", ifelse(outcome_newdata, "SUCCESSFULLY", "NOT"), "been written to the rainfall_gage table")}`
+
+```{r Section 2 - Processing new rain events, include = FALSE}
+
+  #Read the rain gage data from the mars database
+  #This query will grab all data from after the end of the latest event for each gage
+  #This captures both new data appended in the previous section, and any data that was clipped last time events were processed
+  newrain_query <- "select rg.gage_uid, rg.dtime_edt, rg.rainfall_in from rainfall_gage rg left join rainfall_gage_event_latestdates rgel on rg.gage_uid = rgel.gage_uid where rg.dtime_edt > rgel.dtime_edt"
+  rain_newdata <- dbGetQuery(marsDBCon, newrain_query)
+
+  #If we aren't writing the new data to the database, the above won't capture this batch of rain data
+  #Append the newdata frame to the above thing
+  if(params$write == FALSE){
+    rain_newdata <- bind_rows(rain_newdata, newdata) %>% arrange(gage_uid, dtime_edt)
+  }
+  
+  #If there's no defined rain events, that query will return nothing
+  #So we need to grab the entire data set
+  emptytable <- dbGetQuery(marsDBCon, "select count(*) from rainfall_gage_event_latestdates") %>% pull(count)
+  if(emptytable == 0){
+    rain_newdata <- dbGetQuery(marsDBCon, "select dtime_edt, gage_uid, rainfall_in from rainfall_gage")
+  }
+  
+  #Process the rain data into events, based on a 6 hour interevent time and a minimum depth of 0.1 inches
+  rain_newevents <- rain_newdata %>% 
+    group_by(gage_uid) %>%
+    arrange(dtime_edt) %>% 
+    mutate(event_id = detectEvents(dtime_edt, rainfall_in)) %>%
+      #Drop the last "complete" event in case it straddles the month boundary
+      #It will get processed the when the next batch of data comes in
+    filter(!is.na(event_id), event_id != max(event_id, na.rm = TRUE)) %>%
+    group_by(gage_uid, event_id) %>%
+    summarize(eventdatastart_edt = first(dtime_edt),
+      eventdataend_edt = last(dtime_edt),
+      eventduration_hr = stormDuration_hr(dtime_edt),
+      eventpeakintensity_inhr = stormPeakIntensity_inhr(dtime_edt, rainfall_in),
+      eventavgintensity_inhr = stormAvgIntensity_inhr(dtime_edt, rainfall_in),
+      eventdepth_in = stormDepth_in(rainfall_in)) %>%
+    select(-event_id)
+
+```
+
+
+## Updates to `rainfall_gage_event` Table
+
+The latest rainfall data has been processed for event detection. There are `r nrow(rain_newevents)` new rain events to add to the `rainfall_gage_event` table.
+
+`r if(nrow(rain_newevents) > 0){ rain_newevents %>% head(100) %>% kable }`
+
+```{r Section 2.5 - Writing to the smp_loc table, include = FALSE}  
+# Fail safe. If the block below doesn't run, we didn't append anything
+  outcome_rain_newevents <- FALSE
+
+  #If there's new data to append
+  if(nrow(rain_newevents) > 0 & params$write == TRUE){
+    outcome_rain_newevents <- tryCatch({outcome_rain_newevents <- dbWriteTable(marsDBCon, 
+        "rainfall_gage_event", 
+        rain_newevents, 
+        append= TRUE, 
+        row.names = FALSE)
+      }, # append the data
+      error = function(e) e
+    )
+  }
+```
+
+`r if(nrow(rain_newevents) > 0){ paste("New rain events have", ifelse(outcome_rain_newevents, "SUCCESSFULLY", "NOT"), "been written to the rainfall_gage_event table")}`
+
+```{r Section 3 - Close DB connections and render this file, include = FALSE}
+	#Close database connections
+	dbDisconnect(marsDBCon)
+```
