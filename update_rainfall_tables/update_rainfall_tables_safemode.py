@@ -48,7 +48,8 @@ datestring = current_date.strftime("%Y%m%dT%H%M")
 #The R script that we'll be executing has runtime parameters that we will be setting in this script
 #Note: r_script, database, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
-r_script = "'A:\\\\Scripts\\\\Maintenance\\\\update_rainfall_tables\\\\update_rainfall_tables.rmd'"
+r_script = "'" + re.sub('\\\\', '\\\\\\\\', os.path.expanduser("~")) + "\\\\Documents\\\\marsMaintenanceScripts\\\\update_rainfall_tables\\\\update_rainfall_tables.rmd" + "'"
+#r_script = "'A:\\\\Scripts\\\\Maintenance\\\\update_rainfall_tables\\\\update_rainfall_tables.rmd'"
 database = "'mars_testing'"
 writeflag = "FALSE"
 output_file = "'output\\\\" + datestring + "_update_rainfall_tables.html" + "'"
@@ -68,8 +69,11 @@ print(r_command)
 subprocess.call([r_exe, "-e", r_command])
 
 #Open the output file in your web browser
-outputexists = os.path.isfile('A:\\Scripts\\Maintenance\\update_rainfall_tables\\' + output_file.strip("'"))
+outputexists = os.path.isfile(os.path.expanduser("~") + "\\Documents\\marsMaintenanceScripts\\update_rainfall_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
 if outputexists:
-    webbrowser.open(os.path.realpath('A:\\Scripts\\Maintenance\\update_rainfall_tables\\' + output_file.strip("'")))
+	webbrowser.open(os.path.realpath(os.path.expanduser("~") + "\\Documents\\marsMaintenanceScripts\\update_rainfall_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
+    #webbrowser.open(os.path.realpath('A:\\Scripts\\Maintenance\\update_rainfall_tables\\' + output_file.strip("'")))
 else:
-    webbrowser.open(os.path.realpath("A:\\Scripts\\Maintenance\\update_rainfall_tables\\rainfall_error.html"))
+	webbrowser.open(os.path.realpath(os.path.expanduser("~") + "\\Documents\\marsMaintenanceScripts\\update_rainfall_tables\\rainfall_error.html"))
+    #webbrowser.open(os.path.realpath("A:\\Scripts\\Maintenance\\update_rainfall_tables\\rainfall_error.html"))
+    #webbrowser.open(os.path.realpath("A:\\Scripts\\Maintenance\\update_rainfall_tables\\rainfall_error.html"))

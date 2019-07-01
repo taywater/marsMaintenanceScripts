@@ -21,6 +21,7 @@ library(lubridate)
 #Database Stuff
 library(odbc)
 library(RODBC)
+library(pwdgsi)
 
 #Other stuff
 library(knitr)
@@ -39,7 +40,7 @@ options(stringsAsFactors=FALSE)
 	marsDBCon <- dbConnect(odbc::odbc(), params$database)
 
 ###Section 0.3: Load MARS analysis functions
-	source("A:/Scripts/Functions/mars_functions.R")
+	#source("A:/Scripts/Functions/mars_functions.R")
 	
 ```
   
