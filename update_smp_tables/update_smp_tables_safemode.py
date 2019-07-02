@@ -1,8 +1,11 @@
 #This script is a wrapper that executes a few other scripts. It is to be used as a scheduled task.
-import datetime, os, subprocess, webbrowser
+import datetime, os, subprocess, webbrowser, re
 
-#Note: A:\ is \\pwdoows\oows\Watershed Sciences\GSI Monitoring\07 Databases and Tracking Spreadsheets\13 MARS Analysis Database
-#It's mapped to a drive letter because certain Windows services can't handle non letter-mapped paths
+#Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP 
+if os.path.isfile(os.environ['PYTHONSTARTUP']):
+	execfile(os.environ['PYTHONSTARTUP'])
+else:
+	sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
 
 #Note regarding filepath separators: In order to represent a literal '\', we must type \\ (an escaped \)
 #However, when specifying file paths that will be read by the R command, we must type \\\\
@@ -14,7 +17,7 @@ import datetime, os, subprocess, webbrowser
 # A:\Scripts\Maintenance\update_smp_tables\centroids_folder
 #Note: execfile() is depricated in Python 3. We're using Python 2 because that's what's in ArcGIS
 #Note: This filepath is used by Python only, and thus needs \\ as a separator
-execfile("A:\\Scripts\\Maintenance\\update_smp_tables\\arcpy_centroids_export.py")
+execfile(MAINTENANCEFOLDER + "\\update_smp_tables\\arcpy_centroids_export.py")
 
 #In order to send the GIS output file to the R script, we need to replicate the file naming mechanism from the arcpy script.
 #We must round the datestring because it's possible for the arcpy script to take more than 60 seconds to execute
@@ -36,7 +39,7 @@ rounddate = roundTime(current_date, roundTo = 60 * 15) #Round to the nearest 15 
 datestring = rounddate.strftime("%Y%m%dT%H%M")
 
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
-destinationfolder = "A:\\\\Scripts\\\\Maintenance\\\\update_smp_tables\\\\centroids_folder"
+destinationfolder = re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "\\\\update_smp_tables\\\\centroids_folder"
 
 #The is string is wrapped in single quotes because the resultant R command expects it to be a string literal
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
@@ -49,7 +52,7 @@ finalshapefile = "'" + destinationfolder + "\\\\centroids_dem_" + datestring + "
 #The R script that we'll be executing has runtime parameters that we will be setting in this script
 #Note: r_script, database, password, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
-r_script = "'A:\\\\Scripts\\\\Maintenance\\\\update_smp_tables\\\\update_smp_tables.rmd'"
+r_script = "'" + re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "\\\\update_smp_tables\\\\update_smp_tables.rmd'"
 database = "'mars_testing'"
 writeflag = "FALSE"
 output_file = "'output\\\\" + datestring + "_update_smp_tables.html" + "'"
@@ -69,8 +72,8 @@ print r_command
 subprocess.call([r_exe, "-e", r_command])
 
 #Open the output file in your web browser
-outputexists = os.path.isfile('A:\\Scripts\\Maintenance\\update_smp_tables\\' + output_file.strip("'"))
+outputexists = os.path.isfile(MAINTENANCEFOLDER + "\\update_smp_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
 if outputexists:
-    webbrowser.open(os.path.realpath('A:\\Scripts\\Maintenance\\update_smp_tables\\' + output_file.strip("'")))
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_smp_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
 else:
-    webbrowser.open(os.path.realpath("A:\\Scripts\\Maintenance\\update_smp_tables\\smp_error.html"))
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_smp_tables\\smp_error.html"))
