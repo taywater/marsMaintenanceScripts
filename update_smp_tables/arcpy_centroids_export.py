@@ -11,7 +11,13 @@
 
 
 # Import arcpy module
-import arcpy, datetime, os
+import arcpy, datetime, os, re
+
+#Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP 
+if os.path.isfile(os.environ['PYTHONSTARTUP']):
+   execfile(os.environ['PYTHONSTARTUP'])
+else:
+   sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
 
 print(arcpy.CheckOutExtension("Spatial"))
 
@@ -34,8 +40,8 @@ def roundTime(dt=None, roundTo=60):
 rounddate = roundTime(current_date, roundTo = 60 * 15) #Round to the nearest 15 minutes
 datestring = rounddate.strftime("%Y%m%dT%H%M")
 
+destinationfolder = MAINTENANCEFOLDER + "\\update_smp_tables\\centroids_folder"
 
-destinationfolder = "A:\\Scripts\\Maintenance\\update_smp_tables\\centroids_folder"
 
 print "Datestring " + datestring
 

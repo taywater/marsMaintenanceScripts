@@ -38,6 +38,7 @@ def roundTime(dt=None, roundTo=60):
 rounddate = roundTime(current_date, roundTo = 60 * 15) #Round to the nearest 15 minutes
 datestring = rounddate.strftime("%Y%m%dT%H%M")
 
+
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
 destinationfolder = re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "\\\\update_smp_tables\\\\centroids_folder"
 
