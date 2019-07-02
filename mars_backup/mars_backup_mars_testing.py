@@ -1,8 +1,11 @@
 #This script is a wrapper that executes a few other scripts. It is to be used as a scheduled task.
-import datetime, os, subprocess, webbrowser
+import datetime, os, subprocess, webbrowser, re
 
-#Note: A:\ is \\pwdoows\oows\Watershed Sciences\GSI Monitoring\07 Databases and Tracking Spreadsheets\13 MARS Analysis Database
-#It's mapped to a drive letter because certain Windows services can't handle non letter-mapped paths
+#Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP 
+if os.path.isfile(os.environ['PYTHONSTARTUP']):
+	execfile(os.environ['PYTHONSTARTUP'])
+else:
+	sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
 
 #Note regarding filepath separators: In order to represent a literal '\', we must type \\ (an escaped \)
 #However, when specifying file paths that will be read by the R command, we must type \\\\
@@ -20,9 +23,9 @@ datestring = current_date.strftime("%Y%m%dT%H%M")
 #The R script that we'll be executing has runtime parameters that we will be setting in this script
 #Note: r_script, database, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
-r_script = "'A:\\\\Scripts\\\\Maintenance\\\\mars_backup\\\\mars_backup.rmd'"
+r_script = "'" + re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "\\\\mars_backup\\\\mars_backup.rmd'"
 database = "'mars_testing'"
-output_file = "'output\\\\" + datestring + "_mars_testing_backup.html" + "'"
+output_file = "'output\\\\" + datestring + "_mars_backup.html" + "'"
 
 #Where is the R executable?
 #Note: This filepath is used by Python and CMD.EXE, and thus needs \\ as a separator (CMD.EXE doesn't choke on singleton \)
@@ -38,9 +41,8 @@ r_command = "rmarkdown::render(" + r_script + ", params = list(database=" + data
 subprocess.call([r_exe, "-e", r_command])
 
 #Open the output file in your web browser
-outputexists = os.path.isfile('A:\\Scripts\\Maintenance\\mars_backup\\' + output_file.strip("'"))
+outputexists = os.path.isfile(MAINTENANCEFOLDER + "\\mars_backup\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
 if outputexists:
-    webbrowser.open(os.path.realpath('A:\\Scripts\\Maintenance\\mars_backup\\' + output_file.strip("'")))
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\mars_backup\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
 else:
-    webbrowser.open(os.path.realpath("A:\\Scripts\\Maintenance\\mars_backup\\backup_error.html"))
-
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\mars_backup\\backup_error.html"))
