@@ -1,8 +1,11 @@
 #This script is a wrapper that executes a few other scripts. It is to be used as a scheduled task.
-import datetime, os, subprocess, webbrowser
+import datetime, os, subprocess, webbrowser, re
 
-#Note: A:\ is \\pwdoows\oows\Watershed Sciences\GSI Monitoring\07 Databases and Tracking Spreadsheets\13 MARS Analysis Database
-#It's mapped to a drive letter because certain Windows services can't handle non letter-mapped paths
+#Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP 
+if os.path.isfile(os.environ['PYTHONSTARTUP']):
+	execfile(os.environ['PYTHONSTARTUP'])
+else:
+	sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
 
 #Note regarding filepath separators: In order to represent a literal '\', we must type \\ (an escaped \)
 #However, when specifying file paths that will be read by the R command, we must type \\\\
@@ -20,7 +23,7 @@ datestring = current_date.strftime("%Y%m%dT%H%M")
 #The R script that we'll be executing has runtime parameters that we will be setting in this script
 #Note: r_script, database, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
-r_script = "'A:\\\\Scripts\\\\Maintenance\\\\update_ow_data\\\\update_ow_data.rmd'"
+r_script = "'" + re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "\\\\update_ow_data\\\\update_ow_data.rmd'"
 database = "'mars_testing'"
 writeflag = "TRUE"
 output_file = "'output\\\\" + datestring + "_update_ow_data.html" + "'"
@@ -38,4 +41,8 @@ r_command = "rmarkdown::render(" + r_script + ", params = list(database=" + data
 subprocess.call([r_exe, "-e", r_command])
 
 #Open the output file in your web browser
-webbrowser.open(os.path.realpath('A:\\Scripts\\Maintenance\\update_ow_data\\' + output_file.strip("'")))
+outputexists = os.path.isfile(MAINTENANCEFOLDER + "\\update_ow_data\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
+if outputexists:
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_ow_data\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
+else:
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_ow_data\\ow_error.html"))

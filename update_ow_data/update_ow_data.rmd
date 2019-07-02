@@ -18,6 +18,7 @@ library(tidyverse)
 library(lubridate)
 
 #Database Stuff
+library(RODBC)
 library(odbc)
 
 #Other stuff

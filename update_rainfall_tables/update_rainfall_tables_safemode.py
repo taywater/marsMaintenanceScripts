@@ -1,7 +1,7 @@
 #This script is a wrapper that executes a few other scripts. It is to be used as a scheduled task.
 import datetime, os, subprocess, webbrowser, shutil, re, zipfile, sys
 
-#Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP to
+#Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP 
 if os.path.isfile(os.environ['PYTHONSTARTUP']):
 	execfile(os.environ['PYTHONSTARTUP'])
 else:
