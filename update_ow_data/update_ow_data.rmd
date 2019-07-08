@@ -36,6 +36,9 @@ options(stringsAsFactors=FALSE)
 
  	#Connect using the DSN.
 	marsDBCon <- dbConnect(odbc::odbc(), params$database)
+
+  #We need to refresh the OW materialized view
+  dbGetQuery(marsDBCon, "refresh materialized view ow_validity with data")
 	
 ```
 
