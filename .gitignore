@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+marsMaintenanceScripts.Rproj
 mars_backup/output
 update_accessdb_tables/output
 update_baro_tables/output
