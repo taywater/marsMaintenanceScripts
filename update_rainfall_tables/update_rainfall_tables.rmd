@@ -7,7 +7,7 @@ date: "`r lubridate::now()`" #This doesn't use !r syntax (like the gagedb param 
 output: html_document
 params:
   database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
-  write: true #Write changes to database?
+  write: false #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -74,7 +74,7 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
   #If there's new data to append
   	if(nrow(newdata) > 0 & params$write == TRUE){
       outcome_newdata <- tryCatch({outcome_newdata <- dbWriteTable(marsDBCon,
-          "rainfall_gage",
+          "rainfall_gage_raw",
           newdata,
           append= TRUE,
           row.names = FALSE)
@@ -109,17 +109,17 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
   rain_newevents <- rain_newdata %>% 
     group_by(gage_uid) %>%
     arrange(dtime_edt) %>% 
-    mutate(event_id = detectEvents(dtime_edt, rainfall_in)) %>%
+    mutate(event_id = marsDetectEvents(dtime_edt, rainfall_in)) %>%
       #Drop the last "complete" event in case it straddles the month boundary
       #It will get processed the when the next batch of data comes in
     filter(!is.na(event_id), event_id != max(event_id, na.rm = TRUE)) %>%
     group_by(gage_uid, event_id) %>%
     summarize(eventdatastart_edt = first(dtime_edt),
       eventdataend_edt = last(dtime_edt),
-      eventduration_hr = stormDuration_hr(dtime_edt),
-      eventpeakintensity_inhr = stormPeakIntensity_inhr(dtime_edt, rainfall_in),
-      eventavgintensity_inhr = stormAvgIntensity_inhr(dtime_edt, rainfall_in),
-      eventdepth_in = stormDepth_in(rainfall_in)) %>%
+      eventduration_hr = marsStormDuration_hr(dtime_edt),
+      eventpeakintensity_inhr = marsStormPeakIntensity_inhr(dtime_edt, rainfall_in),
+      eventavgintensity_inhr = marsStormAverageIntensity_inhr(dtime_edt, rainfall_in),
+      eventdepth_in = marsStormDepth_in(rainfall_in)) %>%
     select(-event_id)
 ```
 
