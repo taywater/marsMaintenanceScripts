@@ -7,7 +7,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: "mars_testing"
-  write: FALSE #Write changes to database?
+  write: true #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -213,7 +213,7 @@ The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding o
 
   #Redownload the Access DB paths and OWs, in case they have changed
   accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM accessdb")
-  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork_ow")
+  ow <- dbGetQuery(marsDBCon, "SELECT * FROM ow_validity")
   
   #Ignore any DBs that were unable to be found in the previous step
   accessdbs <- anti_join(accessdbs, existingdbs_notfound, by = "accessdb_uid")
@@ -321,8 +321,8 @@ There are `r nrow(accessdb_nocanonical)` Access DBs without known canonical tabl
 
   #Redownload the Access DB paths and OWs, in case they have changed
   accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM accessdb")
-  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork_ow")
-  ow_sumpdepth <- dbGetQuery(marsDBCon, "SELECT * FROM ow_sumpdepth")
+  ow <- dbGetQuery(marsDBCon, "SELECT * FROM ow_validity")
+  ow_sumpdepth <- dbGetQuery(marsDBCon, "SELECT * FROM ow_sumpdepth_intermediate")
   
   #Ignore any DBs that were unable to be found in the previous step
   accessdbs <- anti_join(accessdbs, existingdbs_notfound, by = "accessdb_uid")
@@ -395,7 +395,7 @@ Updated sump depths measurements were discovered in `r nrow(accessdbs_newmeasure
       )
   	  
   	  #Use this temp table to update the existing accessdb table
-  	  dbGetQuery(marsDBCon, "update ow_sumpdepth s set sumpdepth_ft = t.sumpdepth_ft from ow_sumpdepth_temp t where s.ow_uid = t.ow_uid")
+  	  dbGetQuery(marsDBCon, "update ow_sumpdepth_intermediate s set sumpdepth_ft = t.sumpdepth_ft from ow_sumpdepth_temp t where s.ow_uid = t.ow_uid")
   	}
     
 ```

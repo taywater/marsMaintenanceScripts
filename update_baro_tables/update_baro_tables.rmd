@@ -26,8 +26,6 @@ library(openssl)
 options(stringsAsFactors=FALSE)
 ```
 
-
-
 ```{r Section 0 - Preamble and database connections, include=FALSE}
 ###Section 0.1: Check parameter validity
 
@@ -49,7 +47,6 @@ options(stringsAsFactors=FALSE)
 	
 ```
   
-
 ```{r Section 1 - Gathering baro data, include = FALSE}
 
   #Fetch all host folders for baro data
