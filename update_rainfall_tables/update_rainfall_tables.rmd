@@ -37,7 +37,7 @@ options(stringsAsFactors=FALSE)
 
 ```{r Section 1 - Gathering rainfall data, include = FALSE}
   #Read the rain gage data from the mars database
-  rainfall_gage <- dbGetQuery(marsDBCon, "SELECT max(dtime_edt) as maxtime_edt, gage_uid FROM rainfall_gage group by gage_uid")  
+  rainfall_gage <- dbGetQuery(marsDBCon, "SELECT * from rainfall_gage_latestdates")  
   
   #Read the rain gage table from the mars database and attach it to the rainfall data
   gage <- dbGetQuery(marsDBCon, "SELECT * FROM gage")
