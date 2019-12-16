@@ -51,7 +51,7 @@ options(stringsAsFactors=FALSE)
   #Read the accessdb table from the mars database and attach it to the date data
   accessdb <- dbGetQuery(marsDBCon, "SELECT filepath, ow_uid, datatable, sumptable FROM accessdb")
   accessdb_latestdates <- left_join(ow_latestdates, accessdb, by = "ow_uid") %>% 
-    filter(!is.na(filepath))
+    filter(!is.na(filepath), !is.na(datatable))
   
   #Read the data from each Access DB's data table, 
   newdata <- data.frame(dtime_est = NULL, ow_uid = NULL, level_ft = NULL) #data frame to incrementally append to
@@ -78,7 +78,7 @@ options(stringsAsFactors=FALSE)
   newdata %<>% filter(complete.cases(newdata))
 
   #Pull OW table for use in the report table
-  ow <- dbGetQuery(marsDBCon, "select * from fieldwork_ow")
+  ow <- dbGetQuery(marsDBCon, "select * from ow_validity")
 
 ```
 
@@ -116,7 +116,7 @@ The Access DBs for each observation well have been examined. There are `r nrow(n
   
   #Read the accessdb table from the mars database and attach it to the date data
   accessdb <- dbGetQuery(marsDBCon, "SELECT filepath, ow_uid, datatable, sumptable FROM accessdb")
-  accessdb_latestdates <- left_join(gw_latestdates, accessdb, by = "ow_uid") %>% filter(!is.na(filepath))
+  accessdb_latestdates <- left_join(gw_latestdates, accessdb, by = "ow_uid") %>% filter(!is.na(filepath), !is.na(datatable))
   
   #Read the data from each Access DB's data table, 
   newdata <- data.frame(dtime_est = NULL, ow_uid = NULL, depth_ft = NULL) #data frame to incrementally append to

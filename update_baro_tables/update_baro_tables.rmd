@@ -193,7 +193,7 @@ The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data point
     if(nrow(newdata_currentfile) > 0 & params$write == TRUE){
       tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
           "baro", 
-          newdata, 
+          newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
         }, # append the data
