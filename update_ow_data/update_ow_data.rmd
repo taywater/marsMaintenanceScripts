@@ -96,7 +96,7 @@ The Access DBs for each observation well have been examined. There are `r nrow(n
   #If there's new data to append
 	if(nrow(newdata) > 0 & params$write == TRUE){
     tryCatch({outcome_newdata <- dbWriteTable(marsDBCon, 
-        "ow_leveldata", 
+        "ow_leveldata_raw", 
         newdata, 
         append= TRUE, 
         row.names = FALSE)
@@ -156,7 +156,7 @@ The Access DBs for each groundwater well have been examined. There are `r nrow(n
   #If there's new data to append
 	if(nrow(newdata) > 0 & params$write == TRUE){
     tryCatch({outcome_newgwdata <- dbWriteTable(marsDBCon, 
-        "gw_depthdata", 
+        "gw_depthdata_raw", 
         newdata, 
         append= TRUE, 
         row.names = FALSE)
