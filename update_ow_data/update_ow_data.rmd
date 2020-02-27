@@ -76,6 +76,7 @@ options(stringsAsFactors=FALSE)
   #Some nulls may exist so we purge them
   ##TODO: Report the number of NAs that get purged per OW UID in some manner, possibly if above a certain number of NAs.
   newdata %<>% filter(complete.cases(newdata))
+  newdata$dtime_est %<>% round_date(unit = "minute")
 
   #Pull OW table for use in the report table
   ow <- dbGetQuery(marsDBCon, "select * from ow_validity")
@@ -83,7 +84,7 @@ options(stringsAsFactors=FALSE)
 ```
 
 
-## Updates to `ow_leveldata` Table
+## Updates to `ow_leveldata_raw` Table
 
 The Access DBs for each observation well have been examined. There are `r nrow(newdata)` new measurements to add to the `ow_leveldata` table.
 
