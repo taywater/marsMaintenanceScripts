@@ -36,9 +36,6 @@ options(stringsAsFactors=FALSE)
 	#If we don't do this, new IDs won't be found, and we will get an insertion error.
 	dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW smpid_facilityid_componentid WITH DATA;")
 
-	#Also refresh the fieldwork materialized view
-	dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW ow_validity WITH DATA;")
-
 ###Section 0.3: Other basic parameters
 	publicsitefolder <- "//pwdoows/oows/Watershed Sciences/GSI Monitoring/02 GSI Monitoring Sites"
 	privatesitefolder <- "//pwdoows/oows/Watershed Sciences/GSI Monitoring/02 GSI Monitoring Sites/z_Private Monitoring Sites"
@@ -97,7 +94,7 @@ This script is attempting to update the `accessdb` and `ow_sumpdepth`tables in t
  1. Update the `accessdb` table's set of information for GSI site Access DBs (`accessdb.filepath`, `accessdb.ow_uid`)  
   * Look for all Access DBs in the roots of the various site folders (file paths end with .mdb or .accdb)
   * Verify that all DB paths contained in `accessdb.filepath` can be found
-  * For newly created Access DBs, parse their filepath and look in `ow_validity ow` for matching `ow.smp_id` and `ow.ow_suffix`
+  * For newly created Access DBs, parse their filepath and look in `fieldwork.ow ow` for matching `ow.smp_id` and `ow.ow_suffix`
   * Look for deleted/moved DBs, whose file paths can no longer be found
   
  2. Update the `accessdb` table's set of canonical GSI table names (`accessdb.datatable`, `accessdb.sumptable`)
@@ -144,7 +141,7 @@ This script is attempting to update the `accessdb` and `ow_sumpdepth`tables in t
   
   ###Section 1.3 Connect ow_uids to SMP IDs and OW suffixes
     #Fetch current version of the OW table
-    ow <- dbGetQuery(marsDBCon, "SELECT * FROM ow_validity")
+    ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow")
     
     #Join our new AccessDB file paths to the current OW table (to attach ow_uids)
     allnewaccessdbs_ow <- left_join(allnewaccessdbs_df, ow, by = c("smp_id", "ow_suffix"))
@@ -155,13 +152,13 @@ This script is attempting to update the `accessdb` and `ow_sumpdepth`tables in t
 
 ```    
 
-## State of site databases relative to `accessdb` and `ow_validity`
+## State of site databases relative to `accessdb` and `fieldwork.ow`
 
-The site folders have been crawled and compared to the `accessdb` table and `ow_validity` materialized view.  
+The site folders have been crawled and compared to the `accessdb` table and `fieldwork.ow` table.  
   
 ### New Access DBs to add to `accessdb`
   
-There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `accessdb` table. These DBs have defined OWs in the `ow_validity` materialized view.
+There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `accessdb` table. These DBs have defined OWs in the `fieldwork.ow` table.
 
 `r if(nrow(appendtoaccessdbtable) > 0){appendtoaccessdbtable %>% transmute(smp_id, ow_suffix, sitefolder = basename(dirname(filepath)), dbname = basename(filepath_server) %>% {gsub("_GSI_Monitoring_Database.*$", "", .)}) %>% kable(format = "pandoc")}`  
 
@@ -208,8 +205,8 @@ The script found `r nrow(existingdbs_notfound)` Access DBs that had been deleted
 
 ---  
 
-### Access DBs without a defined Observation Well in `ow`  
-The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding observation wells defined in `ow`. `r if(nrow(accessdbswithoutow) > 0) "Please create observation wells for these Access DBs with the \"Add Observation Well\" form in the MARS Fieldwork Tracking Database."`  
+### Access DBs without a defined Observation Well in `fieldwork.ow`  
+The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding observation wells defined in `fieldwork.ow`. `r if(nrow(accessdbswithoutow) > 0) "Please create observation wells for these Access DBs with the \"Add Observation Well\" form in the MARS Fieldwork Tracking Shiny App"`  
   
 `r if(nrow(accessdbswithoutow) > 0){accessdbswithoutow %>% transmute(smp_id, ow_suffix, ow_uid, sitefolder = basename(dirname(filepath)), dbname = basename(filepath_server) %>% {gsub("_GSI_Monitoring_Database.*$", "", .)}) %>% kable(format = "pandoc")}`  
 
@@ -217,7 +214,7 @@ The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding o
 
   #Redownload the Access DB paths and OWs, in case they have changed
   accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM accessdb")
-  ow <- dbGetQuery(marsDBCon, "SELECT * FROM ow_validity")
+  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow")
   
   #Ignore any DBs that were unable to be found in the previous step
   accessdbs <- anti_join(accessdbs, existingdbs_notfound, by = "accessdb_uid")
@@ -325,7 +322,7 @@ There are `r nrow(accessdb_nocanonical)` Access DBs without known canonical tabl
 
   #Redownload the Access DB paths and OWs, in case they have changed
   accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM accessdb")
-  ow <- dbGetQuery(marsDBCon, "SELECT * FROM ow_validity")
+  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow")
   ow_sumpdepth <- dbGetQuery(marsDBCon, "SELECT * FROM ow_sumpdepth_intermediate")
   
   #Ignore any DBs that were unable to be found in the previous step
