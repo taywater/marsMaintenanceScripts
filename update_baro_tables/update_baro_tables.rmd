@@ -147,8 +147,8 @@ The filesystem has been examined for new barometric pressure data. There are `r 
   for(i in 1:nrow(newfiles)){
     
     if(nrow(newfiles) == 0) {break} #Don't do anything if there are no files
-    
-    tempdata <- read.csv(newfiles$filepath[i], skip = 1)
+    tempdata <- read.csv(newfiles$filepath[i], skip = 2)
+    if(nrow(tempdata) == 0) {next} #if the file is empty, skip it
     tempdata <- tempdata[, 2:4]
     colnames(tempdata) <- c("dtime_est", "baro_psi", "temp_f")
     tempdata$dtime_est <- mdy_hms(tempdata$dtime_est)
