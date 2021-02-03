@@ -10,3 +10,4 @@ update_ow_data/output
 update_rainfall_tables/output
 update_smp_tables/output
 update_smp_tables/centroids_folder
+update_rainfall_tables/Metadata.txt
