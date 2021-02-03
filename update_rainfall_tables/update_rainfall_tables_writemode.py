@@ -1,11 +1,11 @@
 #This script is a wrapper that executes a few other scripts. It is to be used as a scheduled task.
-import datetime, os, subprocess, webbrowser, shutil, re, zipfile, sys
+import datetime, os, subprocess, webbrowser, re
 
 #Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP 
 if os.path.isfile(os.environ['PYTHONSTARTUP']):
-	execfile(os.environ['PYTHONSTARTUP'])
+  exec(open(os.environ['PYTHONSTARTUP']).read())
 else:
-	sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
+  sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
 
 #Note regarding filepath separators: In order to represent a literal '\', we must type \\ (an escaped \)
 #However, when specifying file paths that will be read by the R command, we must type \\\\
