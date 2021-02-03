@@ -151,12 +151,15 @@ The latest rainfall data has been processed for event detection. There are `r nr
 
 ```{r Section 3 - Gathering radar data, include = FALSE}
   
+  hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
+
   #Assess raw files in our DB and H&H
   db_rawfiles <- dbGetQuery(marsDBCon, "select * from public.radarcell_rawfile")
   hh_rawfiles <- dbGetQuery(hhdbcon, "select yearmon, path as filepath from radar2sheds.garr_inventory") %>%
     mutate(yearmon = str_replace(yearmon, "-", "")) %>%
     mutate(filepath = str_replace(filepath, "\\\\", "/")) %>%
     mutate(filepath = str_replace(filepath, "M:/", "//pwdoows/OOWS/Modeling/"))
+  dbDisconnect(hhdbcon)
 
   #Which files don't we have
   new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath))
@@ -167,6 +170,7 @@ The latest rainfall data has been processed for event detection. There are `r nr
   #Unzip the files
   dir.create("~/radarrain", showWarnings = FALSE)
   for(i in 1:nrow(new_rawfiles)){
+    if(nrow(new_rawfiles) == 0){break}
     file.copy(from = new_rawfiles$filepath[i], to = "~/radarrain", overwrite = FALSE)
     unzip(paste0("~/radarrain/", basename(new_rawfiles$filepath[i])), exdir = "~/radarrain", files = paste0(new_rawfiles$yearmon[i], ".csv"))
     file.remove(paste0("~/radarrain/", basename(new_rawfiles$filepath[i])))
@@ -176,6 +180,7 @@ The latest rainfall data has been processed for event detection. There are `r nr
   newradarfiles <- list.files(path = "~/radarrain", full.names = TRUE, pattern = "\\.csv$")
   newradardata <- data.frame(dtime_edt = NULL, radarcell_uid = NULL, rainfall_in = NULL)
   for(i in 1:length(newradarfiles)){
+    if(length(newradarfiles) == 0){break}
     print(paste0("reading ", newradarfiles[i]))
     radarfile <- read.csv(newradarfiles[i], header = FALSE)
     colnames(radarfile) <- c("dtime_raw", "tz", "radarcell_uid", "rainfall_in")
@@ -184,6 +189,7 @@ The latest rainfall data has been processed for event detection. There are `r nr
       transmute(dtime_edt = ymd_hm(dtime_raw, tz = "America/New_York"), radarcell_uid, rainfall_in)
       
     newradardata <- bind_rows(newradardata, radarfile)
+    file.remove(newradarfiles[i])
   }
   
 ```
@@ -227,15 +233,12 @@ The latest rainfall data has been processed for event detection. There are `r nr
   #process cells one at a time
   allcells <- dbGetQuery(marsDBCon, "select distinct radarcell_uid from radarcell")
 
-  for(i in 1:length(allcells$radarcell_uid)){
-    newrain_query <- paste("select rc.radarcell_uid, rc.dtime_edt, rc.rainfall_in from rainfall_radarcell_raw rc left join rainfall_radarcell_event_latestdates rcel on rc.radarcell_uid = rcel.radarcell_uid where rc.dtime_edt > rcel.dtime_edt and rc.radarcell_uid =", allcells$radarcell_uid[i])
+    newrain_query <- paste("select rc.radarcell_uid, rc.dtime_edt, rc.rainfall_in from rainfall_radarcell_raw rc left join rainfall_radarcell_event_latestdates rcel on rc.radarcell_uid = rcel.radarcell_uid where rc.dtime_edt > rcel.dtime_edt")
 
     
-    print(paste("Rain events for cell", allcells$radarcell_uid[i]))
+  rain_newdata <- dbGetQuery(marsDBCon, newrain_query)  
     
-    rain_newdata <- dbGetQuery(marsDBCon, newrain_query)  
-    
-    print(paste(nrow(rain_newdata), "data points"))
+  print(paste(nrow(rain_newdata), "data points"))
     
     #Process the rain data into events, based on a 6 hour interevent time and a minimum depth of 0.1 inches
     rain_newevents <- rain_newdata %>% 
@@ -256,25 +259,17 @@ The latest rainfall data has been processed for event detection. There are `r nr
       
       print(paste(nrow(rain_newevents), "new events"))
     
-      if(i == 1){
-        rain_totalevents <- rain_newevents
-      }
-      if(i != 1){
-        rain_totalevents <- bind_rows(rain_totalevents, rain_newevents)
-      }  
-    
-  }
   
 ```
 
 ```{r Section 4.5 - Writing to the rainfall_radarcell_event table, include = FALSE}  
 # Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_rain_totalevents <- FALSE
+  outcome_rain_newevents <- FALSE
   #If there's new data to append
-  if(nrow(rain_totalevents) > 0 & params$write == TRUE){
-    outcome_rain_totalevents <- tryCatch({outcome_rain_totalevents <- dbWriteTable(marsDBCon, 
+  if(nrow(rain_newevents) > 0 & params$write == TRUE){
+    outcome_rain_totalevents <- tryCatch({outcome_rain_newevents <- dbWriteTable(marsDBCon, 
         "rainfall_radarcell_event", 
-        rain_totalevents, 
+        rain_newevents, 
         append= TRUE, 
         row.names = FALSE)
       }, # append the data
