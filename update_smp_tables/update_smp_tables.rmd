@@ -56,7 +56,7 @@ dsn_infra_pub <- paste0("MSSQL:server=pwdgis4;",
 
 ```
   
-This script is attempting to update the `smp_loc` and `smp_gage` tables in the `r params$database` database. It inhales the centroids previously exported by the `arcpy_centroids_export.py` script, and stores them in the smp_loc table. It then checks the `smp_id`s contained in `smp_loc` to see if any don't exist in `smp_gage`. If they don't, it calculates which rain gage is closest to that SMP's centroid. Finally, it checks the elevation of each SMP as reported by intersecting the centroid with the raster DEM, and appends new elevations to the `smp_elev` table.
+This script is attempting to update the `smp_loc`, `smp_radarcell`, and `smp_gage` tables in the `r params$database` database. It grabs the WGS1984 SMP polygons from the `INFRASTRUCTURE_PUBLIC` database on PWDGIS4, converts them to centroids, and stores them in the smp_loc table. It then checks the `smp_id`s contained in `smp_loc` to see if any don't exist in `smp_gage`. If they don't, it calculates which rain gage is closest to that SMP's centroid. Finally, it repeats this process with radar grid cells. Radar grid cells are also stored as grid cell centroids.
 
 ```{r Section 1 - Gathering data for the smp_loc table, include = FALSE}
 ###Section 1: Update smp_loc table
@@ -219,6 +219,7 @@ New centroids have `r ifelse(outcome_centroids, "SUCCESSFULLY", "NOT")` been app
 		smp_loc_nogage <- data.frame(smp_id = nogage_spatial$smp_id, 
 		                             gageindex = st_nearest_feature(nogage_spatial, gage_loc_spatial)) %>%
 		  mutate(gage_uid = gage_loc_spatial$gage_uid[gageindex]) %>%
+		  filter(!duplicated(smp_id)) %>%
 		  select(smp_id, gage_uid)
 	}
 ```
