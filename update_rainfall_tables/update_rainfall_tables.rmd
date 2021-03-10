@@ -17,6 +17,7 @@ library(tidyverse)
 library(lubridate)
 library(pwdgsi)
 library(sf)
+library(padr)
 
 #Other stuff
 library(knitr)
@@ -185,9 +186,21 @@ The latest rainfall data has been processed for event detection. There are `r nr
     radarfile <- read.csv(newradarfiles[i], header = FALSE)
     colnames(radarfile) <- c("dtime_raw", "tz", "radarcell_uid", "rainfall_in")
     radarfile <- radarfile %>% 
-      filter(rainfall_in != 0, radarcell_uid %in% phillycells$radarcell_uid) %>%
+      filter(radarcell_uid %in% phillycells$radarcell_uid) %>%
       transmute(dtime_edt = ymd_hm(dtime_raw, tz = "America/New_York"), radarcell_uid, rainfall_in)
-      
+   
+    radarinterval <- get_interval(radarfile$dtime_edt)
+    print(paste("File", basename(newradarfiles[i]), "has datetime interval", radarinterval))
+  
+    if(radarinterval != "15 min"){
+      radarfile <- thicken(radarfile, "15 min") %>%
+        group_by(dtime_edt_15_min, radarcell_uid) %>%
+        summarize(rainfall_in = sum(rainfall_in)) %>%
+        select(dtime_edt = dtime_edt_15_min, radarcell_uid, rainfall_in)
+    }
+
+    radarfile <- filter(radarfile, rainfall_in > 0)
+       
     newradardata <- bind_rows(newradardata, radarfile)
     file.remove(newradarfiles[i])
   }
