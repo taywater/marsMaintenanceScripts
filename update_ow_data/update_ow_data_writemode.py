@@ -3,7 +3,7 @@ import datetime, os, subprocess, webbrowser, re
 
 #Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP 
 if os.path.isfile(os.environ['PYTHONSTARTUP']):
-	execfile(os.environ['PYTHONSTARTUP'])
+	exec(open(os.environ['PYTHONSTARTUP']).read())
 else:
 	sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
 

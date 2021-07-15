@@ -26,8 +26,6 @@ library(openssl)
 options(stringsAsFactors=FALSE)
 ```
 
-
-
 ```{r Section 0 - Preamble and database connections, include=FALSE}
 ###Section 0.1: Check parameter validity
 
@@ -49,7 +47,6 @@ options(stringsAsFactors=FALSE)
 	
 ```
   
-
 ```{r Section 1 - Gathering baro data, include = FALSE}
 
   #Fetch all host folders for baro data
@@ -150,8 +147,8 @@ The filesystem has been examined for new barometric pressure data. There are `r 
   for(i in 1:nrow(newfiles)){
     
     if(nrow(newfiles) == 0) {break} #Don't do anything if there are no files
-    
-    tempdata <- read.csv(newfiles$filepath[i], skip = 1)
+    tempdata <- read.csv(newfiles$filepath[i], skip = 2)
+    if(nrow(tempdata) == 0) {next} #if the file is empty, skip it
     tempdata <- tempdata[, 2:4]
     colnames(tempdata) <- c("dtime_est", "baro_psi", "temp_f")
     tempdata$dtime_est <- mdy_hms(tempdata$dtime_est)
@@ -196,7 +193,7 @@ The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data point
     if(nrow(newdata_currentfile) > 0 & params$write == TRUE){
       tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
           "baro", 
-          newdata, 
+          newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
         }, # append the data
