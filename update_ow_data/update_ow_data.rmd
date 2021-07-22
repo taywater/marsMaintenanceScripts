@@ -75,11 +75,10 @@ options(stringsAsFactors=FALSE)
   }
   
   #Some nulls may exist so we purge them
-  ##TODO: Report the number of NAs that get purged per OW UID in some manner, possibly if above a certain number of NAs.
   newdata %<>% filter(complete.cases(newdata))
   newdata$dtime_est <- newdata$dtime_est %>% 
     round_date(unit = "minute") %>%
-    as.character
+    as.character #Prevents drift due to time zone defaults
 
   #Pull OW table for use in the report table
   ow <- dbGetQuery(marsDBCon, "select * from fieldwork.ow_all")
@@ -149,7 +148,7 @@ The Access DBs for each observation well have been examined. There are `r nrow(n
   newdata %<>% filter(complete.cases(newdata))
   newdata$dtime_est <- newdata$dtime_est %>% 
     round_date(unit = "minute") %>%
-    as.character
+    as.character #prevents drift due to time zone defaults
 
 ```
 

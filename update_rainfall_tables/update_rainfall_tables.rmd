@@ -61,11 +61,13 @@ options(stringsAsFactors=FALSE)
     select(gage_uid, dtime_edt, rainfall_in) %>%
     arrange(gage_uid, dtime_edt)
   
+  newdata$dtime_edt %<>% as.character #prevents drift due to time zone defaults
+  
 ```
 
-## Updates to `rainfall_gage` Table
+## Updates to `rainfall_gage_raw` Table
 
-A new batch of rainfall data has been examined. There are `r nrow(newdata)` new rainfall measurements to add to the `rainfall_gage` table.
+A new batch of rainfall data has been examined. There are `r nrow(newdata)` new rainfall measurements to add to the `rainfall_gage_raw` table.
 
 `r if(nrow(newdata) > 0){ group_by(newdata, gage_uid) %>% arrange(dtime_edt) %>% summarize(new_measurements = n(), first_date = first(dtime_edt), last_date = last(dtime_edt)) %>% kable }`
 
@@ -116,13 +118,16 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
       #It will get processed the when the next batch of data comes in
     filter(!is.na(event_id), event_id != max(event_id, na.rm = TRUE)) %>%
     group_by(gage_uid, event_id) %>%
-    summarize(eventdatastart_edt = first(dtime_edt),
-      eventdataend_edt = last(dtime_edt),
+    summarize(eventdatastart_edt = as.character(first(dtime_edt)), #prevents time zone drift
+      eventdataend_edt = as.character(last(dtime_edt)), #prevents time zone drift
       eventduration_hr = marsStormDuration_hr(dtime_edt),
       eventpeakintensity_inhr = marsStormPeakIntensity_inhr(dtime_edt, rainfall_in),
       eventavgintensity_inhr = marsStormAverageIntensity_inhr(dtime_edt, rainfall_in),
       eventdepth_in = marsStormDepth_in(rainfall_in)) %>%
     select(-event_id)
+  
+  rain_newevents$eventdatastart_edt %<>% as.character #prevent drift
+  rain_newevents$eventdataend_edt %<>% as.character #prevent drift
 ```
 
 
@@ -163,7 +168,7 @@ The latest rainfall data has been processed for event detection. There are `r nr
   dbDisconnect(hhdbcon)
 
   #Which files don't we have
-  new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath))
+  new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath), yearmon > "201301")
   
   #only cells in Philly
   phillycells <- dbGetQuery(marsDBCon, "select radarcell_uid from radarcell")
@@ -173,7 +178,7 @@ The latest rainfall data has been processed for event detection. There are `r nr
   for(i in 1:nrow(new_rawfiles)){
     if(nrow(new_rawfiles) == 0){break}
     file.copy(from = new_rawfiles$filepath[i], to = "~/radarrain", overwrite = FALSE)
-    unzip(paste0("~/radarrain/", basename(new_rawfiles$filepath[i])), exdir = "~/radarrain", files = paste0(new_rawfiles$yearmon[i], ".csv"))
+    unzip(paste0("~/radarrain/", basename(new_rawfiles$filepath[i])), exdir = "~/radarrain")
     file.remove(paste0("~/radarrain/", basename(new_rawfiles$filepath[i])))
   }
   
@@ -201,11 +206,20 @@ The latest rainfall data has been processed for event detection. There are `r nr
 
     radarfile <- filter(radarfile, rainfall_in > 0)
        
-    newradardata <- bind_rows(newradardata, radarfile)
+    newradardata <- bind_rows(newradardata, radarfile) %>%
+      arrange()
     file.remove(newradarfiles[i])
   }
   
+  newradardata$dtime_edt %<>% as.character #Prevent time zone drift
+  
 ```
+
+## Updates to `rainfall_radarcell_raw` Table
+
+A new batch of rainfall data has been examined. There are `r nrow(newradardata)` new rainfall measurements to add to the `rainfall_radarcell_raw` table.
+
+`r if(nrow(newradardata) > 0){ group_by(newradardata, radarcell_uid) %>% arrange(dtime_edt) %>% summarize(new_measurements = n(), first_date = first(dtime_edt), last_date = last(dtime_edt)) %>% kable }`
 
 ```{r Section 3.5 - Writing to the radarcell tables, include = FALSE}  
 # Fail safe. If the block below doesn't run, we didn't append anything
@@ -237,6 +251,8 @@ The latest rainfall data has been processed for event detection. There are `r nr
   }
 
 ```
+
+`r if(nrow(newradardata) > 0){ paste("New rainfall measurements have", ifelse(outcome_radardata, "SUCCESSFULLY", "NOT"), "been written to the rainfall_radarcell_raw table")}`
 
 ```{r Section 4 - Processing new rain events for radarcell data, include = FALSE}
   #Read the radarcell data from the mars database
@@ -270,10 +286,16 @@ The latest rainfall data has been processed for event detection. There are `r nr
                 eventdepth_in = marsStormDepth_in(rainfall_in)) %>% 
       select(-event_id)
       
-      print(paste(nrow(rain_newevents), "new events"))
-    
+    rain_newevents$eventdatastart_edt %<>% as.character #prevent drift
+    rain_newevents$eventdataend_edt %<>% as.character #prevent drift
   
 ```
+
+## Updates to `rainfall_radarcell_event` Table
+
+The latest rainfall data has been processed for event detection. There are `r nrow(rain_newevents)` new rain events to add to the `rainfall_radarcell_event` table.
+
+`r if(nrow(rain_newevents) > 0){ rain_newevents %>% head(100) %>% kable }`
 
 ```{r Section 4.5 - Writing to the rainfall_radarcell_event table, include = FALSE}  
 # Fail safe. If the block below doesn't run, we didn't append anything
@@ -291,7 +313,9 @@ The latest rainfall data has been processed for event detection. There are `r nr
   }
 ```
 
-```{r Section 3 - Close DB connections and render this file, include = FALSE}
+`r if(nrow(rain_newevents) > 0){ paste("New rain events have", ifelse(outcome_rain_newevents, "SUCCESSFULLY", "NOT"), "been written to the rainfall_radarcell_event table")}`
+
+```{r Section 5 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
 	dbDisconnect(marsDBCon)
 ```
