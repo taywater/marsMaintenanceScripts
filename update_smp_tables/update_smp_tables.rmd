@@ -239,7 +239,7 @@ The `smp_gage` table has been checked for SMPs without a rain gage association. 
 		  tryCatch({outcome_gage <- dbWriteTable(marsDBCon, "smp_gage", smp_loc_nogage, append= TRUE, row.names = FALSE)}, # append the data	
 		           error = function(e) e
 		  )
-	  }
+	  } 
 ```
 
 New gage associations have `r ifelse(outcome_gage, "SUCCESSFULLY", "NOT")` been appended to the `smp_gage` table.  
