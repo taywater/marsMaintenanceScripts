@@ -156,7 +156,7 @@ CREATE TABLE fieldwork.deployment
     deployment_dtw_or_depth_ft numeric(8,4),
     collection_dtw_or_depth_ft numeric(8,4),
     premonitoring_inspection_date timestamp without time zone,
-    ready boolean
+    ready boolean,
     CONSTRAINT deployment_pkey PRIMARY KEY (deployment_uid)
 );
 --     CONSTRAINT inventory_sensors_uid_fkey FOREIGN KEY (inventory_sensors_uid)
@@ -206,7 +206,7 @@ CREATE TABLE fieldwork.inlet_conveyance
 --  d.	inventory_sensors
 CREATE TABLE fieldwork.inventory_sensors
 (
-    inventory_sensors_uid serial;
+    inventory_sensors_uid serial,
     sensor_serial integer NOT NULL,
     date_purchased timestamp without time zone,
     sensor_status_lookup_uid integer DEFAULT 1,
@@ -237,7 +237,7 @@ CREATE TABLE fieldwork.inventory_sensors
 --  e.	ow_all, as ow
 CREATE TABLE fieldwork.ow
 (
-    ow_uid serial;
+    ow_uid serial,
     smp_id text COLLATE pg_catalog."default",
     ow_suffix text COLLATE pg_catalog."default" NOT NULL,
     facility_id uuid,
@@ -519,7 +519,7 @@ CREATE TABLE fieldwork.future_srt
     --     ON UPDATE CASCADE
     --     ON DELETE RESTRICT,
     -- CONSTRAINT system_id_validity CHECK (system_exists(system_id::text) = true) NOT VALID
-)
+
 
 --  q.	future_special_investigations
 CREATE TABLE fieldwork.future_special_investigation
@@ -700,7 +700,7 @@ CREATE TABLE metrics.snapshot_metadata
     --     ON UPDATE CASCADE
     --     ON DELETE NO ACTION,
     -- CONSTRAINT snapshot_metadata_ow_validity CHECK (ow_exists(ow_uid) = true) NOT VALID
-)
+
 
 --4.	Admin Schema
 
@@ -764,8 +764,8 @@ CREATE TABLE admin.gage_loc
 (
     gage_loc_uid serial,
     gage_uid integer NOT NULL,
-    lon_wgs84 numeric(8,4)(10,6) NOT NULL,
-    lat_wgs84 numeric(8,4)(10,6) NOT NULL,
+    lon_wgs84 numeric(10,6) NOT NULL,
+    lat_wgs84 numeric(10,6) NOT NULL,
     CONSTRAINT gage_loc_pkey PRIMARY KEY (gage_loc_uid),
     CONSTRAINT gage_loc_uniqueness UNIQUE (lon_wgs84, lat_wgs84)
 );
@@ -787,8 +787,8 @@ CREATE TABLE admin.radar_loc
 (
     radar_loc_uid serial primary key,
     radar_uid integer NOT NULL,
-    lon_wgs84 numeric(8,4)(10,6) NOT NULL,
-    lat_wgs84 numeric(8,4)(10,6) NOT NULL,
+    lon_wgs84 numeric(10,6) NOT NULL,
+    lat_wgs84 numeric(10,6) NOT NULL,
     CONSTRAINT radar_loc_uniqueness UNIQUE (lon_wgs84, lat_wgs84)
 ); 
     -- CONSTRAINT radarcell_loc_fkey FOREIGN KEY (radarcell_uid)
@@ -821,7 +821,7 @@ CREATE TABLE admin.smp_gage
 
 
 --j.	smp_loc
-CREATE TABLE public.smp_loc
+CREATE TABLE admin.smp_loc
 (
     smp_loc_uid serial,
     smp_id text COLLATE pg_catalog."default" NOT NULL,
@@ -836,7 +836,7 @@ CREATE TABLE public.smp_loc
 
 --k.	smp_radarcell, as smp_radar
 
-CREATE TABLE public.smp_radar
+CREATE TABLE admin.smp_radar
 (
     smp_radar_uid serial primary key,
     radar_uid integer NOT NULL,
@@ -847,7 +847,7 @@ CREATE TABLE public.smp_radar
 
 
 --l.	monitoring_deny_list
-CREATE TABLE fieldwork.monitoring_deny_list
+CREATE TABLE admin.monitoring_deny_list
 (
     monitoring_deny_list_uid serial,
     smp_id text COLLATE pg_catalog."default",
