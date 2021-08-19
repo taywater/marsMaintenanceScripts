@@ -350,8 +350,8 @@ CREATE TABLE fieldwork.srt
     test_date timestamp without time zone NOT NULL,
     con_phase_lookup_uid integer NOT NULL,
     srt_type_lookup_uid integer NOT NULL,
-    srt_volume_ft3 numeric(8,4),
-    dcia_ft2 numeric(8,4),
+    srt_volume_ft3 numeric(12,4),
+    dcia_ft2 numeric(12,4),
     srt_stormsize_in numeric(8,4),
     srt_summary text COLLATE pg_catalog."default",
     CONSTRAINT srt_pkey PRIMARY KEY (srt_uid)
@@ -501,7 +501,7 @@ CREATE TABLE fieldwork.future_srt
     system_id text COLLATE pg_catalog."default" NOT NULL,
     con_phase_lookup_uid integer,
     srt_type_lookup_uid integer,
-    dcia_ft2 numeric(8,4),
+    dcia_ft2 numeric(12,4),
     notes text COLLATE pg_catalog."default",
     field_test_priority_lookup_uid integer,
     CONSTRAINT future_srt_pkey PRIMARY KEY (future_srt_uid)
@@ -666,7 +666,7 @@ CREATE TABLE metrics.snapshot
 (
     snapshot_uid serial,
     ow_uid integer NOT NULL,
-    dcia_ft2 numeric(8,4),
+    dcia_ft2 numeric(12,4),
     storage_footprint_ft2 numeric(8,4),
     orifice_diam_in numeric(8,4),
     infil_footprint_ft2 numeric(8,4),
@@ -675,7 +675,7 @@ CREATE TABLE metrics.snapshot
     sumpdepth_ft numeric(8,4),
     lined boolean,
     surface boolean,
-    storage_volume_ft3 numeric(8,4),
+    storage_volume_ft3 numeric(12,4),
     infil_dsg_rate_inhr numeric(8,4),
     old_stays_valid boolean DEFAULT false,
     CONSTRAINT snapshot_pkey PRIMARY KEY (snapshot_uid)
