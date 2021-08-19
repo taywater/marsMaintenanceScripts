@@ -53,7 +53,7 @@ CREATE TABLE data.gage_rain
     gage_rain_uid serial primary key,
     gage_uid integer NOT NULL,
     dtime_edt timestamp(6) without time zone NOT NULL,
-    rainfall_in numeric NOT NULL,
+    rainfall_in numeric(8,4) NOT NULL,
     CONSTRAINT gage_rain_uniqueness UNIQUE (gage_uid, dtime_edt)
 );
 
@@ -70,10 +70,10 @@ CREATE TABLE data.gage_event
     gage_uid integer NOT NULL,
     eventdatastart_edt timestamp without time zone NOT NULL,
     eventdataend_edt timestamp without time zone NOT NULL,
-    eventduration_hr numeric NOT NULL,
-    eventpeakintensity_inhr numeric NOT NULL,
-    eventavgintensity_inhr numeric NOT NULL,
-    eventdepth_in numeric NOT NULL
+    eventduration_hr numeric(8,4) NOT NULL,
+    eventpeakintensity_inhr numeric(8,4) NOT NULL,
+    eventavgintensity_inhr numeric(8,4) NOT NULL,
+    eventdepth_in numeric(8,4) NOT NULL
 ); 
     -- CONSTRAINT rainfall_gage_events_fkey FOREIGN KEY (gage_uid)
     --     REFERENCES public.gage (gage_uid) MATCH SIMPLE
@@ -86,7 +86,7 @@ CREATE TABLE data.radar_rain
 (
     radar_rain_uid serial primary key,
     radar_uid integer NOT NULL,
-    rainfall_in numeric NOT NULL,
+    rainfall_in numeric(8,4) NOT NULL,
     dtime_edt timestamp without time zone NOT NULL,
     CONSTRAINT radar_rain_uniqueness UNIQUE (radar_uid, dtime_edt)
 );
@@ -98,10 +98,10 @@ CREATE TABLE data.radar_event
     radar_uid integer NOT NULL,
     eventdatastart_edt timestamp without time zone NOT NULL,
     eventdataend_edt timestamp without time zone NOT NULL,
-    eventduration_hr numeric NOT NULL,
-    eventpeakintensity_inhr numeric NOT NULL,
-    eventavgintensity_inhr numeric NOT NULL,
-    eventdepth_in numeric NOT NULL
+    eventduration_hr numeric(8,4) NOT NULL,
+    eventpeakintensity_inhr numeric(8,4) NOT NULL,
+    eventavgintensity_inhr numeric(8,4) NOT NULL,
+    eventdepth_in numeric(8,4) NOT NULL
  );
     -- CONSTRAINT rainfall_radarcell_events_fkey FOREIGN KEY (radar_uid)
     --     REFERENCES public.radarcell (radar_uid) MATCH SIMPLE
@@ -136,7 +136,7 @@ CREATE TABLE fieldwork.capture_efficiency
 --         REFERENCES fieldwork.est_high_flow_efficiency_lookup (est_high_flow_efficiency_lookup_uid) MATCH SIMPLE
 --         ON UPDATE CASCADE
 --         ON DELETE RESTRICT,
---     CONSTRAINT system_id_validity CHECK (system_exists(system_id::character varying) = true) NOT VALID
+--     CONSTRAINT system_id_validity CHECK (system_exists(system_id::text) = true) NOT VALID
 -- 
 
 --  b.	deployment
@@ -153,8 +153,8 @@ CREATE TABLE fieldwork.deployment
     research_lookup_uid integer,
     notes text COLLATE pg_catalog."default",
     download_error boolean,
-    deployment_dtw_or_depth_ft numeric,
-    collection_dtw_or_depth_ft numeric,
+    deployment_dtw_or_depth_ft numeric(8,4),
+    collection_dtw_or_depth_ft numeric(8,4),
     premonitoring_inspection_date timestamp without time zone,
     ready boolean
     CONSTRAINT deployment_pkey PRIMARY KEY (deployment_uid)
@@ -185,12 +185,12 @@ CREATE TABLE fieldwork.inlet_conveyance
     facility_id uuid,
     test_date timestamp without time zone NOT NULL,
     con_phase_lookup_uid integer,
-    calculated_flow_rate_cfm numeric,
-    equilibrated_flow_rate_cfm numeric,
-    test_volume_cf numeric,
-    max_water_depth_ft numeric,
+    calculated_flow_rate_cfm numeric(8,4),
+    equilibrated_flow_rate_cfm numeric(8,4),
+    test_volume_cf numeric(8,4),
+    max_water_depth_ft numeric(8,4),
     surcharge boolean,
-    time_to_surcharge_min numeric,
+    time_to_surcharge_min numeric(8,4),
     photos_uploaded boolean,
     summary_report_sent timestamp without time zone,
     notes text COLLATE pg_catalog."default",
@@ -261,9 +261,9 @@ CREATE TABLE fieldwork.porous_pavement
     test_location text COLLATE pg_catalog."default",
     data_in_spreadsheet boolean,
     map_in_site_folder boolean,
-    ring_diameter_in numeric,
-    prewet_time_s numeric,
-    prewet_rate_inhr numeric,
+    ring_diameter_in numeric(8,4),
+    prewet_time_s numeric(8,4),
+    prewet_rate_inhr numeric(8,4),
     CONSTRAINT porous_pavement_pkey PRIMARY KEY (porous_pavement_uid)
 ); 
 
@@ -275,7 +275,7 @@ CREATE TABLE fieldwork.porous_pavement
     --     REFERENCES fieldwork.surface_type_lookup (surface_type_lookup_uid) MATCH SIMPLE
     --     ON UPDATE CASCADE
     --     ON DELETE RESTRICT,
-    -- CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::character varying) = true)
+    -- CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::text) = true)
 
 --  g.	porous_pavement_maintenance
 CREATE TABLE fieldwork.porous_pavement_maintenance
@@ -286,7 +286,7 @@ CREATE TABLE fieldwork.porous_pavement_maintenance
     CONSTRAINT porous_pavement_maintenance_pkey PRIMARY KEY (porous_pavement_maintenance_uid)
 ); 
 
---     CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::character varying) = true)
+--     CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::text) = true)
 -- 
 
 --  h.	porous_pavement_results
@@ -294,9 +294,9 @@ CREATE TABLE fieldwork.porous_pavement_results
 (
     porous_pavement_results_uid serial,
     porous_pavement_uid integer,
-    weight_lbs numeric,
-    time_s numeric,
-    rate_inhr numeric,
+    weight_lbs numeric(8,4),
+    time_s numeric(8,4),
+    rate_inhr numeric(8,4),
     CONSTRAINT porous_pavement_results_pkey PRIMARY KEY (porous_pavement_results_uid)
 ); 
 
@@ -350,9 +350,9 @@ CREATE TABLE fieldwork.srt
     test_date timestamp without time zone NOT NULL,
     con_phase_lookup_uid integer NOT NULL,
     srt_type_lookup_uid integer NOT NULL,
-    srt_volume_ft3 numeric,
-    dcia_ft2 numeric,
-    srt_stormsize_in numeric,
+    srt_volume_ft3 numeric(8,4),
+    dcia_ft2 numeric(8,4),
+    srt_stormsize_in numeric(8,4),
     srt_summary text COLLATE pg_catalog."default",
     CONSTRAINT srt_pkey PRIMARY KEY (srt_uid)
 ); 
@@ -364,7 +364,7 @@ CREATE TABLE fieldwork.srt
     --     REFERENCES fieldwork.srt_type_lookup (srt_type_lookup_uid) MATCH SIMPLE
     --     ON UPDATE CASCADE
     --     ON DELETE RESTRICT,
-    -- CONSTRAINT system_id_validity CHECK (system_exists(system_id::character varying) = true) NOT VALID
+    -- CONSTRAINT system_id_validity CHECK (system_exists(system_id::text) = true) NOT VALID
 
 
 
@@ -408,7 +408,7 @@ CREATE TABLE fieldwork.future_capture_efficiency
     --     REFERENCES fieldwork.field_test_priority_lookup (field_test_priority_lookup_uid) MATCH SIMPLE
     --     ON UPDATE CASCADE
     --     ON DELETE RESTRICT,
-    -- CONSTRAINT system_id_validity CHECK (system_exists(system_id::character varying) = true) NOT VALID
+    -- CONSTRAINT system_id_validity CHECK (system_exists(system_id::text) = true) NOT VALID
 
 
 --  m.	future_deployment
@@ -454,7 +454,7 @@ CREATE TABLE fieldwork.future_inlet_conveyance
     component_id text COLLATE pg_catalog."default",
     facility_id uuid,
     con_phase_lookup_uid integer,
-    calculated_flow_rate_cfm numeric,
+    calculated_flow_rate_cfm numeric(8,4),
     field_test_priority_lookup_uid integer,
     notes text COLLATE pg_catalog."default",
     CONSTRAINT future_inlet_conveyance_pkey PRIMARY KEY (future_inlet_conveyance_uid)
@@ -492,7 +492,7 @@ CREATE TABLE fieldwork.future_porous_pavement
     --     REFERENCES fieldwork.surface_type_lookup (surface_type_lookup_uid) MATCH SIMPLE
     --     ON UPDATE CASCADE
     --     ON DELETE RESTRICT,
-    -- CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::character varying) = true) NOT VALID
+    -- CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::text) = true) NOT VALID
 
 --  p.	future_srt
 CREATE TABLE fieldwork.future_srt
@@ -501,7 +501,7 @@ CREATE TABLE fieldwork.future_srt
     system_id text COLLATE pg_catalog."default" NOT NULL,
     con_phase_lookup_uid integer,
     srt_type_lookup_uid integer,
-    dcia_ft2 numeric,
+    dcia_ft2 numeric(8,4),
     notes text COLLATE pg_catalog."default",
     field_test_priority_lookup_uid integer,
     CONSTRAINT future_srt_pkey PRIMARY KEY (future_srt_uid)
@@ -518,7 +518,7 @@ CREATE TABLE fieldwork.future_srt
     --     REFERENCES fieldwork.srt_type_lookup (srt_type_lookup_uid) MATCH SIMPLE
     --     ON UPDATE CASCADE
     --     ON DELETE RESTRICT,
-    -- CONSTRAINT system_id_validity CHECK (system_exists(system_id::character varying) = true) NOT VALID
+    -- CONSTRAINT system_id_validity CHECK (system_exists(system_id::text) = true) NOT VALID
 )
 
 --  q.	future_special_investigations
@@ -666,17 +666,17 @@ CREATE TABLE metrics.snapshot
 (
     snapshot_uid serial,
     ow_uid integer NOT NULL,
-    dcia_ft2 numeric,
-    storage_footprint_ft2 numeric,
-    orifice_diam_in numeric,
-    infil_footprint_ft2 numeric,
-    assumption_orificeheight_ft numeric,
-    storage_depth_ft numeric,
-    sumpdepth_ft numeric,
+    dcia_ft2 numeric(8,4),
+    storage_footprint_ft2 numeric(8,4),
+    orifice_diam_in numeric(8,4),
+    infil_footprint_ft2 numeric(8,4),
+    assumption_orificeheight_ft numeric(8,4),
+    storage_depth_ft numeric(8,4),
+    sumpdepth_ft numeric(8,4),
     lined boolean,
     surface boolean,
-    storage_volume_ft3 numeric,
-    infil_dsg_rate_inhr numeric,
+    storage_volume_ft3 numeric(8,4),
+    infil_dsg_rate_inhr numeric(8,4),
     old_stays_valid boolean DEFAULT false,
     CONSTRAINT snapshot_pkey PRIMARY KEY (snapshot_uid)
 );
@@ -709,9 +709,9 @@ CREATE TABLE admin.accessdb
 (
     accessdb_uid serial,
     ow_uid integer NOT NULL,
-    filepath character varying COLLATE pg_catalog."default" NOT NULL,
-    datatable character varying COLLATE pg_catalog."default",
-    sumptable character varying COLLATE pg_catalog."default",
+    filepath text COLLATE pg_catalog."default" NOT NULL,
+    datatable text COLLATE pg_catalog."default",
+    sumptable text COLLATE pg_catalog."default",
     CONSTRAINT accessdb_testing_pkey PRIMARY KEY (accessdb_uid),
     CONSTRAINT accessdb_datatable_uniqueness UNIQUE (accessdb_uid, datatable),
     CONSTRAINT accessdb_ow_uniqueness UNIQUE (ow_uid),
@@ -727,9 +727,9 @@ CREATE TABLE admin.accessdb
 CREATE TABLE admin.baro_rawfile
 (
     baro_rawfile_uid serial,
-    smp_id character varying COLLATE pg_catalog."default" NOT NULL,
-    filepath character varying COLLATE pg_catalog."default" NOT NULL,
-    md5hash character varying COLLATE pg_catalog."default" NOT NULL,
+    smp_id text COLLATE pg_catalog."default" NOT NULL,
+    filepath text COLLATE pg_catalog."default" NOT NULL,
+    md5hash text COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT baro_rawfile_pkey PRIMARY KEY (baro_rawfile_uid),
     CONSTRAINT baro_rawfile_filepath_uniqueness UNIQUE (filepath),
     CONSTRAINT baro_rawfile_md5hash_uniqueness UNIQUE (md5hash)
@@ -741,8 +741,8 @@ CREATE TABLE admin.baro_rawfile
 CREATE TABLE admin.baro_rawfolder
 (
     baro_rawfolder_uid serial,
-    smp_id character varying COLLATE pg_catalog."default" NOT NULL,
-    folderpath character varying COLLATE pg_catalog."default" NOT NULL,
+    smp_id text COLLATE pg_catalog."default" NOT NULL,
+    folderpath text COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT baro_rawfolder_pkey PRIMARY KEY (baro_rawfolder_uid),
     CONSTRAINT baro_rawfolder_folderpath_uniqueness UNIQUE (folderpath)
 ); 
@@ -754,7 +754,7 @@ CREATE TABLE admin.baro_rawfolder
 CREATE TABLE admin.gage
 (
     gage_uid serial,
-    gagename character varying COLLATE pg_catalog."default" NOT NULL,
+    gagename text COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT gage_pkey PRIMARY KEY (gage_uid),
     CONSTRAINT gage_name_uniqueness UNIQUE (gagename)
 );
@@ -764,8 +764,8 @@ CREATE TABLE admin.gage_loc
 (
     gage_loc_uid serial,
     gage_uid integer NOT NULL,
-    lon_wgs84 numeric(10,6) NOT NULL,
-    lat_wgs84 numeric(10,6) NOT NULL,
+    lon_wgs84 numeric(8,4)(10,6) NOT NULL,
+    lat_wgs84 numeric(8,4)(10,6) NOT NULL,
     CONSTRAINT gage_loc_pkey PRIMARY KEY (gage_loc_uid),
     CONSTRAINT gage_loc_uniqueness UNIQUE (lon_wgs84, lat_wgs84)
 );
@@ -787,8 +787,8 @@ CREATE TABLE admin.radar_loc
 (
     radar_loc_uid serial primary key,
     radar_uid integer NOT NULL,
-    lon_wgs84 numeric(10,6) NOT NULL,
-    lat_wgs84 numeric(10,6) NOT NULL,
+    lon_wgs84 numeric(8,4)(10,6) NOT NULL,
+    lat_wgs84 numeric(8,4)(10,6) NOT NULL,
     CONSTRAINT radar_loc_uniqueness UNIQUE (lon_wgs84, lat_wgs84)
 ); 
     -- CONSTRAINT radarcell_loc_fkey FOREIGN KEY (radarcell_uid)
@@ -808,7 +808,7 @@ CREATE TABLE admin.radar_rawfile
 CREATE TABLE admin.smp_gage
 (
     smp_gage_uid serial,
-    smp_id character varying COLLATE pg_catalog."default" NOT NULL,
+    smp_id text COLLATE pg_catalog."default" NOT NULL,
     gage_uid integer NOT NULL,
     CONSTRAINT smp_gage_pkey PRIMARY KEY (smp_gage_uid),
     CONSTRAINT smp_gage_uniqueness UNIQUE (smp_id)
@@ -824,7 +824,7 @@ CREATE TABLE admin.smp_gage
 CREATE TABLE public.smp_loc
 (
     smp_loc_uid serial,
-    smp_id character varying COLLATE pg_catalog."default" NOT NULL,
+    smp_id text COLLATE pg_catalog."default" NOT NULL,
     lon_wgs84 double precision NOT NULL,
     lat_wgs84 double precision NOT NULL,
     CONSTRAINT smp_loc_pkey PRIMARY KEY (smp_loc_uid),
@@ -843,14 +843,14 @@ CREATE TABLE public.smp_radar
     smp_id text COLLATE pg_catalog."default" NOT NULL
 );
 
--- CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::character varying) = true) NOT VALID
+-- CONSTRAINT smp_id_validity CHECK (smp_exists(smp_id::text) = true) NOT VALID
 
 
 --l.	monitoring_deny_list
 CREATE TABLE fieldwork.monitoring_deny_list
 (
     monitoring_deny_list_uid serial,
-    smp_id character varying COLLATE pg_catalog."default",
+    smp_id text COLLATE pg_catalog."default",
     reason text COLLATE pg_catalog."default",
     CONSTRAINT monitoring_deny_list_pkey PRIMARY KEY (monitoring_deny_list_uid)
 );
