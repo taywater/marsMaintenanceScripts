@@ -3,7 +3,7 @@ import datetime, os, subprocess, webbrowser, re
 
 #Since it's not going to be run in interactive mode, we need to load PYTHONSTARTUP to
 if os.path.isfile(os.environ['PYTHONSTARTUP']):
-	execfile(os.environ['PYTHONSTARTUP'])
+	exec(open(os.environ['PYTHONSTARTUP']).read())
 else:
 	sys.exit("You don't have a .pythonrc file in your PYTHONSTARTUP environment variable.")
 
@@ -39,7 +39,7 @@ r_exe = "Rscript.exe"
 #Compose the R command that will be passed to r_exe
 r_command = "rmarkdown::render(" + r_script + ", params = list(database=" + database + ", write=" + writeflag + ")" + ", output_file =" + output_file + ")"
 
-print r_command
+print(r_command)
 
 #Invoke the R commands to run the script and knit the output
 # -e means Rscript.exe is getting the commands from stdin and not from a file
