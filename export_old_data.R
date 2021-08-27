@@ -16,8 +16,8 @@ library(lubridate)
   gw_old <- "public.gw_depthdata_raw"
   ow_old <- "public.ow_leveldata_raw"
   radar_event_old <- "public.rainfall_radarcell_event"
-  radar_rain_old <- "data.rainfall_radarcell_raw"
-  old_tables <- c(baro_old, gage_event_old, gage_rain_old, gw_old, ow_old, radar_event_old, radar_rain_old)
+  radar_rain_old <- "public.rainfall_radarcell_raw"
+  old_tables <- c(baro_old, gage_event_old, gage_rain_old, ow_old, gw_old, radar_event_old, radar_rain_old)
   
 #New Tables
   baro_new <- "data.baro"
@@ -51,16 +51,14 @@ for(j in 1:nrow(tables)){
     dbGetQuery(mars_12, paste("alter sequence", tables$new_sequences[j], "restart with 1"))
   }
   
+  if(tables$new_tables[j] == "data.ow_leveldata_raw"){
+    next #This actually makes us run out of memory. Do this one manually.
+  }
+  
   old_data <- dbGetQuery(mars_9, paste("select * from", tables$old_tables[j]))
   for(i in 1:ncol(old_data)){
     if(ncol(old_data) == 0){
       break
-    }
-    
-    #Dates must be text to avoid drift
-    if(is.POSIXct(old_data[1, i])){
-      old_data[, i] <- as.character(old_data[, i])
-      next
     }
     
     #Non-integer numerics need to be hit with a round(4)
@@ -72,7 +70,7 @@ for(j in 1:nrow(tables)){
 
   #Export new data
   write.csv(old_data, file = paste(strftime(now(), format="%Y%m%d"), tables$new_tables[j], ".csv", sep = "_"), row.names = FALSE)
-
+  rm(old_data)
 }
 dbDisconnect(mars_9)
 dbDisconnect(mars_12)
