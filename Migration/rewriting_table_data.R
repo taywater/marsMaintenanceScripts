@@ -107,8 +107,27 @@
     old_error_lookup <- dbGetQuery(mars_testing, "select * from performance_error_lookup")
   
     # dbWriteTable(mars_data, DBI::SQL("metrics.error_lookup"), old_error_lookup, append = TRUE)
+    
+    #site name
+    old_site_name_lookup <- dbGetQuery(mars_testing, "select * from fieldwork.site_name_lookup")
   
-  
+    # dbWriteTable(mars_data, DBI::SQL("fieldwork.site_name_lookup"), old_site_name_lookup, append = TRUE)
+    
+    #ow_prefixes 
+    old_ow_prefixes <- dbGetQuery(mars_testing, "select * from fieldwork.ow_prefixes")
+    
+    # dbWriteTable(mars_data, DBI::SQL("fieldwork.ow_prefixes"), old_ow_prefixes, append = TRUE)
+    
+    #sensor_purpose_lookup 
+    old_sensor_purpose_lookup <- dbGetQuery(mars_testing, "select * from fieldwork.deployment_lookup")
+    
+    # dbWriteTable(mars_data, DBI::SQL("fieldwork.sensor_purpose_lookup"), old_sensor_purpose_lookup, append = TRUE)
+    
+    #fieldwork.gswi_conveyance_subtype_lookup
+    old_gswi_c_lookup <- dbGetQuery(mars_testing, "select * from gswi_conveyance_subtype_lookup")
+    
+    dbWriteTable(mars_data, DBI::SQL("fieldwork.gswi_conveyance_subtype_lookup"), old_gswi_c_lookup, append = TRUE)
+    
   #1.3 major data tables ----
     
     # # a.	baro
@@ -262,6 +281,27 @@
     
     # dbWriteTable(mars_data, DBI::SQL("fieldwork.custom_project_names"), old_cpn, append = TRUE)
     
+    # s.	monitoring_deny_list
+    old_deny <- dbGetQuery(mars_testing, "select * from fieldwork.monitoring_deny_list")
+    
+    # updated_deny <- old_deny %>% right_join(assets)  %>% 
+    #   dplyr::select(monitoring_deny_list_uid, smp_id, reason) %>% 
+    #   dplyr::filter(complete.cases(.)) %>% 
+    #   distinct()
+    
+    dbWriteTable(mars_data, DBI::SQL("fieldwork.monitoring_deny_list"), old_deny, append = TRUE)
+    
+    # t. ow_sumpdepth_default 
+    old_sumpdepth_default <- dbGetQuery(mars_testing, "select * from ow_sumpdepth_default")
+    
+    dbWriteTable(mars_data, DBI::SQL("fieldwork.ow_sumpdepth_default"), old_sumpdepth_default, append = TRUE)
+    
+    # t. ow_sumpdepth_default 
+    old_sumpdepth_intermediate <- dbGetQuery(mars_testing, "select * from ow_sumpdepth_intermediate")
+    
+    dbWriteTable(mars_data, DBI::SQL("fieldwork.ow_sumpdepth_intermediate"), old_sumpdepth_intermediate, append = TRUE)
+    
+    
   #1.5 major metrics tables ----
     
     # a.	performance_draindown_radarcell, as draindown
@@ -392,15 +432,7 @@
     
     # dbWriteTable(mars_data, DBI::SQL("admin.smp_radar"), updated_smp_radar, append = TRUE)
     
-    # l.	monitoring_deny_list
-    old_deny <- dbGetQuery(mars_testing, "select * from fieldwork.monitoring_deny_list")
 
-    # updated_deny <- old_deny %>% right_join(assets)  %>% 
-    #   dplyr::select(monitoring_deny_list_uid, smp_id, reason) %>% 
-    #   dplyr::filter(complete.cases(.)) %>% 
-    #   distinct()
-    
-    dbWriteTable(mars_data, DBI::SQL("admin.monitoring_deny_list"), old_deny, append = TRUE)
     
         
   
