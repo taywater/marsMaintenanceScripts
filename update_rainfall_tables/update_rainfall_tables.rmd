@@ -6,7 +6,7 @@ author:
 date: "`r lubridate::now()`" #This doesn't use !r syntax (like the gagedb param below) because it's not a param. It's evaluated by default.
 output: html_document
 params:
-  database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
+  database: "mars_data" 
   write: TRUE #Write changes to database?
 ---
 
@@ -26,9 +26,7 @@ options(stringsAsFactors=FALSE)
 
 ```{r Section 0 - Preamble and database connections, include=FALSE}
 ###Section 0.1: Check parameter validity
-	if(!(params$database %in% c("mars", "mars_testing"))){
-		stop(paste("Invalid database parameter:", params$database))
-	}
+
 
 ###Section 0.2: Connect to the database
 	#Indicate the database name: mars_testing or mars. 
@@ -39,16 +37,16 @@ options(stringsAsFactors=FALSE)
 
 ```{r Section 1 - Gathering rainfall data, include = FALSE}
   #Read the rain gage data from the mars database
-  rainfall_gage <- dbGetQuery(marsDBCon, "SELECT * from rainfall_gage_latestdates")  
+  rainfall_gage <- dbGetQuery(marsDBCon, "SELECT * from data.gage_rain_latestdates")  
   
   #Read the rain gage table from the mars database and attach it to the rainfall data
-  gage <- dbGetQuery(marsDBCon, "SELECT * FROM gage")
+  gage <- dbGetQuery(marsDBCon, "SELECT * FROM admin.gage")
   rainfall_gage <- left_join(rainfall_gage, gage, by = "gage_uid") %>% select(gagename, maxtime_edt)
   
   #Read the rain gage data from the H&H database
   hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
   hhrainfall_gage <- dbGetQuery(hhdbcon, "select * from pwdrg.tblModelRain") %>% 
-    transmute(gagename = as.character(GaugeNo), dtime_edt = force_tz(ymd_hms(DateTime), "America/New_York"), rainfall_in = Rainfall)
+    transmute(gagename = as.character(GaugeNo), dtime_edt = force_tz(ymd_hms(DateTime), "America/New_York"), rainfall_in = round(Rainfall, 4))
   dbDisconnect(hhdbcon)
   
   newdata <- hhrainfall_gage %>% 
@@ -59,13 +57,14 @@ options(stringsAsFactors=FALSE)
     select(gagename, dtime_edt, rainfall_in) %>%
     left_join(gage, by = "gagename") %>%
     select(gage_uid, dtime_edt, rainfall_in) %>%
-    arrange(gage_uid, dtime_edt)
+    arrange(gage_uid, dtime_edt) %>%
+    mutate(rainfall_in = round(rainfall_in, 4))
   
 ```
 
-## Updates to `rainfall_gage` Table
+## Updates to `data.gage_rain` Table
 
-A new batch of rainfall data has been examined. There are `r nrow(newdata)` new rainfall measurements to add to the `rainfall_gage` table.
+A new batch of rainfall data has been examined. There are `r nrow(newdata)` new rainfall measurements to add to the `data.gage_rain` table.
 
 `r if(nrow(newdata) > 0){ group_by(newdata, gage_uid) %>% arrange(dtime_edt) %>% summarize(new_measurements = n(), first_date = first(dtime_edt), last_date = last(dtime_edt)) %>% kable }`
 
@@ -76,7 +75,7 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
   #If there's new data to append
   	if(nrow(newdata) > 0 & params$write == TRUE){
       outcome_newdata <- tryCatch({outcome_newdata <- dbWriteTable(marsDBCon,
-          "rainfall_gage_raw",
+          DBI::SQL("data.gage_rain"),
           newdata,
           append= TRUE,
           row.names = FALSE)
@@ -92,7 +91,7 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
   #Read the rain gage data from the mars database
   #This query will grab all data from after the end of the latest event for each gage
   #This captures both new data appended in the previous section, and any data that was clipped last time events were processed
-  newrain_query <- "select rg.gage_uid, rg.dtime_edt, rg.rainfall_in from rainfall_gage rg left join rainfall_gage_event_latestdates rgel on rg.gage_uid = rgel.gage_uid where rg.dtime_edt > rgel.dtime_edt"
+  newrain_query <- "select rg.gage_uid, rg.dtime_edt, rg.rainfall_in from data.gage_rain rg left join data.gage_event_latestdates rgel on rg.gage_uid = rgel.gage_uid where rg.dtime_edt > rgel.dtime_edt"
   rain_newdata <- dbGetQuery(marsDBCon, newrain_query)
   #If we aren't writing the new data to the database, the above won't capture this batch of rain data
   #Append the newdata frame to the above thing
@@ -102,9 +101,9 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
   
   #If there's no defined rain events, that query will return nothing
   #So we need to grab the entire data set
-  emptytable <- dbGetQuery(marsDBCon, "select count(*) from rainfall_gage_event_latestdates") %>% pull(count)
+  emptytable <- dbGetQuery(marsDBCon, "select count(*) from data.gage_event_latestdates") %>% pull(count)
   if(emptytable == 0){
-    rain_newdata <- dbGetQuery(marsDBCon, "select dtime_edt, gage_uid, rainfall_in from rainfall_gage")
+    rain_newdata <- dbGetQuery(marsDBCon, "select dtime_edt, gage_uid, rainfall_in from data.gage_rain")
   }
   
   #Process the rain data into events, based on a 6 hour interevent time and a minimum depth of 0.1 inches
@@ -138,7 +137,7 @@ The latest rainfall data has been processed for event detection. There are `r nr
   #If there's new data to append
   if(nrow(rain_newevents) > 0 & params$write == TRUE){
     outcome_rain_newevents <- tryCatch({outcome_rain_newevents <- dbWriteTable(marsDBCon, 
-        "rainfall_gage_event", 
+        DBI::SQL("data.gage_event"), 
         rain_newevents, 
         append= TRUE, 
         row.names = FALSE)
@@ -155,18 +154,19 @@ The latest rainfall data has been processed for event detection. There are `r nr
   hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
 
   #Assess raw files in our DB and H&H
-  db_rawfiles <- dbGetQuery(marsDBCon, "select * from public.radarcell_rawfile")
+  db_rawfiles <- dbGetQuery(marsDBCon, "select * from admin.radar_rawfile")
   hh_rawfiles <- dbGetQuery(hhdbcon, "select yearmon, path as filepath from radar2sheds.garr_inventory") %>%
     mutate(yearmon = str_replace(yearmon, "-", "")) %>%
     mutate(filepath = str_replace(filepath, "\\\\", "/")) %>%
-    mutate(filepath = str_replace(filepath, "M:/", "//pwdoows/OOWS/Modeling/"))
+    mutate(filepath = str_replace(filepath, "M:/", "//pwdoows/OOWS/Modeling/")) %>%
+    filter(yearmon > "201401")
   dbDisconnect(hhdbcon)
 
   #Which files don't we have
   new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath))
   
   #only cells in Philly
-  phillycells <- dbGetQuery(marsDBCon, "select radarcell_uid from radarcell")
+  phillycells <- dbGetQuery(marsDBCon, "select radar_uid from admin.radar")
   
   #Unzip the files
   dir.create("~/radarrain", showWarnings = FALSE)
@@ -179,24 +179,24 @@ The latest rainfall data has been processed for event detection. There are `r nr
   
   #read the files
   newradarfiles <- list.files(path = "~/radarrain", full.names = TRUE, pattern = "\\.csv$")
-  newradardata <- data.frame(dtime_edt = NULL, radarcell_uid = NULL, rainfall_in = NULL)
+  newradardata <- data.frame(dtime_edt = NULL, radar_uid = NULL, rainfall_in = NULL)
   for(i in 1:length(newradarfiles)){
     if(length(newradarfiles) == 0){break}
     print(paste0("reading ", newradarfiles[i]))
     radarfile <- read.csv(newradarfiles[i], header = FALSE)
-    colnames(radarfile) <- c("dtime_raw", "tz", "radarcell_uid", "rainfall_in")
+    colnames(radarfile) <- c("dtime_raw", "tz", "radar_uid", "rainfall_in")
     radarfile <- radarfile %>% 
-      filter(radarcell_uid %in% phillycells$radarcell_uid) %>%
-      transmute(dtime_edt = ymd_hm(dtime_raw, tz = "America/New_York"), radarcell_uid, rainfall_in)
+      filter(radar_uid %in% phillycells$radar_uid) %>%
+      transmute(dtime_edt = ymd_hm(dtime_raw, tz = "America/New_York"), radar_uid, rainfall_in)
    
     radarinterval <- get_interval(radarfile$dtime_edt)
     print(paste("File", basename(newradarfiles[i]), "has datetime interval", radarinterval))
   
     if(radarinterval != "15 min"){
       radarfile <- thicken(radarfile, "15 min", rounding = "up", ties_to_earlier = TRUE) %>%
-        group_by(dtime_edt_15_min, radarcell_uid) %>%
+        group_by(dtime_edt_15_min, radar_uid) %>%
         summarize(rainfall_in = sum(rainfall_in)) %>%
-        select(dtime_edt = dtime_edt_15_min, radarcell_uid, rainfall_in)
+        select(dtime_edt = dtime_edt_15_min, radar_uid, rainfall_in)
     }
 
     radarfile <- filter(radarfile, rainfall_in > 0)
@@ -207,14 +207,20 @@ The latest rainfall data has been processed for event detection. There are `r nr
   
 ```
 
-```{r Section 3.5 - Writing to the radarcell tables, include = FALSE}  
+## Updates to the `admin.radar_rawfile` and `data.radar_rain` Table
+
+A new batch of rainfall data has been examined. There are `r nrow(newradardata)` new rainfall measurements to add to the `data.radar_rain` table.
+
+`r if(nrow(newradardata) > 0){ group_by(newradardata, radar_uid) %>% arrange(dtime_edt) %>% summarize(new_measurements = n(), first_date = first(dtime_edt), last_date = last(dtime_edt)) %>% kable }`
+
+```{r Section 3.5 - Writing to the radar tables, include = FALSE}  
 # Fail safe. If the block below doesn't run, we didn't append anything
   outcome_rawfiles <- FALSE
   #If there's new data to append
   if(nrow(new_rawfiles) > 0 & params$write == TRUE){
     new_rawfiles <- select(new_rawfiles, -yearmon)
     outcome_rawfiles <- tryCatch({outcome_rawfiles <- dbWriteTable(marsDBCon, 
-        "radarcell_rawfile", 
+        DBI::SQL("admin.radar_rawfile"), 
         new_rawfiles, 
         append= TRUE, 
         row.names = FALSE)
@@ -227,7 +233,7 @@ The latest rainfall data has been processed for event detection. There are `r nr
   #If there's new data to append
   if(nrow(newradardata) > 0 & params$write == TRUE){
     outcome_radardata <- tryCatch({outcome_radardata <- dbWriteTable(marsDBCon, 
-        "rainfall_radarcell_raw", 
+        DBI::SQL("data.radar_rain"), 
         newradardata, 
         append= TRUE, 
         row.names = FALSE)
@@ -238,15 +244,19 @@ The latest rainfall data has been processed for event detection. There are `r nr
 
 ```
 
-```{r Section 4 - Processing new rain events for radarcell data, include = FALSE}
-  #Read the radarcell data from the mars database
+`r if(nrow(new_rawfiles) > 0){ paste("New radar rawfiles have", ifelse(outcome_rawfiles, "SUCCESSFULLY", "NOT"), "been written to the admin.radar_rawfile table")}`
+
+`r if(nrow(newradardata) > 0){ paste("New radar data has", ifelse(outcome_radardata, "SUCCESSFULLY", "NOT"), "been written to the data.radar_rain table")}`
+
+```{r Section 4 - Processing new rain events for radar data, include = FALSE}
+  #Read the radar data from the mars database
   #This query will grab all data from after the end of the latest event for each cell
   #This captures both new data appended in the previous section, and any data that was clipped last time events were processed
 
   #process cells one at a time
-  allcells <- dbGetQuery(marsDBCon, "select distinct radarcell_uid from radarcell")
+  allcells <- dbGetQuery(marsDBCon, "select distinct radar_uid from admin.radar")
 
-    newrain_query <- paste("select rc.radarcell_uid, rc.dtime_edt, rc.rainfall_in from rainfall_radarcell_raw rc left join rainfall_radarcell_event_latestdates rcel on rc.radarcell_uid = rcel.radarcell_uid where rc.dtime_edt > rcel.dtime_edt")
+  newrain_query <- paste("select rc.radar_uid, rc.dtime_edt, rc.rainfall_in from data.radar_rain rc left join data.radar_event_latestdates rcel on rc.radar_uid = rcel.radar_uid where rc.dtime_edt > rcel.dtime_edt")
 
     
   rain_newdata <- dbGetQuery(marsDBCon, newrain_query)  
@@ -255,13 +265,13 @@ The latest rainfall data has been processed for event detection. There are `r nr
     
     #Process the rain data into events, based on a 6 hour interevent time and a minimum depth of 0.1 inches
     rain_newevents <- rain_newdata %>% 
-      group_by(radarcell_uid) %>%
+      group_by(radar_uid) %>%
       arrange(dtime_edt) %>% 
       mutate(event_id = marsDetectEvents(dtime_edt, rainfall_in)) %>%
       #Drop the last "complete" event in case it straddles the month boundary
       #It will get processed the when the next batch of data comes in
       filter(!is.na(event_id), event_id != max(event_id, na.rm = TRUE)) %>%
-      group_by(radarcell_uid, event_id) %>%
+      group_by(radar_uid, event_id) %>%
       summarize(eventdatastart_edt = first(dtime_edt),
                 eventdataend_edt = last(dtime_edt),
                 eventduration_hr = marsStormDuration_hr(dtime_edt),
@@ -275,13 +285,20 @@ The latest rainfall data has been processed for event detection. There are `r nr
   
 ```
 
-```{r Section 4.5 - Writing to the rainfall_radarcell_event table, include = FALSE}  
+## Updates to `data.radar_event` Table
+
+The latest rainfall data has been processed for event detection. There are `r nrow(rain_newevents)` new rain events to add to the `data.radar_event` table.
+
+`r if(nrow(rain_newevents) > 0){ rain_newevents %>% head(100) %>% kable }`
+
+
+```{r Section 4.5 - Writing to the data.radar_event table, include = FALSE}  
 # Fail safe. If the block below doesn't run, we didn't append anything
   outcome_rain_newevents <- FALSE
   #If there's new data to append
   if(nrow(rain_newevents) > 0 & params$write == TRUE){
     outcome_rain_totalevents <- tryCatch({outcome_rain_newevents <- dbWriteTable(marsDBCon, 
-        "rainfall_radarcell_event", 
+        DBI::SQL("data.radar_event"), 
         rain_newevents, 
         append= TRUE, 
         row.names = FALSE)
@@ -290,6 +307,8 @@ The latest rainfall data has been processed for event detection. There are `r nr
     )
   }
 ```
+
+`r if(nrow(newdata) > 0){ paste("New rain events have", ifelse(outcome_rain_totalevents, "SUCCESSFULLY", "NOT"), "been written to the data.radar_event table")}`
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
