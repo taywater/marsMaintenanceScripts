@@ -6,7 +6,7 @@ author:
 date: "`r lubridate::now()`" 
 output: html_document
 params:
-  database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
+  database: "mars_data"
   write: TRUE #Write changes to database?
 ---
 
@@ -30,10 +30,6 @@ options(stringsAsFactors=FALSE)
 ###Section 0.1: Check parameter validity
 
 ###Section 0.2: Connect to the database
-	#Indicate the database name: mars_testing or mars. 
-	#Only write to mars if you really know what you're doing.
- 	database <- params$database
-
  	#Connect using the DSN.
 	marsDBCon <- dbConnect(odbc::odbc(), params$database)
 	
@@ -42,11 +38,11 @@ options(stringsAsFactors=FALSE)
 ```{r Section 1A - Gathering OW data, include = FALSE}
 
   #Read the latest date from each observation well from the mars database
-  ow_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM owdata_latestdates") %>%
+  ow_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.owdata_latestdates") %>%
     mutate(dtime_est = force_tz(dtime_est, tz = "EST")) #Adjust time zone without moving timestamp
   
   #Read the accessdb table from the mars database and attach it to the date data
-  accessdb <- dbGetQuery(marsDBCon, "SELECT filepath, ow_uid, datatable, sumptable FROM accessdb")
+  accessdb <- dbGetQuery(marsDBCon, "SELECT filepath, ow_uid, datatable, sumptable FROM admin.accessdb")
   accessdb_latestdates <- left_join(ow_latestdates, accessdb, by = "ow_uid") %>% 
     filter(!is.na(filepath), !is.na(datatable))
   
@@ -82,14 +78,13 @@ options(stringsAsFactors=FALSE)
     as.character
 
   #Pull OW table for use in the report table
-  ow <- dbGetQuery(marsDBCon, "select * from fieldwork.ow_all")
+  ow <- dbGetQuery(marsDBCon, "select * from fieldwork.ow")
 
 ```
 
+## Updates to `data.ow_leveldata_raw` Table
 
-## Updates to `ow_leveldata_raw` Table
-
-The Access DBs for each observation well have been examined. There are `r nrow(newdata)` new measurements to add to the `ow_leveldata` table.
+The Access DBs for each observation well have been examined. There are `r nrow(newdata)` new measurements to add to the `data.ow_leveldata_raw` table.
 
 `r if(nrow(newdata) > 0){group_by(newdata, ow_uid) %>% summarize(firstdate_est = first(dtime_est), lastdate_est = last(dtime_est), n = n()) %>% left_join(accessdb, by = "ow_uid") %>% left_join(ow, by = "ow_uid") %>% select(smp_id, ow_suffix, firstdate_est, lastdate_est, n) %>% kable }`
 
@@ -100,7 +95,7 @@ The Access DBs for each observation well have been examined. There are `r nrow(n
   #If there's new data to append
 	if(nrow(newdata) > 0 & params$write == TRUE){
     tryCatch({outcome_newdata <- dbWriteTable(marsDBCon,
-        "ow_leveldata_raw",
+        DBI::SQL("data.ow_leveldata_raw"),
         newdata,
         append= TRUE,
         row.names = FALSE)
@@ -115,11 +110,11 @@ The Access DBs for each observation well have been examined. There are `r nrow(n
 ```{r Section 2A - Gathering GW data, include = FALSE}
 
   #Read the latest date from each observation well from the mars database
-  gw_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM gwdata_latestdates") %>%
+  gw_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.gwdata_latestdates") %>%
     mutate(dtime_est = force_tz(dtime_est, tz = "EST")) #Adjust time zone without moving timestamp
   
   #Read the accessdb table from the mars database and attach it to the date data
-  accessdb <- dbGetQuery(marsDBCon, "SELECT filepath, ow_uid, datatable, sumptable FROM accessdb")
+  accessdb <- dbGetQuery(marsDBCon, "SELECT filepath, ow_uid, datatable, sumptable FROM admin.accessdb")
   accessdb_latestdates <- left_join(gw_latestdates, accessdb, by = "ow_uid") %>% filter(!is.na(filepath), !is.na(datatable))
   
   #Read the data from each Access DB's data table, 
@@ -154,7 +149,7 @@ The Access DBs for each observation well have been examined. There are `r nrow(n
 ```
 
 
-## Updates to `gw_leveldata` Table
+## Updates to `data.gw_leveldata_raw` Table
 
 The Access DBs for each groundwater well have been examined. There are `r nrow(newdata)` new measurements to add to the `gw_depthdata` table.
 
@@ -167,7 +162,7 @@ The Access DBs for each groundwater well have been examined. There are `r nrow(n
   #If there's new data to append
 	if(nrow(newdata) > 0 & params$write == TRUE){
     tryCatch({outcome_newgwdata <- dbWriteTable(marsDBCon, 
-        "gw_depthdata_raw", 
+        DBI::SQL("data.gw_depthdata_raw"), 
         newdata, 
         append= TRUE, 
         row.names = FALSE)
