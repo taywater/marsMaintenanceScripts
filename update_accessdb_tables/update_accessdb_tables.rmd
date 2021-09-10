@@ -172,7 +172,7 @@ There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `admin.ac
   #If there's new data to append
 	if(nrow(appendtoaccessdbtable) > 0 & params$write == TRUE){
     outcome_appendtoaccessdbtable <- tryCatch({dbWriteTable(marsDBCon, 
-        "admin.accessdb", 
+        DBI::SQL("admin.accessdb"), 
         appendtoaccessdbtable, 
         append= TRUE, 
         row.names = FALSE)}, # append the data
@@ -291,7 +291,7 @@ New canonical tables were discovered in `r nrow(accessdb_foundnewtables)` existi
   #If there's new data to append
 	if(nrow(accessdb_newtablestowrite) > 0 & params$write == TRUE){
     tryCatch({outcome_accessdb_newtablestowrite <- dbWriteTable(marsDBCon, 
-        "admin.accessdb_temp", 
+        DBI::SQL("admin.accessdb_temp"), 
         accessdb_newtablestowrite, 
         temporary = TRUE,
         row.names = FALSE,
@@ -388,7 +388,7 @@ Updated sump depths measurements were discovered in `r nrow(accessdbs_newmeasure
     #If there's new data to append
   	if(nrow(accessdbs_newsumpdepths) > 0 & params$write == TRUE){
       tryCatch({outcome_accessdb_foundnewtables <- dbWriteTable(marsDBCon, 
-          "fieldwork.ow_sumpdepth_temp", 
+          DBI::SQL("fieldwork.ow_sumpdepth_temp"), 
           accessdbs_newsumpdepths, 
           temporary = TRUE,
           row.names = FALSE,
@@ -420,7 +420,7 @@ Brand new sump depths were discovered in `r nrow(accessdbs_depthchanged)` Access
     #If there's new data to append
   	if(nrow(accessdbs_newsumpdepths) > 0 & params$write == TRUE){
       tryCatch({outcome_accessdb_foundnewtables <- dbWriteTable(marsDBCon, 
-          "fieldwork.ow_sumpdepth_intermediate", 
+          DBI::SQL("fieldwork.ow_sumpdepth_intermediate"), 
           accessdbs_newsumpdepths, 
           append = TRUE,
           row.names = FALSE)}, #Append to existing table
