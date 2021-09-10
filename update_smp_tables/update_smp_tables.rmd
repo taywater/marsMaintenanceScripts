@@ -7,7 +7,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   file: "A:/Scripts/Maintenance/update_smp_tables/centroids_folder/centroids_dem_20190408T1300.shp" #ESRI shapefile containing SMP centroids
-  database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
+  database: "mars_data" #Requires a DSN of the same name.
   write: FALSE #Write changes to database?
 ---
 
@@ -51,18 +51,18 @@ dsn_infra_pub <- paste0("MSSQL:server=pwdgis4;",
 
 		#Refresh materialized view so it has the newest cache of SMP IDs
 		#If we don't do this, new IDs won't be found, and we will get an insertion error.
-		dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW smpid_facilityid_componentid WITH DATA;")
+		dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW external.assets WITH DATA;")
 	}
 
 ```
   
-This script is attempting to update the `smp_loc`, `smp_radarcell`, and `smp_gage` tables in the `r params$database` database. It grabs the WGS1984 SMP polygons from the `INFRASTRUCTURE_PUBLIC` database on PWDGIS4, converts them to centroids, and stores them in the smp_loc table. It then checks the `smp_id`s contained in `smp_loc` to see if any don't exist in `smp_gage`. If they don't, it calculates which rain gage is closest to that SMP's centroid. Finally, it repeats this process with radar grid cells. Radar grid cells are also stored as grid cell centroids.
+This script is attempting to update the `admin.smp_loc`, `admin.smp_radar`, and `admin.smp_gage` tables in the `r params$database` database. It grabs the WGS1984 SMP polygons from the `INFRASTRUCTURE_PUBLIC` database on PWDGIS4, converts them to centroids, and stores them in the smp_loc table. It then checks the `smp_id`s contained in `smp_loc` to see if any don't exist in `smp_gage`. If they don't, it calculates which rain gage is closest to that SMP's centroid. Finally, it repeats this process with radar grid cells. Radar grid cells are also stored as grid cell centroids.
 
 ```{r Section 1 - Gathering data for the smp_loc table, include = FALSE}
 ###Section 1: Update smp_loc table
 ###Check GIS data for any new SMPs, and insert them into smp_loc
 	#Fetch current version of smp_loc
-	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM smp_loc")
+	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.smp_loc")
 	smp_loc$lon_wgs84 %>% as.numeric %>% round(4) -> smp_loc$lon_wgs84
 	smp_loc$lat_wgs84 %>% as.numeric %>% round(4) -> smp_loc$lat_wgs84
 	
@@ -165,9 +165,9 @@ This script is attempting to update the `smp_loc`, `smp_radarcell`, and `smp_gag
 ```
 
 
-## Updates to `smp_loc` Table
+## Updates to `admin.smp_loc` Table
 
-New centroids have been exported and examined against the existing `smp_loc` table. There are `r nrow(smp_locNewData)` new centroids to add to the `smp_loc` table.
+New centroids have been exported and examined against the existing `admin.smp_loc` table. There are `r nrow(smp_locNewData)` new centroids to add to the `admin.smp_loc` table.
 
 `r if(nrow(smp_locNewData) > 0){knitr::kable(smp_locNewData)}`
 
@@ -177,7 +177,7 @@ New centroids have been exported and examined against the existing `smp_loc` tab
 
   #If there's new data to append
 	if(nrow(smp_locNewData) > 0 & params$write == TRUE){
-    tryCatch({outcome_centroids <- dbWriteTable(marsDBCon, "smp_loc", smp_locNewData, append= TRUE, row.names = FALSE)}, # append the data
+    tryCatch({outcome_centroids <- dbWriteTable(marsDBCon, DBI::SQL("admin.smp_loc"), smp_locNewData, append= TRUE, row.names = FALSE)}, # append the data
              error = function(e) e
     )
   }
@@ -189,19 +189,12 @@ New centroids have `r ifelse(outcome_centroids, "SUCCESSFULLY", "NOT")` been app
 
 ```{r Section 2 - Gathering data for the smp_gage table, include = FALSE}
 ###Section 2: Update smp_gage table
-  #Maintenance on smp_id tables
-  #Separate queries because it deletes in ;-separated queries are not allowed in a single transaction
-  dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW smpid_orphans WITH DATA;")
-  dbGetQuery(marsDBCon, "delete from smp_loc where smp_id in (select smp_id from smpid_orphans)")
-  dbGetQuery(marsDBCon, "delete from smp_gage where smp_id in (select smp_id from smpid_orphans)")
-  dbGetQuery(marsDBCon, "delete from smp_radarcell where smp_id in (select smp_id from smpid_orphans)")
-
 ###If there are any SMPs with locations that do not have rain gage associations, apply those now
 	#Read table of SMP locations (in case it got updated in step 1)
-	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM smp_loc")
+	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.smp_loc")
 
 	#Read table of SMP/rain gage associations
-	smp_gage <- dbGetQuery(marsDBCon, "SELECT * FROM smp_gage")
+	smp_gage <- dbGetQuery(marsDBCon, "SELECT * FROM admin.smp_gage")
 
 	#Every SMP with a location should also have a rain gage. Find the ones that don't
 	smp_loc_nogage <- anti_join(smp_loc, smp_gage, by = "smp_id")
@@ -209,7 +202,7 @@ New centroids have `r ifelse(outcome_centroids, "SUCCESSFULLY", "NOT")` been app
 	#If any SMPs don't have a gage
 	if(nrow(smp_loc_nogage) > 0){
 		#Fetch the rain gage locations from the database
-		gage_loc <- dbGetQuery(marsDBCon, "SELECT * FROM gage_loc")
+		gage_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.gage_loc")
 		
 		#Create spatial data frames for SMPs and gages
 		gage_loc_spatial <- st_as_sf(gage_loc, coords = c(3, 4))
@@ -224,9 +217,9 @@ New centroids have `r ifelse(outcome_centroids, "SUCCESSFULLY", "NOT")` been app
 	}
 ```
 
-## Updates to `smp_gage` Table
+## Updates to `admin.smp_gage` Table
 
-The `smp_gage` table has been checked for SMPs without a rain gage association. There are `r nrow(smp_loc_nogage)` new entries to add to the `smp_gage` table.
+The `admin.smp_gage` table has been checked for SMPs without a rain gage association. There are `r nrow(smp_loc_nogage)` new entries to add to the `admin.smp_gage` table.
 
 `r if(nrow(smp_loc_nogage) > 0){knitr::kable(smp_loc_nogage)}`
 
@@ -236,64 +229,64 @@ The `smp_gage` table has been checked for SMPs without a rain gage association. 
 
 	#If there's new data to append
     if(nrow(smp_loc_nogage) > 0 & params$write == TRUE){
-		  tryCatch({outcome_gage <- dbWriteTable(marsDBCon, "smp_gage", smp_loc_nogage, append= TRUE, row.names = FALSE)}, # append the data	
+		  tryCatch({outcome_gage <- dbWriteTable(marsDBCon, DBI::SQL("admin.smp_gage"), smp_loc_nogage, append= TRUE, row.names = FALSE)}, # append the data	
 		           error = function(e) e
 		  )
 	  }
 ```
 
-New gage associations have `r ifelse(outcome_gage, "SUCCESSFULLY", "NOT")` been appended to the `smp_gage` table.  
+New gage associations have `r ifelse(outcome_gage, "SUCCESSFULLY", "NOT")` been appended to the `admin.smp_gage` table.  
 
 ---
 
-```{r Section 3 - Gathering data for the smp_radarcell table, include = FALSE}
-###Section 3: Update smp_radarcell table
-###If there are any SMPs with locations that do not have radarcell associations, apply those now
+```{r Section 3 - Gathering data for the smp_radar table, include = FALSE}
+###Section 3: Update smp_radar table
+###If there are any SMPs with locations that do not have radar associations, apply those now
 	#Read table of SMP locations (in case it got updated in step 1)
-	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM smp_loc")
+	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.smp_loc")
 
-	#Read table of SMP/radarcell associations
-	smp_radarcell <- dbGetQuery(marsDBCon, "SELECT * FROM smp_radarcell")
+	#Read table of SMP/radar associations
+	smp_radar <- dbGetQuery(marsDBCon, "SELECT * FROM admin.smp_radar")
 
-	#Every SMP with a location should also have a radarcell. Find the ones that don't
-	smp_loc_noradarcell <- anti_join(smp_loc, smp_radarcell, by = "smp_id")
+	#Every SMP with a location should also have a radar. Find the ones that don't
+	smp_loc_noradar <- anti_join(smp_loc, smp_radar, by = "smp_id")
 
-	#If any SMPs don't have a radarcell
-	if(nrow(smp_loc_noradarcell) > 0){
-		#Fetch the radarcell locations from the database
-		radarcell_loc <- dbGetQuery(marsDBCon, "SELECT * FROM radarcell_loc")
+	#If any SMPs don't have a radar
+	if(nrow(smp_loc_noradar) > 0){
+		#Fetch the radar locations from the database
+		radar_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.radar_loc")
 		
-		#Create spatial data frames for SMPs and radarcells
-		radarcell_loc_spatial <- st_as_sf(radarcell_loc, coords = c(3, 4))
-		noradarcell_spatial <- st_as_sf(smp_loc_noradarcell, coords = c(3, 4))
+		#Create spatial data frames for SMPs and radars
+		radar_loc_spatial <- st_as_sf(radar_loc, coords = c(3, 4))
+		noradar_spatial <- st_as_sf(smp_loc_noradar, coords = c(3, 4))
 		
-		#Find nearest radarcell for new SMPs
-		smp_loc_noradarcell <- data.frame(smp_id = noradarcell_spatial$smp_id, 
-		                             radarcellindex = st_nearest_feature(noradarcell_spatial, radarcell_loc_spatial)) %>%
-		  mutate(radarcell_uid = radarcell_loc_spatial$radarcell_uid[radarcellindex]) %>%
-		  select(smp_id, radarcell_uid)
+		#Find nearest radar for new SMPs
+		smp_loc_noradar <- data.frame(smp_id = noradar_spatial$smp_id, 
+		                             radarindex = st_nearest_feature(noradar_spatial, radar_loc_spatial)) %>%
+		  mutate(radar_uid = radar_loc_spatial$radar_uid[radarindex]) %>%
+		  select(smp_id, radar_uid)
 	}
 ```
 
-## Updates to `smp_radarcell` Table
+## Updates to `admin.smp_radar` Table
 
-The `smp_radarcell` table has been checked for SMPs without a radarcell association. There are `r nrow(smp_loc_noradarcell)` new entries to add to the `smp_radarcell` table.
+The `admin.smp_radar` table has been checked for SMPs without a radar association. There are `r nrow(smp_loc_noradar)` new entries to add to the `admin.smp_radar` table.
 
-`r if(nrow(smp_loc_noradarcell) > 0){knitr::kable(smp_loc_noradarcell)}`
+`r if(nrow(smp_loc_noradar) > 0){knitr::kable(smp_loc_noradar)}`
 
-```{r Section 3.5 - Writing to the smp_radarcell table, include = FALSE}
+```{r Section 3.5 - Writing to the smp_radar table, include = FALSE}
     #Fail safe. If the block below doesn't run, we didn't append anything
-	outcome_radarcell <- FALSE
+	outcome_radar <- FALSE
 
 	#If there's new data to append
-    if(nrow(smp_loc_noradarcell) > 0 & params$write == TRUE){
-		  tryCatch({outcome_radarcell <- dbWriteTable(marsDBCon, "smp_radarcell", smp_loc_noradarcell, append= TRUE, row.names = FALSE)}, # append the data	
+    if(nrow(smp_loc_noradar) > 0 & params$write == TRUE){
+		  tryCatch({outcome_radar <- dbWriteTable(marsDBCon, DBI::SQL("admin.smp_radar"), smp_loc_noradar, append= TRUE, row.names = FALSE)}, # append the data	
 		           error = function(e) e
 		  )
 	  }
 ```
 
-New radarcell associations have `r ifelse(outcome_radarcell, "SUCCESSFULLY", "NOT")` been appended to the `smp_radarcell` table.  
+New radar associations have `r ifelse(outcome_radar, "SUCCESSFULLY", "NOT")` been appended to the `admin.smp_radar` table.  
 
 ---
 

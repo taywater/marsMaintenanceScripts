@@ -6,7 +6,7 @@ author:
 date: "`r lubridate::now()`"
 output: html_document
 params:
-  database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
+  database: "mars_data"
   write: FALSE #Write changes to database?
 ---
 
@@ -50,13 +50,13 @@ options(stringsAsFactors=FALSE)
 ```{r Section 1 - Gathering baro data, include = FALSE}
 
   #Fetch all host folders for baro data
-  baro_rawfolders <- dbGetQuery(marsDBCon, "SELECT * FROM public.baro_rawfolder")
+  baro_rawfolders <- dbGetQuery(marsDBCon, "SELECT * FROM admin.baro_rawfolder")
 
   #Fetch all distinct baro_rawfile_uids from the baro table, to guard against files existing in baro_rawfile but not in baro
-  fileswithdata <- dbGetQuery(marsDBCon, "SELECT baro_rawfile_uid, filepath from public.baro_rawfile where baro_rawfile_uid in (select distinct baro_rawfile_uid from baro)")
+  fileswithdata <- dbGetQuery(marsDBCon, "SELECT baro_rawfile_uid, filepath from admin.baro_rawfile where baro_rawfile_uid in (select distinct baro_rawfile_uid from data.baro)")
   
   #Fetch all of the latest dates for every baro in the baro table
-  latestdates <- dbGetQuery(marsDBCon, "SELECT r.smp_id, max(b.dtime_est) as latestdate_est FROM public.baro b LEFT JOIN baro_rawfile r ON b.baro_rawfile_uid = r.baro_rawfile_uid GROUP BY smp_id")
+  latestdates <- dbGetQuery(marsDBCon, "SELECT r.smp_id, max(b.dtime_est) as latestdate_est FROM data.baro b LEFT JOIN admin.baro_rawfile r ON b.baro_rawfile_uid = r.baro_rawfile_uid GROUP BY smp_id")
   
   #If there are no dates, fake it with a date of January 1st, 2001
   latestdates <- left_join(baro_rawfolders, latestdates, by = "smp_id")
@@ -101,7 +101,7 @@ options(stringsAsFactors=FALSE)
 ```
 
 
-## Updates to `baro_rawfile` Table
+## Updates to `admin.baro_rawfile` Table
 
 The filesystem has been examined for new barometric pressure data. There are `r nrow(filetable)` new files containing relevant barometric pressure data.
 
@@ -123,7 +123,7 @@ The filesystem has been examined for new barometric pressure data. There are `r 
   #If there's new data to append
 	if(nrow(newrawfiles) > 0 & params$write == TRUE){
     tryCatch({outcome_newrawfiles <- dbWriteTable(marsDBCon, 
-        "baro_rawfile", 
+        "admin.baro_rawfile", 
         newrawfiles, 
         append= TRUE, 
         row.names = FALSE)
@@ -138,7 +138,7 @@ The filesystem has been examined for new barometric pressure data. There are `r 
 ```{r Section 2 - Gathering the baro data, include = FALSE}
 
   #Collect the table of baro files again to find their UID
-  existingfiletable <- dbGetQuery(marsDBCon, "SELECT * FROM baro_rawfile")
+  existingfiletable <- dbGetQuery(marsDBCon, "SELECT * FROM admin.baro_rawfile")
   newfiles <- left_join(filetable, existingfiletable, by = "filepath") %>% select(filepath, baro_rawfile_uid)
 
   #Gather the data from each new file
@@ -192,7 +192,7 @@ The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data point
 
     if(nrow(newdata_currentfile) > 0 & params$write == TRUE){
       tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
-          "baro", 
+          "data.baro", 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
