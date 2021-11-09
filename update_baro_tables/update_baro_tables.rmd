@@ -7,7 +7,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: "mars_data"
-  write: FALSE #Write changes to database?
+  write: TRUE #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -123,7 +123,7 @@ The filesystem has been examined for new barometric pressure data. There are `r 
   #If there's new data to append
 	if(nrow(newrawfiles) > 0 & params$write == TRUE){
     tryCatch({outcome_newrawfiles <- dbWriteTable(marsDBCon, 
-        "admin.baro_rawfile", 
+        DBI::SQL("admin.baro_rawfile"), 
         newrawfiles, 
         append= TRUE, 
         row.names = FALSE)
@@ -192,7 +192,7 @@ The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data point
 
     if(nrow(newdata_currentfile) > 0 & params$write == TRUE){
       tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
-          "data.baro", 
+          DBI::SQL("data.baro"), 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)

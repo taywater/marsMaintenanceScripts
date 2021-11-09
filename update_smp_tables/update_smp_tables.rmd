@@ -8,7 +8,7 @@ output: html_document
 params:
   file: "A:/Scripts/Maintenance/update_smp_tables/centroids_folder/centroids_dem_20190408T1300.shp" #ESRI shapefile containing SMP centroids
   database: "mars_data" #Requires a DSN of the same name.
-  write: FALSE #Write changes to database?
+  write: TRUE #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}

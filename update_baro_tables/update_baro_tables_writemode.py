@@ -24,7 +24,7 @@ datestring = current_date.strftime("%Y%m%dT%H%M")
 #Note: r_script, database, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
 r_script = "'" + re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "\\\\update_baro_tables\\\\update_baro_tables.rmd'"
-database = "'mars_testing'"
+database = "'mars_data'"
 writeflag = "TRUE"
 output_file = "'output\\\\" + datestring + "_update_baro_tables.html" + "'"
 
