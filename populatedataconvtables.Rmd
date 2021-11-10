@@ -5,7 +5,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: "mars_data" #Requires a DSN of the same name
-  write: FALSE #Write Chagnes to database?
+  write: FALSE #Write Changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -345,6 +345,7 @@ The data in the `DataConv` database on `pwdgis4` have been added to the data in 
 
 ```{r Section 5 - Write Assets, include=FALSE}
 #Write new assets
+if(params$write){
     dbWriteTable(mars, DBI::SQL("external.gswibasin"), gswibasin_new, append = TRUE)
     dbWriteTable(mars, DBI::SQL("external.gswiblueroof"), gswiblueroof_new, append = TRUE)
     dbWriteTable(mars, DBI::SQL("external.gswibumpout"), gswibumpout_new, append = TRUE)
@@ -368,9 +369,14 @@ The data in the `DataConv` database on `pwdgis4` have been added to the data in 
     dbWriteTable(mars, DBI::SQL("external.gswimanhole"), gswimanhole_new, append = TRUE)
     dbWriteTable(mars, DBI::SQL("external.gswiobservationwell"), gswiobservationwell_new, append = TRUE)
     dbWriteTable(mars, DBI::SQL("external.gswistructure"), gswistructure_new, append = TRUE)
+}
+
 
 # Old facility = update the row
 #Set UID to be the last column to facilitate the substitution mechanism in dbSendQuery
+   
+if(params$write){
+ 
     gswibasin_update = anti_join(gswibasin_anti, gswibasin_new) %>%
         left_join(select(gswibasin_db, gswibasin_uid, facility_id))
 
@@ -571,6 +577,7 @@ The data in the `DataConv` database on `pwdgis4` have been added to the data in 
         dbBind(update_gswistructure, gswistructure_update)
         dbClearResult(update_gswistructure)
     }
+}
 
 ```
 
