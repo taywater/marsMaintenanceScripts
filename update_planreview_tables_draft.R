@@ -103,15 +103,15 @@ mars_data <- dbConnect(odbc(), "mars_data")
   
   #2.7 compare and find new HASHES based on smp, system, and projects -----
   
-  #smp designation
-  new_smp_hashes <- view_smp_designation_hash %>% 
-    left_join(view_smp_designation_md_trim, by = "SMPID") %>% 
-    anti_join(view_smp_designation_md, by = c("SMPID", "hash_md5"))
+#smp designation
+new_smp_hashes <- view_smp_designation_hash %>% 
+  left_join(view_smp_designation_md_trim, by = "SMPID") %>% 
+  anti_join(view_smp_designation_md, by = c("SMPID", "hash_md5"))
   
-  #system
-  new_crosstab_hashes <- crosstab_hash %>%
-    left_join(crosstab_md_trim, by = "SMPID") %>%
-    anti_join(crosstab_md, by = c("SMPID", "hash_md5")) 
+#system
+new_crosstab_hashes <- crosstab_hash %>%
+  left_join(crosstab_md_trim, by = "SMPID") %>%
+  anti_join(crosstab_md, by = c("SMPID", "hash_md5")) 
 
   #2.8 write/update new stuff 
   #2.8.1 SMP designation -----
@@ -132,5 +132,5 @@ mars_data <- dbConnect(odbc(), "mars_data")
   dbBind(update_crosstab, new_crosstab_hashes)
   
   #release the prepared statement
-  dbClearResult(update_crosstab) 
+  dbClearResult(update_crosstab)
   
