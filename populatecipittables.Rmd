@@ -1,5 +1,5 @@
 ---
-title: "populatecipittables"
+title: "Worker Script Report: Populate Cipit Tables"
 author: "Taylor Heffernan, Brian Cruice"
 date: "`r lubridate::now()`"
 output: html_document
@@ -32,7 +32,7 @@ cipit <- dbConnect(odbc(),
     uid = 'cipreadonly', 
     pwd = 'cipread')
 
-mars <- dbConnect(odbc(), "mars_data")
+mars <- dbConnect(odbc(), params$database)
 ```
 
 ## Worker Script Report: Populate CIPIT Tables
@@ -74,9 +74,9 @@ if(nrow(cipit_project_update) > 0 && params$write){
 
 ```
 
-### The following new projects were written to `mars_data`:
+### The following `r nrow(cipit_project_new)` new projects were `r if(!params$write){"not"}` written to `mars_data`:
 `r if(nrow(cipit_project_new)>0){knitr::kable(cipit_project_new, caption = "New Projects")}`
 
-### The following projects were updated in `mars_data`:
+### The following `r nrow(cipit_project_update)` projects were `r if(!params$write){"not"}` updated in `mars_data`:
 `r if(nrow(cipit_project_update)>0){knitr::kable(cipit_project_update, caption = "Updated Projects")}`
 
