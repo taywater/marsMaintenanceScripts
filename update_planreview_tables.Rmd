@@ -8,7 +8,7 @@ params:
   write: FALSE #Write Changes to database?
 ---
 
-```{r 0.1 Setup, include=FALSE}
+```{r Section 0.1 Setup and DB connections, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 #libraries
@@ -31,7 +31,6 @@ greenit <- dbConnect(odbc(),
                      uid = 'greenitvread',
                      pwd = 'pwd')
 
-#db connections
 planreview <- dbConnect(odbc(), 
                         Driver = "ODBC Driver 17 for SQL Server", 
                         Server = "pwdgis4", 
@@ -45,7 +44,7 @@ mars_data <- dbConnect(odbc(), params$database)
 
 
 
-```{r Section 1 Querrying and Hashing, echo=FALSE}
+```{r Section 1: Querrying and Hashing, echo=FALSE}
 
 #Query plan review tables
 view_smp_designation <- dbGetQuery(planreview, "select * from View_SMP_Designation")
@@ -82,7 +81,7 @@ There are `r nrow(view_smp_designation)` records in the `View_SMP_Designation` t
 
 There are `r nrow(crosstab)` records in the `view_smpsummary_crosstab_asbuiltall` table of `PWD_SWTracking` and `r nrow(crosstab_md)` records in the `external.planreview_view_smpsummary_crosstab_asbuiltall` table within `mars_data`. 
 
-```{r Section 2 Trimming, Joining, and Writing, echo = FALSE}
+```{r Section 2: Trimming, Joining, and Writing, echo = FALSE}
 
 #Trimming dataframes
 view_smp_designation_md_trim <- view_smp_designation_md %>% 
@@ -133,3 +132,10 @@ if(params$write){
 ### The following `r nrow(new_crosstab_hashes)` records have `r if(!params$write){"not"}` been added to the `external.planreview_view_smpsummary_crosstab_asbuiltall` table within `mars_data`:
 `r if(nrow(new_crosstab_hashes)>0){knitr::kable(new_crosstab_hashes, caption = "New Systems")}`
 
+```{r Section3: Clean Up Connections and Render This HTML Document, include = FALSE}
+
+dbDisconnect(greenit)
+dbDisconnect(planreview)
+dbDisconnect(mars_data)
+
+```
