@@ -1,8 +1,11 @@
 ---
-title: "update_greenit_tables"
+title: "Worker Script: Update GreenIT Tables"
 author: "Taylor Heffernan, Brian Cruice"
 date: "11/12/2021"
 output: html_document
+params:
+  database: "mars_data" #Requires a DSN of the same name
+  write: FALSE #Write Changes to database?
 ---
 
 ```{r Section 0.1 Setup and DB connections, include=FALSE}
@@ -27,8 +30,9 @@ greenit <- dbConnect(odbc(),
                      uid = 'greenitvread', 
                      pwd = 'pwd')
 
-mars_data <- dbConnect(odbc(), "mars_data")
+mars_data <- dbConnect(odbc(), params$database)
 ```
+#### The goal of this script is to succesfully read smp, system and project data from the `GreenIT` database and write a copy of new and updated records to`mars_data`.
 
 ```{r Section 1: , echo = FALSE}
 
@@ -59,9 +63,10 @@ project_hash <- projectbestdata %>%
   rowwise() %>% 
   mutate("hash_md5" = digest(paste(project_id, worknumber, proj_projectname, capit_status, capit_statuscategory, proj_primaryprogram, projsyssum_primaryprogram, proj_pilotfactor, proj_x, proj_y, proj_dataphase, proj_sewertype, projsyssum_sewertypes, proj_bestga, proj_bestda_ft2, proj_estimatedga, proj_estimatedda_ft2, projsyssum_creditedga, projsyssum_rawga, projsyssum_impervda_ft2, projsyssum_storagevolume_ft3, projsmpsum_perviousarea_ft2, proj_nonsmptrees, projsmpsum_smptrees, projsmpsum_basins, projsmpsum_blueroofs, projsmpsum_bumpouts, projsmpsum_cisterns, projsmpsum_depaving, projsmpsum_drainagewells, projsmpsum_greengutters, projsmpsum_greenroofs, projsmpsum_infiltrenches, projsmpsum_perviouspaving, projsmpsum_planters, projsmpsum_raingardens, projsmpsum_stormwatertrees, projsmpsum_swales, projsmpsum_treetrenches, projsmpsum_wetlands), algo = "md5"))
 
+
 ```
 
-```{r Section 2: Join Tables, echo = FALSE}
+```{r Section 2: Join Tables and Write New Data to Postgres, echo = FALSE}
 # Compare and find new SMPs, system, and projects -----
   
 new_smps <- smp_hash %>% anti_join(smp_md, by = c("smp_id"))
@@ -69,10 +74,105 @@ new_smps <- smp_hash %>% anti_join(smp_md, by = c("smp_id"))
 new_systems <- system_hash %>%  anti_join(system_md, by = c("system_id"))
 
 new_projects <- project_hash %>% anti_join(project_md, by = c("project_id"))
+
+
+#Write new SMPs to Postgres
+if(params$write){
+  #smp
+  dbWriteTable(mars_data, DBI::SQL("external.smpbdv"), new_smps, append= TRUE)
+  #system
+  dbWriteTable(mars_data, DBI::SQL("external.systembdv"), new_systems, append = TRUE)
+  #project
+  dbWriteTable(mars_data, DBI::SQL("external.projectbdv"), new_projects, append = TRUE)
+}
+
 ```
 
+#### The following `r sum(nrow(new_smps),nrow(new_systems),nrow(new_projects))` records have `r if(!params$write){"not"}` been added to the `external.smpbdv`, `external.systemsbdv`, and `external.projectbdv` tables within `mars_data`:
+`r if(nrow(new_smps)>0){knitr::kable(new_smps, caption = "SMPs")}`
+`r if(nrow(new_systems)>0){knitr::kable(new_systems, caption = "Systems")}`
+`r if(nrow(new_projects)>0){knitr::kable(new_projects, caption = "Projects")}`
 
-```{r Section X: Clean Up Connections and Render This HTML Document, include = FALSE}
+```{r Section 3: Rerun Query and Update Data in Postgres, echo = FALSE}
+
+#3.1 Read Postgres with new records added
+
+#SMPs
+  smp_md <- dbGetQuery(mars_data, "select * from external.smpbdv")
+  
+  smp_md_trim <- smp_md %>% 
+    dplyr::select(smpbdv_uid, smp_id)
+
+#Systems 
+system_md <- dbGetQuery(mars_data, "select * from external.systembdv")
+  
+system_md_trim <- system_md %>% 
+    dplyr::select(systembdv_uid, system_id)
+
+#Projects  
+project_md <- dbGetQuery(mars_data, "select * from external.projectbdv")
+
+project_md_trim <- project_md %>% 
+  dplyr::select(projectbdv_uid, project_id)
+
+#3.2 Hash new query
+#smp
+new_smp_hashes <- smp_hash %>% 
+  left_join(smp_md_trim, by = "smp_id") %>% 
+  anti_join(smp_md, by = c("smp_id", "hash_md5"))
+  
+#system
+new_system_hashes <- system_hash %>%
+  left_join(system_md_trim, by = "system_id") %>%
+  anti_join(system_md, by = c("system_id", "hash_md5")) 
+  
+#project
+new_project_hashes <- project_hash %>%
+  left_join(project_md_trim, by = "project_id") %>% 
+  anti_join(project_md, by = c("project_id", "hash_md5"))
+
+#3.3 Write Update Queries
+
+#SMP update query
+update_smp <- dbSendQuery(mars_data, 'update external.smpbdv set project_id=?, smp_dataphase=?, worknumber=?, capit_status=?, capit_statuscategory=?, system_id=?, smp_id=?, smp_smptype=?, smp_footprint_ft2=?, smp_smptrees=?, smp_perviousarea_ft2=?, smp_vegetatedarea_ft2=?, smp_storagedepth_ft=?, smp_pondingdepth_in=?, smp_storagetype=?, smp_pretreatment=?, smp_notbuiltretired=?, smp_notbuiltretiredreason=?, hash_md5=? WHERE smpbdv_uid=?')
+
+#system update query
+update_system <- dbSendQuery(mars_data, 'update external.systembdv set sys_dataphase=?, worknumber=?, status=?, statuscategory=?, project_id=?, system_id=?, sys_primaryprogram=?, sys_secondaryprograms=?, sys_sewertype=?, sys_overflowtype=?, sys_sysfunction=?, sys_modelinputcategory=?, sys_impervda_ft2=?, sys_surfacedcia_ft2=?, sys_subsurfacedcia_ft2=?, sys_perviousda_ft2=?, sys_totalda_ft2=?, sys_disconnectedarea_ft2=?, sys_storagevolume_ft3=?, sys_totalsysvolume_ft3=?, sys_soilstoragevolume_ft3=?, sys_pondedstoragevolume_ft3=?, sys_volumebeloworifice_ft3=?, sys_creditedga=?, sys_rawga=?, sys_infildepth_ft=?, sys_slowreleasehead_ft=?, sys_storagefootprint_ft2=?, sys_infilfootprint_ft2=?, sys_pondingsurfacearea_ft2=?, sys_orificedia_in=?, sys_underdrain=?, sys_peakreleaserate_cfs=?, sys_rawstormsizemanaged_in=?, sys_modeledstormsizemanaged_in=?, sys_creditedstormsizemanaged_in=?, sys_lrimpervda_ft2=?, sys_lrtotalda_ft2=?, sys_lrsurfacedcia_ft2=?, sys_lrsubsurfacedcia_ft2=?, sys_notbuiltretired=?, sys_notbuiltretiredreason=?, infil_dsg_testdate=?, infil_dsg_testtype=?, infil_dsg_boringdepth_ft=?, infil_dsg_depthtogw_ft=?, infil_dsg_depthtobedrock_ft=?, infil_dsg_rate_inhr=?, infil_constr_testdate=?, infil_constr_testtype=?, infil_constr_rate_inhr=?, hash_md5=? WHERE systembdv_uid =?')
+
+#project update query
+update_project <- dbSendQuery(mars_data, 'update external.projectbdv set project_id=?, worknumber=?, proj_projectname=?, capit_status=?, capit_statuscategory=?, proj_primaryprogram=?, projsyssum_primaryprogram=?, proj_pilotfactor=?, proj_x=?, proj_y=?, proj_dataphase=?, proj_sewertype=?, projsyssum_sewertypes=?, proj_bestga=?, proj_bestda_ft2=?, proj_estimatedga=?, proj_estimatedda_ft2=?, projsyssum_creditedga=?, projsyssum_rawga=?, projsyssum_impervda_ft2=?, projsyssum_storagevolume_ft3=?, projsmpsum_perviousarea_ft2=?, proj_nonsmptrees=?, projsmpsum_smptrees=?, projsmpsum_basins=?, projsmpsum_blueroofs=?, projsmpsum_bumpouts=?, projsmpsum_cisterns=?, projsmpsum_depaving=?, projsmpsum_drainagewells=?, projsmpsum_greengutters=?, projsmpsum_greenroofs=?, projsmpsum_infiltrenches=?, projsmpsum_perviouspaving=?, projsmpsum_planters=?, projsmpsum_raingardens=?, projsmpsum_stormwatertrees=?, projsmpsum_swales=?, projsmpsum_treetrenches=?, projsmpsum_wetlands=?, hash_md5=? WHERE projectbdv_uid=?')
+
+#3.4 Send Updates if write == TRUE
+if(params$write){
+  
+  #SMPs
+  #send the updated data
+  dbBind(update_smp, new_smp_hashes)
+  #release the prepared statement
+  dbClearResult(update_smp)
+  
+  #Systems
+  #send the updated data 
+  dbBind(update_system, new_system_hashes)
+  #release the prepared statement
+  dbClearResult(update_system)
+  
+  #Projects
+  #send the updated data
+  dbBind(update_project, new_project_hashes)
+  #release the prepared statement
+  dbClearResult(update_project)
+  
+}
+
+
+```
+#### The following `r sum(nrow(new_smp_hashes),nrow(new_system_hashes),nrow(new_project_hashes))` records have `r if(!params$write){"not"}` been upadated in the `external.smpbdv`, `external.systemsbdv`, and `external.projectbdv` tables within `mars_data`:
+`r if(nrow(new_smp_hashes)>0){knitr::kable(new_smp_hashes, caption = "SMPs")}`
+`r if(nrow(new_system_hashes)>0){knitr::kable(new_system_hashes, caption = "Systems")}`
+`r if(nrow(new_project_hashes)>0){knitr::kable(new_project_hashes, caption = "Projects")}`
+
+```{r Section 4: Clean Up Connections and Render This HTML Document, include = FALSE}
 dbDisconnect(greenit)
 dbDisconnect(mars_data)
 ```
