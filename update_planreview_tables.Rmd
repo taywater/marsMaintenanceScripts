@@ -1,5 +1,5 @@
 ---
-title: "update_planreview_tables"
+title: "Worker Script: Update Plan Review Tables"
 author: "Taylor Heffernan, Brian Cruice"
 date: "11/10/2021"
 output: html_document
@@ -24,12 +24,6 @@ library(digest)
 
 
 #db connections 
-greenit <- dbConnect(odbc(),
-                     Driver = "ODBC Driver 17 for SQL Server",
-                     Server = "PWDSQLP2",
-                     Database = "GreenIT",
-                     uid = 'greenitvread',
-                     pwd = 'pwd')
 
 planreview <- dbConnect(odbc(), 
                         Driver = "ODBC Driver 17 for SQL Server", 
@@ -134,7 +128,6 @@ if(params$write){
 
 ```{r Section3: Clean Up Connections and Render This HTML Document, include = FALSE}
 
-dbDisconnect(greenit)
 dbDisconnect(planreview)
 dbDisconnect(mars_data)
 
