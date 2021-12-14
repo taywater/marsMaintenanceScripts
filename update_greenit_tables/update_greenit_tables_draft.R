@@ -112,7 +112,7 @@ dbListTables(mars_data)
   # #project
   # dbWriteTable(mars_data, DBI::SQL("external.projectbdv"), new_projects, append = TRUE)
   
-  #2.6 query mars data tables again ----
+  #2.6 query mars dat a tables again ----
   
   smp_md <- dbGetQuery(mars_data, "select * from external.smpbdv")
   
