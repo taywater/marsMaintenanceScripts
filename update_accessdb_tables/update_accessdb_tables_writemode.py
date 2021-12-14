@@ -24,6 +24,13 @@ datestring = current_date.strftime("%Y%m%dT%H%M")
 #We'll be calling this R script from within this python script
 #We'll be composing a string that will be sent to the command line via a subprocess
 
+#Instantiate log file and folders
+if not os.path.exists("output")
+	os.mkdir("output")
+
+if not os.path.exists("logs")
+	os.mkdir("logs")
+	
 #The R script that we'll be executing has runtime parameters that we will be setting in this script
 #Note: r_script, database, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
@@ -37,7 +44,7 @@ output_file = "'output\\\\" + datestring + "_update_accessdb_tables.html" + "'"
 r_exe = "Rscript.exe"
 
 #Compose the R command that will be passed to r_exe
-r_command = "rmarkdown::render(" + r_script + ", params = list(database=" + database + ", write=" + writeflag + ")" + ", output_file =" + output_file + ")"
+r_command = "rmarkdown::render(" + r_script + ", params = list(database=" + database + ", write=" + writeflag + ", datestring=" + datestring +")" + ", output_file =" + output_file + ")"
 
 print(r_command)
 

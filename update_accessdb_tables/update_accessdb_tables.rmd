@@ -8,6 +8,7 @@ output: html_document
 params:
   database: "mars_data"
   write: true #Write changes to database?
+  datestring: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -86,6 +87,14 @@ options(stringsAsFactors=FALSE)
 		finalvector %<>% toupper
 		return(finalvector)
 	}
+	
+	if(params$datestring == FALSE){
+	  datestring <- strftime(lubridate::now(), format = "%Y%m%dT%H%M")
+	} else {
+	  datestring <- params$datestring
+	}
+	
+	  
   
 ```
   
@@ -149,6 +158,9 @@ This script is attempting to update the `admin.accessdb` and `fieldwork.ow_sumpd
   ###Section 1.4 Reconcile the new Access DBs with the existing defined OWs
     #1.4.1 New Access DBs that have matching defined OWs need can be added to the `admin.accessdb` table
     appendtoaccessdbtable <- filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% mutate(filepath = filepath_server)
+    
+    #Log outputs
+    write_csv(appendtoaccessdbtable, file = paste0("logs/", datestring, "_appendtoaccessdbtable.csv"))
 
 ```    
 
@@ -189,9 +201,16 @@ There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `admin.ac
     #All this script can do is report on these
     accessdbswithoutow <- filter(allnewaccessdbs_ow, is.na(ow_uid)) %>% mutate(filepath = filepath_server)
     
+    #Log outputs
+    write_csv(accessdbswithoutow, file = paste0("logs/", datestring, "_accessdbswithoutow.csv"))
+
     #Which known DBs weren't found? (Maybe deleted or moved)
     existingdbs_notfound <- filter(accessdbtable_server, !(filepath %in% c(publicaccessdbs, privateaccessdbs)))
 
+    #Log outputs
+    write_csv(existingdbs_notfound, file = paste0("logs/", datestring, "_existingdbs_notfound.csv"))
+
+    
 ```
 
 ---  
@@ -259,14 +278,25 @@ The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding o
     #IE: We had no table name stored, and we found one with our guesses
     accessdb_foundnewtables <- filter(accessdb_tableguesses,
       (sumptable_guessresult == TRUE & is.na(sumptable)) | (datatable_guessresult == TRUE & is.na(datatable)))
+    
+    #Log outputs
+    write_csv(accessdb_foundnewtables, file = paste0("logs/", datestring, "_accessdb_foundnewtables.csv"))
+
 
   #Access DBs where we didn't find tables we thought were there
     accessdb_missedsomething <- filter(accessdb_tableguesses,
       (sumptable_guessresult == FALSE & !is.na(sumptable)) | (datatable_guessresult == FALSE & !is.na(datatable)))
   
+    #Log outputs
+    write_csv(accessdb_missedsomething, file = paste0("logs/", datestring, "_accessdb_missedsomething.csv"))
+
+    
   #Access DBs with no canonical tables
     #Only checking for data table, because without a data table, a sump table is meaningless
     accessdb_nocanonical <- filter(accessdb_tableguesses, datatable_guessresult == FALSE, is.na(datatable))
+
+    #Log outputs
+    write_csv(accessdb_nocanonical, file = paste0("logs/", datestring, "_accessdb_nocanonical.csv"))
 
 
 ```
@@ -361,9 +391,17 @@ There are `r nrow(accessdb_nocanonical)` Access DBs without known canonical tabl
   #Have any existing measured sump depths changed?
   accessdbs_depthchanged <- filter(accessdbs_sumpdepths, !is.na(sumpdepth_ft), sumpdepth_ft != newsumpdepth_ft)
 
+  #Log outputs
+  write_csv(accessdbs_depthchanged, file = paste0("logs/", datestring, "_accessdbs_depthchanged.csv"))
+
+  
   #Did any sites get new sump depth measurements where there were none before?
   accessdbs_newmeasurement <- filter(accessdbs_sumpdepths, is.na(sumpdepth_ft), !is.na(newsumpdepth_ft))
-  
+
+  #Log outputs
+  write_csv(accessdbs_newmeasurement, file = paste0("logs/", datestring, "_accessdbs_newmeasurement.csv"))
+
+    
 ```
 
 ## Measured sump depths in site databases  
