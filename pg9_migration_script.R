@@ -9,20 +9,19 @@ library(tidyverse)
 library(lubridate)
 library(magrittr)
 library(digest)
-lb
 
 
   truncate_new_tables <- FALSE
-  seriously <- TRUE
+  seriously <- FALSE
 
   
   #connect to testing database-
   mars_9 <- dbConnect(odbc(), "mars_testing")
   
   #testing mode
-  mars_12 <- dbConnect(odbc(), "mars_brian")
+  # mars_12 <- dbConnect(odbc(), "mars_brian")
   #write mode
-  #mars_12 <- dbConnect(odbc(), "mars_data")
+  mars_12 <- dbConnect(odbc(), "mars_data")
   
   cons <- list(mars_9,mars_12)
 
@@ -77,21 +76,40 @@ lb
 #Append new data from PG9 to corresponding PG12 tables
 #pull data
   
-#query function
+#query data functions
   pg9_query <- function(table){
     dbGetQuery(mars_9,paste0("SELECT * FROM ",table))
   }
   pg12_query <- function(table){
     dbGetQuery(mars_12,paste0("SELECT * FROM ",table))
   }
+ 
+#query data type function
+  pg9_data_type_query <- function(table){
+    schema_table <- stringr::str_split_fixed(table, pattern = "\\.", n = 2)
+    data_type_query_string <- paste0("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '", schema_table[1], "' AND TABLE_NAME = '",schema_table[2],"'")
+    dbGetQuery(mars_9,data_type_query_string)
+  }
   
+  pg12_data_type_query <- function(table){
+    schema_table <- stringr::str_split_fixed(table, pattern = "\\.", n = 2)
+    data_type_query_string <- paste0("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '", schema_table[1], "' AND TABLE_NAME = '",schema_table[2],"'")
+    dbGetQuery(mars_12,data_type_query_string)
+  }  
+   
 #query data
-old_tables <- lapply(old_table_names,pg9_query)
+old_tables <- lapply(old_table_names, pg9_query)
 new_tables <- lapply(new_table_names, pg12_query)
+
+#query data types
+old_data_types <- lapply(old_table_names, pg9_data_type_query)
+new_data_types <- lapply(new_table_names, pg12_data_type_query)
 
 #add names
 names(old_tables) <- old_table_names
 names(new_tables) <- new_table_hashes
+names(old_data_types) <- old_table_names
+names(new_data_types) <- new_table_names
   
 #create hash function
 hash_table <- function(table){
@@ -106,12 +124,12 @@ new_table_hashes <- lapply(new_tables,hash_table)
 
 
 #record entries altered between tables
-altered_entries <- list()
+diff_entries <- list()
 for(i in 1:length(old_table_hashes)){
-  # altered_entries[[i]] <- anti_join(old_table_hashes[[i]],new_table_hashes[[i]], by = "hash")
+  # diff_entries[[i]] <- anti_join(old_table_hashes[[i]],new_table_hashes[[i]], by = "hash")
   x <- anti_join(old_table_hashes[[i]],new_table_hashes[[i]], by = "hash")
   y <- dplyr::filter(old_tables[[i]], !!as.name(colnames(old_tables[[i]])[1]) %in% x$uid)
-  altered_entries[[i]] <- y
+  diff_entries[[i]] <- y
   }
 
 
@@ -123,26 +141,39 @@ delete_tables <- list()
 alter_tables <- list()
 append_tables <- list()
 
+#Creates delete, alter, and append lists from the diff_entries lists
  for(i in 1:length(new_tables)){
 
-   #remove entries with uid's in the altered table
-   x <- dplyr::filter(new_tables[[i]], !!as.name(colnames(new_tables[[i]])[1]) %!in% altered_entries[[i]][[1]])
+   #remove entries from the new table with uid's in the diff table
+   #this leaves entries that are either a) unchanged between the two tables or b) present in pg12 (new_tables) but not pg9 (old_tables)
+   x <- dplyr::filter(new_tables[[i]], !!as.name(colnames(new_tables[[i]])[1]) %!in% diff_entries[[i]][[1]])
 
    #Create delete table using negation
-   delete_tables[[i]] <- dplyr::filter(new_tables[[i]],!!as.name(colnames(new_tables[[i]])[1]) %!in% old_tables[[i]][[1]])
-
-   #remove entries to be deleted from x...
-   x %<>% dplyr::filter(!!as.name(colnames(x)[1]) %!in% y[[1]])
+   #Remove group a) by selecting entries that are within x but not within the old table
+   delete_tables[[i]] <- dplyr::filter(x, !!as.name(colnames(x)[1]) %!in% old_tables[[i]][[1]])
 
    #Find altered entries
-   y <- dplyr::filter(new_tables[[i]], !!as.name(colnames(new_tables[[i]])[1]) %in% altered_entries[[i]][[1]])
+   y <- dplyr::filter(new_tables[[i]], !!as.name(colnames(new_tables[[i]])[1]) %in% diff_entries[[i]][[1]])
    alter_tables[[i]] <- y
 
    #Find new entries to append
-   z <- dplyr::filter(old_tables[[i]], !!as.name(colnames(old_tables[[i]])[1]) %in% altered_entries[[i]][[1]])
+
+   #remove entries from the old table with uid's in the diff table
+   #this leaves entries that are either a) unchanged between the two tables or b) present in pg9 (old_tables) but not pg12 (new_tables)
+   z <- dplyr::filter(old_tables[[i]], !!as.name(colnames(old_tables[[i]])[1]) %!in% diff_entries[[i]][[1]])
+   #remove group a) by selecting entries that are within z but not within the new table
    append_tables[[i]]  <- z %>% dplyr::filter(!!as.name(colnames(z)[1]) %!in% new_tables[[i]][[1]])
+   check <-  dplyr::filter(z, !!as.name(colnames(z)[1]) %!in% new_tables[[i]][[1]])
 
    }
+
+#Sanity check
+for(i in 1:length(diff_entries)){
+  if(nrow(diff_entries[[i]]) == (nrow(delete_tables[[i]]) + nrow(alter_tables[[i]]) + nrow(append_tables[[i]]))){
+    print(paste0("Table ",i," is OK."))
+  } else
+    print(paste0("Check Table ",i,"."))
+}
 
 # pass tables to respective queries in pg12
 # order of: delete, alter, append
@@ -155,14 +186,15 @@ append_tables <- list()
    }
  }
 
-alter_query_fx <- function(names,values){
+append_query_fx <- function(values,data_types){
   x = ""
   for(k in 1:length(values)){
-    x <- paste0(x,names[k]," = '", values[k],"'")
+    x <- paste0(x,"'", values[k],"'::",data_types[k])
     if(k < length(values)){ x <- paste0(x,", ")}
   }
   x <- gsub("'NA'","NULL",x)
   x <- gsub("\\'(\\d+)\\'","\\1",x)
+  x <- paste0(x,")")
   return(x)
 }
 
@@ -171,30 +203,48 @@ alter_query_fx <- function(names,values){
      col_names <- colnames(alter_tables[[i]])
      uid_name <- col_names[1]
      uid_upd_list <- alter_tables[[i]][,1]
+     data_types <- new_data_types[[i]] %>% unlist() %>% as.vector()
      for(j in 1:length(uid_upd_list)){
-       x <- alter_query_fx(col_names,alter_tables[[i]][j,])
+       x <- alter_query_fx(col_names,alter_tables[[i]][j,],data_types)
        alt_query <- paste0("UPDATE ",new_table_names[i]," SET ",x, " WHERE ",uid_name," = ",uid_upd_list[j],";")
        dbSendStatement(mars_12, alt_query)
      }
    }
  }
 
-for(i in 1:length(append_tables)){
-  if(seriously == TRUE & nrow(append_tables[[i]] > 0)){
-    
+append_query_fx <- function(names,values,data_types){
+  x = ""
+  for(k in 1:length(values)){
+    x <- paste0(x,names[k]," = '", values[k],"'::",data_types[k])
+    if(k < length(values)){ x <- paste0(x,", ")}
   }
+  x <- gsub("'NA'","NULL",x)
+  x <- gsub("\\'(\\d+)\\'","\\1",x)
+  return(x)
 }
 
-# for(i in 1:length(altered_entries)){
+for(i in 1:length(append_tables)){
+  if(seriously == TRUE & nrow(append_tables[[i]] > 0)){
+      col_names <- colnames(append_tables[[i]])
+      uid_name <- col_names[1]
+      uid_upd_list <- append_tables[[i]][,1]
+      data_types <- new_data_types[[i]] %>% unlist() %>% as.vector()
+      for(j in 1:length(uid_upd_list)){
+        x <- append_query_fx(col_names,append_tables[[i]][j,],data_types)
+      }
+    }
+  }
+
+# for(i in 1:length(diff_entries)){
 # #delete query
-#   if(seriously == TRUE & nrow(altered_entries[[i]]) > 0){
+#   if(seriously == TRUE & nrow(diff_entries[[i]]) > 0){
 #     #delete entries    
 #     uid_name <- colnames(new_tables[[i]])[1]
-#     uid_del_list <- paste(altered_entries[[i]][,1], collapse = ", ")
+#     uid_del_list <- paste(diff_entries[[i]][,1], collapse = ", ")
 #     del_query <- paste0("DELETE * FROM ",new_table_names[i]," WHERE ", uid_name, " IN (", uid_del_list,")")
 #     dbGetQuery(mars_12, del_query)
 #     #write entries    
-#     for(j in 1:nrow(altered_entries[[i]])){
+#     for(j in 1:nrow(diff_entries[[i]])){
 #       table_cols <- paste(colnames(new_tables[[i]]), collapse = ", ")
 #       values <- paste0("'",paste(new_tables[[i]][j,], collapse = "','"),"'")
 #       #regular expression express
