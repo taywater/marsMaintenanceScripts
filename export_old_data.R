@@ -6,7 +6,8 @@ library(lubridate)
   seriously <- TRUE
 
   mars_9 <- dbConnect(odbc(), "mars_testing")
-  mars_12 <- dbConnect(odbc(), "mars_data")
+  mars_12 <- dbConnect(odbc(), "mars_brian")
+  # mars_12 <- dbConnect(odbc(), "mars_data")
 
 #Writing data tables from PG9 to PG12
 #Old Tables
@@ -69,6 +70,7 @@ for(j in 1:nrow(tables)){
   }
 
   #Export new data
+  setwd("//pwdoows/OOWS/Watershed Sciences/GSI Monitoring/07 Databases and Tracking Spreadsheets/13 MARS Analysis Database/PG12 Migration/Migration Data")
   write.csv(old_data, file = paste(strftime(now(), format="%Y%m%d"), tables$new_tables[j], ".csv", sep = "_"), row.names = FALSE)
   rm(old_data)
 }
