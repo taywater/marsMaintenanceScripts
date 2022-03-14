@@ -238,6 +238,8 @@ alter_query_fx <- function(names,values,data_types){
    }
  }
 
+
+
 #APPEND
 append_query_fx <- function(values,data_types){
   x = "("
