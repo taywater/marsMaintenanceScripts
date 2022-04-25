@@ -11,3 +11,4 @@ update_rainfall_tables/output
 update_smp_tables/output
 update_smp_tables/centroids_folder
 update_rainfall_tables/Metadata.txt
+marsMaintenanceScripts_pg9.Rproj
