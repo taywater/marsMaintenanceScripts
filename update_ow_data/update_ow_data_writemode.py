@@ -23,7 +23,7 @@ datestring = current_date.strftime("%Y%m%dT%H%M")
 #The R script that we'll be executing has runtime parameters that we will be setting in this script
 #Note: r_script, database, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
-r_script = "'" + re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "\\\\update_ow_data\\\\update_ow_data.rmd'"
+r_script = "'" + re.sub('\\\\', '\\\\\\\\',MAINTENANCEFOLDER) + "_pg9\\\\update_ow_data\\\\update_ow_data.rmd'"
 database = "'mars_testing'"
 writeflag = "TRUE"
 output_file = "'output\\\\" + datestring + "_update_ow_data.html" + "'"
@@ -41,8 +41,8 @@ r_command = "rmarkdown::render(" + r_script + ", params = list(database=" + data
 subprocess.call([r_exe, "-e", r_command])
 
 #Open the output file in your web browser
-outputexists = os.path.isfile(MAINTENANCEFOLDER + "\\update_ow_data\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
+outputexists = os.path.isfile(MAINTENANCEFOLDER + "_pg9\\update_ow_data\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
 if outputexists:
-	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_ow_data\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "_pg9\\update_ow_data\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
 else:
-	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_ow_data\\ow_error.html"))
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "_pg9\\update_ow_data\\ow_error.html"))

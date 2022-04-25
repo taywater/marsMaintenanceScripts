@@ -63,6 +63,11 @@ options(stringsAsFactors=FALSE)
   
   newdata$dtime_edt %<>% as.character #prevents drift due to time zone defaults
   
+  #In certain rare circumstances, duplicate data can be missed. I'm not sure why this happens, but we can filter it out with relative ease.
+  keys <- dbGetQuery(marsDBCon, "select concat(gage_uid, '_', dtime_edt) as key from rainfall_gage_raw") %>% pull(key)
+  newdata %<>% mutate(key = paste(gage_uid, dtime_edt, sep = "_"))
+ newdata <- filter(newdata, !(key %in% keys)) %>% select(-key)
+  
 ```
 
 ## Updates to `rainfall_gage_raw` Table

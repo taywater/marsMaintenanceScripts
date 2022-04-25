@@ -7,7 +7,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: "mars_testing"
-  write: false #Write changes to database?
+  write: TRUE #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -138,7 +138,7 @@ This script is attempting to update the `accessdb` and `ow_sumpdepth`tables in t
     
     #Connect the public and private sites
     allnewaccessdbs_df <- bind_rows(publicaccessdbs_df, privateaccessdbs_df)
-  
+    
   ###Section 1.3 Connect ow_uids to SMP IDs and OW suffixes
     #Fetch current version of the OW table
     ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow_all")

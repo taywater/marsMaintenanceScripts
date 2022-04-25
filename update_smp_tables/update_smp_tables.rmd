@@ -6,9 +6,8 @@ author:
 date: "`r lubridate::now()`"
 output: html_document
 params:
-  file: "A:/Scripts/Maintenance/update_smp_tables/centroids_folder/centroids_dem_20190408T1300.shp" #ESRI shapefile containing SMP centroids
   database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
-  write: FALSE #Write changes to database?
+  write: TRUE #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -52,6 +51,9 @@ dsn_infra_pub <- paste0("MSSQL:server=pwdgis4;",
 		#Refresh materialized view so it has the newest cache of SMP IDs
 		#If we don't do this, new IDs won't be found, and we will get an insertion error.
 		dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW smpid_facilityid_componentid WITH DATA;")
+	  
+	  #Grab universe of SMP IDs to filter SMP additions
+	  valid_smps <- dbGetQuery(marsDBCon, "select distinct smp_id from smpid_facilityid_componentid") %>% pull(smp_id)
 	}
 
 ```
@@ -159,7 +161,7 @@ This script is attempting to update the `smp_loc`, `smp_radarcell`, and `smp_gag
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
 	#Stick them all together
-	smp_locNewData <- bind_rows(basin, blueroof, bumpout, cistern, drainagewell, greenroof, permeablepavement, planter, raingarden, swale, treetrench, trench, wetland)
+	smp_locNewData <- bind_rows(basin, blueroof, bumpout, cistern, drainagewell, greenroof, permeablepavement, planter, raingarden, swale, treetrench, trench, wetland) %>% filter(smp_id %in% valid_smps)
 	row.names(smp_locNewData) <- NULL
 
 ```

@@ -27,7 +27,7 @@ datestring = current_date.strftime("%Y%m%dT%H%M")
 #The R script that we'll be executing has runtime parameters that we will be setting in this script
 #Note: r_script, database, and output_file are wrapped in single quotes because the resultant R command expects them to be string literals
 #Note: This filepath is echoed by Python and interpreted by R, so we need \\\\ as a separator
-r_script = "'" + re.sub('\\\\', '\\\\\\\\', MAINTENANCEFOLDER) + "\\\\update_accessdb_tables\\\\update_accessdb_tables.rmd" + "'"
+r_script = "'" + re.sub('\\\\', '\\\\\\\\', MAINTENANCEFOLDER) + "_pg9\\\\update_accessdb_tables\\\\update_accessdb_tables.rmd" + "'"
 database = "'mars_testing'"
 writeflag = "TRUE"
 output_file = "'output\\\\" + datestring + "_update_accessdb_tables.html" + "'"
@@ -47,8 +47,8 @@ print(r_command)
 subprocess.call([r_exe, "-e", r_command])
 
 #Open the output file in your web browser
-outputexists = os.path.isfile(MAINTENANCEFOLDER + "\\update_accessdb_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
+outputexists = os.path.isfile(MAINTENANCEFOLDER + "_pg9\\update_accessdb_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'")))
 if outputexists:
-	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_accessdb_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "_pg9\\update_accessdb_tables\\" + re.sub('\\\\\\\\', '\\\\', output_file.strip("'"))))
 else:
-	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "\\update_accessdb_tables\\accessdb_error.html"))
+	webbrowser.open(os.path.realpath(MAINTENANCEFOLDER + "_pg9\\update_accessdb_tables\\accessdb_error.html"))

@@ -7,7 +7,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
-  write: FALSE #Write changes to database?
+  write: TRUE #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -83,6 +83,8 @@ options(stringsAsFactors=FALSE)
     
     #filter to only those files not in the database
     filter(in_db == FALSE) %>% 
+    
+    filter(!grepl("Villanova", filepath)) %>%
 
     #Find the first date in the files
     mutate(firstDate_est = mdy_hms(firstDate(filepath), tz = "EST")) %>% 
