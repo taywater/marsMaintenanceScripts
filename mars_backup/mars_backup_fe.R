@@ -1,5 +1,5 @@
 # Script to back-up mars-testing database 
-# Author: Farshad Ebrahimi, Last modified: 8/25/2022
+# Author: Farshad Ebrahimi, Last modified: 8/26/2022
 
 #Dplyr stuff
   library(magrittr)
@@ -13,6 +13,13 @@
   library(openssl)
   options(stringsAsFactors=FALSE)
   
+#which database to backup? what format?
+  format_archive <- "c"
+  format <- paste("--format=",format_archive, sep = "")
+  database_archive <-"mars_testing"
+  db <- paste("--dbname=",shQuote(database_archive), sep ="")
+  
+#specify other details: the pathway to find pg_dump, where to save archive, naming format, database server specs, and username credentials  
   datestring <- Sys.time() %>% format("%Y%m%dT%H%M")
   extension <- "pgdump"
   filename <- paste0(datestring, "_", "mars_testing", ".", extension)
@@ -28,8 +35,9 @@
   username <- shQuote(username)
   role <- "postgres"
   role <- shQuote(role)
- 
-  #Assemble the entire pg_dump	
+  
+  
+#Assemble the entire pg_dump string	
   pgdumpstring <- paste(pg_dump,
                         "--file",filepath,
                         "--host",host,
@@ -37,8 +45,9 @@
                         "--username",username,
                         "--no-password",
                         "--role",role,
-                        "--format=c",
-                        '--dbname="mars_testing"')
+                        format,
+                        db)
+ # run the command line using system function 
   results_dump <- system(pgdumpstring, intern = TRUE, wait = FALSE)
   
   
