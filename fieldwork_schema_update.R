@@ -30,7 +30,8 @@ seriously <- TRUE
 # in the "migration "Migration Table Key" tab
 # https://phila-my.sharepoint.com/:x:/g/personal/brian_cruice_phila_gov/EYCmRB4mOKNGnYGaQQO5CeIBJv6t1F9nQmVUvwL4hTACew?e=wwxkqk
 
-  schema_relations <- read.csv("C:/users/brian.cruice/Desktop/schema_relations.csv")
+  schema_relations <- read.csv("C:/users/brian.cruice/Desktop/schema_relations.csv", encoding = "UTF-8")
+  colnames(schema_relations)[1] <- "PG.14.Table"
 
 # Limit to fieldwork pg14 schema
 # This skips the 
@@ -44,7 +45,7 @@ seriously <- TRUE
 # 1.1 Read pg9/14 data
 # Connect to both databases
   pg9_con <- dbConnect(odbc(), "mars_testing")
-  pg14_con <- dbConnect(odbc(), "mars_data_pg14")
+  pg14_con <- dbConnect(odbc(), "mars14_data")
   
   
 # Query fx's for readin' and writin'
@@ -299,7 +300,7 @@ seriously <- TRUE
         insert_query <- paste0("INSERT INTO ",names(new_entries)[[i]]," (",paste(col_names, collapse = ", "),") VALUES (",insert_vals,");")
         
         # send 
-        if(seriously == TRUE){dbGetQuery(pg14_con, insert_query); print(paste("Added rwos to table ",names(pg14_tables)[i]))}
+        if(seriously == TRUE){dbGetQuery(pg14_con, insert_query); print(paste("Added rows to table ",names(pg14_tables)[i]))}
         else{print(paste0("Query, \"",insert_query,"\", was not used."))}
         
       }
