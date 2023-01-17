@@ -6,7 +6,7 @@ author:
 date: "`r lubridate::now()`"
 output: html_document
 params:
-  database: "mars_data"
+  database: "mars14_data"
   write: true #Write changes to database?
   datestring: FALSE
 ---
@@ -27,7 +27,7 @@ options(stringsAsFactors=FALSE)
 ```
 
 ```{r Section 0 - Preamble and database connections, include=FALSE}
-###Section 0.1: Check parameter validity
+ ###Section 0.1: Check parameter validity
 
 ###Section 0.2: Connect to the database
  	#Connect to MARS database using ODBC channel
@@ -35,7 +35,7 @@ options(stringsAsFactors=FALSE)
 	
 	#Refresh materialized view so it has the newest cache of SMP IDs
 	#If we don't do this, new IDs won't be found, and we will get an insertion error.
-	dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW external.assets WITH DATA;")
+	dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW external.mat_assets WITH DATA;")
 
 ###Section 0.3: Other basic parameters
 	publicsitefolder <- "//pwdoows/oows/Watershed Sciences/GSI Monitoring/02 GSI Monitoring Sites"
@@ -98,19 +98,19 @@ options(stringsAsFactors=FALSE)
   
 ```
   
-This script is attempting to update the `admin.accessdb` and `fieldwork.ow_sumpdepth_intermediate`tables in the `r params$database` database. It crawls the GSI Monitoring Sites folder, and does the following:  
+This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_ow_sumpdepth_intermediate`tables in the `r params$database` database. It crawls the GSI Monitoring Sites folder, and does the following:  
   
- 1. Update the `admin.accessdb` table's set of information for GSI site Access DBs (`accessdb.filepath`, `accessdb.ow_uid`)  
+ 1. Update the `admin.tbl_accessdb` table's set of information for GSI site Access DBs (`accessdb.filepath`, `accessdb.ow_uid`)  
   * Look for all Access DBs in the roots of the various site folders (file paths end with .mdb or .accdb)
   * Verify that all DB paths contained in `accessdb.filepath` can be found
-  * For newly created Access DBs, parse their filepath and look in `fieldwork.ow ow` for matching `ow.smp_id` and `ow.ow_suffix`
+  * For newly created Access DBs, parse their filepath and look in `fieldwork.tbl_ow ow` for matching `ow.smp_id` and `ow.ow_suffix`
   * Look for deleted/moved DBs, whose file paths can no longer be found
   
- 2. Update the `admin.accessdb` table's set of canonical GSI table names (`accessdb.datatable`, `accessdb.sumptable`)
+ 2. Update the `admin.tbl_accessdb` table's set of canonical GSI table names (`accessdb.datatable`, `accessdb.sumptable`)
   * Loop through Access DBs (`accessdb.filepath`), checking each for canonical data tables and stage-storage tables.
   * Create data frames of additions to the set of canonical table names, and existing table names that can no longer be found
   
- 3. Update the sump depths in the `fieldwork.ow_sumpdepth_intermediate` table
+ 3. Update the sump depths in the `fieldwork.tbl_ow_sumpdepth_intermediate` table
   
 
 
@@ -130,7 +130,7 @@ This script is attempting to update the `admin.accessdb` and `fieldwork.ow_sumpd
     privateaccessdbs <- list.files(privatesitefolders, "\\.accdb$|\\.mdb$", recursive=FALSE, full.names=TRUE)
     
     #Fetch current version of the AccessDB table
-    accessdbtable_server <- dbGetQuery(marsDBCon, "SELECT * FROM admin.accessdb")
+    accessdbtable_server <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
     
 ```
 
@@ -150,13 +150,13 @@ This script is attempting to update the `admin.accessdb` and `fieldwork.ow_sumpd
   
   ###Section 1.3 Connect ow_uids to SMP IDs and OW suffixes
     #Fetch current version of the OW table
-    ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow")
+    ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.tbl_ow")
     
     #Join our new AccessDB file paths to the current OW table (to attach ow_uids)
     allnewaccessdbs_ow <- left_join(allnewaccessdbs_df, ow, by = c("smp_id", "ow_suffix"))
     
   ###Section 1.4 Reconcile the new Access DBs with the existing defined OWs
-    #1.4.1 New Access DBs that have matching defined OWs need can be added to the `admin.accessdb` table
+    #1.4.1 New Access DBs that have matching defined OWs need can be added to the `admin.tbl_accessdb` table
     appendtoaccessdbtable <- filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% mutate(filepath = filepath_server)
     
     #Log outputs
@@ -164,13 +164,13 @@ This script is attempting to update the `admin.accessdb` and `fieldwork.ow_sumpd
 
 ```    
 
-## State of site databases relative to `admin.accessdb` and `fieldwork.ow`
+## State of site databases relative to `admin.tbl_accessdb` and `fieldwork.tbl_ow`
 
-The site folders have been crawled and compared to the `admin.accessdb` table and `fieldwork.ow` table.  
+The site folders have been crawled and compared to the `admin.tbl_accessdb` table and `fieldwork.tbl_ow` table.  
   
-### New Access DBs to add to `admin.accessdb`
+### New Access DBs to add to `admin.tbl_accessdb`
   
-There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `admin.accessdb` table. These DBs have defined OWs in the `fieldwork.ow` table.
+There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `admin.tbl_accessdb` table. These DBs have defined OWs in the `fieldworktbl_ow` table.
 
 `r if(nrow(appendtoaccessdbtable) > 0){appendtoaccessdbtable %>% transmute(smp_id, ow_suffix, sitefolder = basename(dirname(filepath)), dbname = basename(filepath_server) %>% {gsub("_GSI_Monitoring_Database.*$", "", .)}) %>% kable(format = "pandoc")}`  
 
@@ -184,7 +184,7 @@ There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `admin.ac
   #If there's new data to append
 	if(nrow(appendtoaccessdbtable) > 0 & params$write == TRUE){
     outcome_appendtoaccessdbtable <- tryCatch({dbWriteTable(marsDBCon, 
-        DBI::SQL("admin.accessdb"), 
+        DBI::SQL("admin.tbl_accessdb"), 
         appendtoaccessdbtable, 
         append= TRUE, 
         row.names = FALSE)}, # append the data
@@ -215,7 +215,7 @@ There are `r nrow(appendtoaccessdbtable)` new Access DBs to add to the `admin.ac
 
 ---  
   
-### Access DBs in `admin.accessdb` not found in the filesystem
+### Access DBs in `admin.tbl_accessdb` not found in the filesystem
 
 The script found `r nrow(existingdbs_notfound)` Access DBs that had been deleted or moved from their previous location. `r if(nrow(existingdbs_notfound) > 0) "Please locate those DBs and put them back in their original place, or remove deleted DBs from the accessdb table."`
 
@@ -224,16 +224,16 @@ The script found `r nrow(existingdbs_notfound)` Access DBs that had been deleted
 
 ---  
 
-### Access DBs without a defined Observation Well in `fieldwork.ow`  
-The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding observation wells defined in `fieldwork.ow`. `r if(nrow(accessdbswithoutow) > 0) "Please create observation wells for these Access DBs with the \"Add Observation Well\" form in the MARS Fieldwork Tracking Shiny App"`  
+### Access DBs without a defined Observation Well in `fieldwork.tbl_ow`  
+The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding observation wells defined in `fieldwork.tbl_ow`. `r if(nrow(accessdbswithoutow) > 0) "Please create observation wells for these Access DBs with the \"Add Observation Well\" form in the MARS Fieldwork Tracking Shiny App"`  
   
 `r if(nrow(accessdbswithoutow) > 0){accessdbswithoutow %>% transmute(smp_id, ow_suffix, ow_uid, sitefolder = basename(dirname(filepath)), dbname = basename(filepath_server) %>% {gsub("_GSI_Monitoring_Database.*$", "", .)}) %>% kable(format = "pandoc")}`  
 
 ```{r Section 2 - Checking the Access DBs for canonical table names, include = FALSE}
 
   #Redownload the Access DB paths and OWs, in case they have changed
-  accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM admin.accessdb")
-  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow")
+  accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
+  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.tbl_ow")
   
   #Ignore any DBs that were unable to be found in the previous step
   accessdbs <- anti_join(accessdbs, existingdbs_notfound, by = "accessdb_uid")
@@ -249,18 +249,43 @@ The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding o
              datatable_guessresult = NA,
              sumptable_guessresult = NA)
 
-  for(i in 1:nrow(accessdb_tableguesses)){
+    # pick Q as a dumby drive, may need to change based on usage of the comp. handling the virtual task manager
+    cmd_sub <- "subst Q: \"\\\\pwdoows\\OOWS\\Watershed Sciences\\GSI Monitoring\\02 GSI Monitoring Sites\""
+    cmd_output <- system(cmd_sub, intern = TRUE)
+    
+    
+    ## Trying RODBC method, 1/13/2023
+    # for(i in 1:nrow(accessdb_tableguesses)){
+    # #Debug statement. Uncomment if running interactively.
+    # # print(paste("Accessing", basename(accessdb_tableguesses$filepath[i])))
+    # 
+    # #We need RODBC to connect to the DBs because odbc::odbc throws a "DSN too long" error. I would like to fix this sometime
+    # #changing RODBC back to odbc, setting a shortcut for the file path to //pwdoows/oows/Watershed Sciences/GSI Monitoring/02 GSI Monitoring Sites/"
+    # short_path <- gsub(pattern = "//pwdoows/oows/Watershed Sciences/GSI Monitoring/02 GSI Monitoring Sites/",
+    #                    replacement = "Q:/",
+    #                    x = accessdb_tableguesses$filepath[i])
+    # 
+    # accessdbCon <- odbc::dbConnect(odbc::odbc(),driver = 'Microsoft Access Driver (*.mdb, *.accdb)', database = short_path)
+    # 
+    # accessdbCon <- RODBC::odbcConnectAccess2007(access.file = accessdb_tableguesses$filepath[i], socket = default_socket())
+    # 
+    # #List the tables in each database and check to see if we can find the guessed table name in there
+    # dbtables <- RODBC::sqlTables(accessdbCon)
+    # accessdb_tableguesses$datatable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$datatable_guess[i] %in% .$TABLE_NAME}
+    # accessdb_tableguesses$sumptable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$sumptable_guess[i] %in% .$TABLE_NAME}
+    # 
+    # RODBC::odbcClose(accessdbCon)
+    # }
+    
+    for(i in 1:nrow(accessdb_tableguesses)){
     #Debug statement. Uncomment if running interactively.
     # print(paste("Accessing", basename(accessdb_tableguesses$filepath[i])))
-
     #We need RODBC to connect to the DBs because odbc::odbc throws a "DSN too long" error. I would like to fix this sometime
     accessdbCon <- RODBC::odbcConnectAccess2007(accessdb_tableguesses$filepath[i])
-
     #List the tables in each database and check to see if we can find the guessed table name in there
     dbtables <- RODBC::sqlTables(accessdbCon)
     accessdb_tableguesses$datatable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$datatable_guess[i] %in% .$TABLE_NAME}
     accessdb_tableguesses$sumptable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$sumptable_guess[i] %in% .$TABLE_NAME}
-
     RODBC::odbcClose(accessdbCon)
   }
 
@@ -303,7 +328,7 @@ The script found `r nrow(accessdbswithoutow)` Access DBs without corresponding o
   
 ## Canonical tables in site databases  
   
-The site databases in `admin.accessdb` have been inspected against the canonical tables in `accessdb.datatable` and `accessdb.sumptable`. Any changes have been summarized below.  
+The site databases in `admin.tbl_accessdb` have been inspected against the canonical tables in `accessdb.datatable` and `accessdb.sumptable`. Any changes have been summarized below.  
 
 ### Newly-discovered canonical tables  
 New canonical tables were discovered in `r nrow(accessdb_foundnewtables)` existing Access DBs.  
@@ -330,8 +355,8 @@ New canonical tables were discovered in `r nrow(accessdb_foundnewtables)` existi
     )
 	  
 	  #Use this temp table to update the existing accessdb table
-	  dbGetQuery(marsDBCon, "update admin.accessdb a set datatable = t.datatable from accessdb_temp t where a.accessdb_uid = t.accessdb_uid")
-	  dbGetQuery(marsDBCon, "update admin.accessdb a set sumptable = t.sumptable from accessdb_temp t where a.accessdb_uid = t.accessdb_uid and t.sumptable <> 'NA'") #Temporary table means R will copy the string "NA" into the table when a value is NA. We must explicitly exclude these or else they'll end up in the final table and fuck everything up.
+	  dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set datatable = t.datatable from accessdb_temp t where a.accessdb_uid = t.accessdb_uid")
+	  dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set sumptable = t.sumptable from accessdb_temp t where a.accessdb_uid = t.accessdb_uid and t.sumptable <> 'NA'") #Temporary table means R will copy the string "NA" into the table when a value is NA. We must explicitly exclude these or else they'll end up in the final table and fuck everything up.
   }
 ```
 
@@ -351,9 +376,9 @@ There are `r nrow(accessdb_nocanonical)` Access DBs without known canonical tabl
   #Read accessdb, filter to DBs with a sumptable, connect to each DB, check each stage storage curve for a sump depth (>0, 0)
 
   #Redownload the Access DB paths and OWs, in case they have changed
-  accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM admin.accessdb")
-  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow")
-  ow_sumpdepth <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.ow_sumpdepth_intermediate")
+  accessdbs <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
+  ow <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.tbl_ow")
+  ow_sumpdepth <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.tbl_ow_sumpdepth_intermediate")
   
   #Ignore any DBs that were unable to be found in the previous step
   accessdbs <- anti_join(accessdbs, existingdbs_notfound, by = "accessdb_uid")
@@ -413,7 +438,7 @@ The sump depth tables in `accessdb.sumptable` have been inspected and any change
 Changed sump depths measurements were discovered in `r nrow(accessdbs_depthchanged)` Access DBs.  
 `r if(nrow(accessdbs_depthchanged) > 0){accessdbs_depthchanged %>% transmute(smp_id, ow_suffix, sumptable, sumpdepth_ft = newsumpdepth_ft) %>% kable(format = "pandoc")}`  
   
-```{r Section 3.5 - Writing new measured sump depths to the ow_sumpdepth table, include= FALSE}
+```{r Section 3.5 - Writing new measured sump depths to the ow_sumpdepth_intermediate table, include= FALSE}
   #There are two update mechanisms this time because we need to do an append for the brand new values and an UPDATE for the updated values
 
   ###Section 3.5: Updating existing sump depths
@@ -436,7 +461,7 @@ Changed sump depths measurements were discovered in `r nrow(accessdbs_depthchang
       )
   	  
   	  #Use this temp table to update the existing accessdb table
-  	  dbGetQuery(marsDBCon, "update fieldwork.ow_sumpdepth_intermediate s set sumpdepth_ft = t.sumpdepth_ft from ow_sumpdepth_temp t where s.ow_uid = t.ow_uid")
+  	  dbGetQuery(marsDBCon, "update fieldwork.tbl_ow_sumpdepth_intermediate s set sumpdepth_ft = t.sumpdepth_ft from ow_sumpdepth_temp t where s.ow_uid = t.ow_uid")
   	}
     
 ```
@@ -459,7 +484,7 @@ Updated sump depths were discovered in `r nrow(accessdbs_newmeasurement)` Access
     #If there's new data to append
   	if(nrow(accessdbs_newsumpdepths) > 0 & params$write == TRUE){
       tryCatch({outcome_accessdb_foundnewtables <- dbWriteTable(marsDBCon, 
-          DBI::SQL("fieldwork.ow_sumpdepth_intermediate"), 
+          DBI::SQL("fieldwork.tbl_ow_sumpdepth_intermediate"), 
           accessdbs_newsumpdepths, 
           append = TRUE,
           row.names = FALSE)}, #Append to existing table
@@ -474,4 +499,8 @@ Updated sump depths were discovered in `r nrow(accessdbs_newmeasurement)` Access
 ```{r Section 4 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
 	dbDisconnect(marsDBCon)
+  # #Remove virtual drive shortcut
+  # cmd_remove <- "subst M: /d"
+  # cmd_output_remove <- system(cmd_remove, intern = TRUE)
+    
 ```

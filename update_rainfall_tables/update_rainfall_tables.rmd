@@ -294,10 +294,10 @@ The latest rainfall data has been processed for event detection. There are `r nr
 
 ```{r Section 4.5 - Writing to the data.tbl_radar_event table, include = FALSE}  
 # Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_rain_newevents <- FALSE
+  outcome_rain_totalevents <- FALSE
   #If there's new data to append
   if(nrow(rain_newevents) > 0 & params$write == TRUE){
-    outcome_rain_totalevents <- tryCatch({outcome_rain_newevents <- dbWriteTable(marsDBCon, 
+    outcome_rain_totalevents <- tryCatch({outcome_rain_totalevents <- dbWriteTable(marsDBCon, 
         DBI::SQL("data.tbl_radar_event"), 
         rain_newevents, 
         append= TRUE, 

@@ -48,7 +48,7 @@ options(stringsAsFactors=FALSE)
 ```
   
 ```{r Section 1 - Gathering baro data, include = FALSE}
-
+ 
   #Fetch all host folders for baro data
   baro_rawfolders <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_baro_rawfolder")
 
@@ -87,7 +87,7 @@ options(stringsAsFactors=FALSE)
     #Find the first date in the files
     mutate(firstDate_est = mdy_hms(firstDate(filepath), tz = "EST")) %>% 
 
-    #Filter to only the new stuff
+    #Filter to only the new stuff; new year, new "new stuff" 2019-01-01 changed to 2021-01-01 (change made 2023-01-17)  
     filter(firstDate_est >= ymd("2019-01-01", tz = "EST")) %>% 
 
     #Join them to the data frame showing the latest date for each baro in the database
@@ -116,7 +116,10 @@ The filesystem has been examined for new barometric pressure data. There are `r 
 
   #sapply will give names to the elements of the column, which we don't want
   names(newrawfiles$md5hash) <- NULL
-
+  
+  #make unique
+  newrawfiles <- newrawfiles %>% unique()
+  
   # Fail safe. If the block below doesn't run, we didn't append anything
   outcome_newrawfiles <- FALSE
 
