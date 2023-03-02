@@ -5,7 +5,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: "mars_data" #Requires a DSN of the same name
-  write: FALSE #Write Changes to database?
+  write: TRUE #Write Changes to database?
 ---
 
 ```{r 0.1: Setup and Database Connections, include=FALSE}
@@ -35,7 +35,7 @@ dataconv <- dbConnect(odbc(),
     uid = 'gisread',
     pwd = 'gisread')
 
-mars <- dbConnect(odbc(), "mars_data")
+mars <- dbConnect(odbc(), "mars14_data")
 ```
 
 ## Worker Script Report: Populate Data Conversion Tables
@@ -232,31 +232,31 @@ This script is attempting to update tables within the `external` schema base on 
 
 ```
 
-```{r Section 3 - Pull existing tables from MARS PG12 database, include=FALSE}
+```{r Section 3 - Pull existing tables from MARS PG14 database, include=FALSE}
 #Query the DB to pull the existing versions
-    gswibasin_db <- dbGetQuery(mars, "select * from external.gswibasin")
-    gswiblueroof_db <- dbGetQuery(mars, "select * from external.gswiblueroof")
-    gswibumpout_db <- dbGetQuery(mars, "select * from external.gswibumpout")
-    gswicistern_db <- dbGetQuery(mars, "select * from external.gswicistern")
-    gswidrainagewell_db <- dbGetQuery(mars, "select * from external.gswidrainagewell")
-    gswigreenroof_db <- dbGetQuery(mars, "select * from external.gswigreenroof")
-    gswipermeablepavement_db <- dbGetQuery(mars, "select * from external.gswipermeablepavement")
-    gswiplanter_db <- dbGetQuery(mars, "select * from external.gswiplanter")
-    gswiraingarden_db <- dbGetQuery(mars, "select * from external.gswiraingarden")
-    gswiswale_db <- dbGetQuery(mars, "select * from external.gswiswale")
-    gswitree_db <- dbGetQuery(mars, "select * from external.gswitree")
-    gswitreetrench_db <- dbGetQuery(mars, "select * from external.gswitreetrench")
-    gswitrench_db <- dbGetQuery(mars, "select * from external.gswitrench")
-    gswiwetland_db <- dbGetQuery(mars, "select * from external.gswiwetland")
+    gswibasin_db <- dbGetQuery(mars, "select * from external.tbl_gswibasin")
+    gswiblueroof_db <- dbGetQuery(mars, "select * from external.tbl_gswiblueroof")
+    gswibumpout_db <- dbGetQuery(mars, "select * from external.tbl_gswibumpout")
+    gswicistern_db <- dbGetQuery(mars, "select * from external.tbl_gswicistern")
+    gswidrainagewell_db <- dbGetQuery(mars, "select * from external.tbl_gswidrainagewell")
+    gswigreenroof_db <- dbGetQuery(mars, "select * from external.tbl_gswigreenroof")
+    gswipermeablepavement_db <- dbGetQuery(mars, "select * from external.tbl_gswipermeablepavement")
+    gswiplanter_db <- dbGetQuery(mars, "select * from external.tbl_gswiplanter")
+    gswiraingarden_db <- dbGetQuery(mars, "select * from external.tbl_gswiraingarden")
+    gswiswale_db <- dbGetQuery(mars, "select * from external.tbl_gswiswale")
+    gswitree_db <- dbGetQuery(mars, "select * from external.tbl_gswitree")
+    gswitreetrench_db <- dbGetQuery(mars, "select * from external.tbl_gswitreetrench")
+    gswitrench_db <- dbGetQuery(mars, "select * from external.tbl_gswitrench")
+    gswiwetland_db <- dbGetQuery(mars, "select * from external.tbl_gswiwetland")
 
-    gswicleanout_db <- dbGetQuery(mars, "select * from external.gswicleanout")
-    gswicontrolstructure_db <- dbGetQuery(mars, "select * from external.gswicontrolstructure")
-    gswiconveyance_db <- dbGetQuery(mars, "select * from external.gswiconveyance")
-    gswifitting_db <- dbGetQuery(mars, "select * from external.gswifitting")
-    gswiinlet_db <- dbGetQuery(mars, "select * from external.gswiinlet")
-    gswimanhole_db <- dbGetQuery(mars, "select * from external.gswimanhole")
-    gswiobservationwell_db <- dbGetQuery(mars, "select * from external.gswiobservationwell")
-    gswistructure_db <- dbGetQuery(mars, "select * from external.gswistructure")
+    gswicleanout_db <- dbGetQuery(mars, "select * from external.tbl_gswicleanout")
+    gswicontrolstructure_db <- dbGetQuery(mars, "select * from external.tbl_gswicontrolstructure")
+    gswiconveyance_db <- dbGetQuery(mars, "select * from external.tbl_gswiconveyance")
+    gswifitting_db <- dbGetQuery(mars, "select * from external.tbl_gswifitting")
+    gswiinlet_db <- dbGetQuery(mars, "select * from external.tbl_gswiinlet")
+    gswimanhole_db <- dbGetQuery(mars, "select * from external.tbl_gswimanhole")
+    gswiobservationwell_db <- dbGetQuery(mars, "select * from external.tbl_gswiobservationwell")
+    gswistructure_db <- dbGetQuery(mars, "select * from external.tbl_gswistructure")
 ```
 
 ```{r Section 4 - Identify differnces between tables, include=FALSE}
@@ -317,29 +317,29 @@ This script is attempting to update tables within the `external` schema base on 
 ```{r Section 5 - Write Assets, include=FALSE}
 #Write new assets
 if(params$write){
-    dbWriteTable(mars, DBI::SQL("external.gswibasin"), gswibasin_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiblueroof"), gswiblueroof_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswibumpout"), gswibumpout_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswicistern"), gswicistern_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswidrainagewell"), gswidrainagewell_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswigreenroof"), gswigreenroof_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswipermeablepavement"), gswipermeablepavement_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiplanter"), gswiplanter_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiraingarden"), gswiraingarden_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiswale"), gswiswale_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswitree"), gswitree_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswitreetrench"), gswitreetrench_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswitrench"), gswitrench_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiwetland"), gswiwetland_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswibasin"), gswibasin_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiblueroof"), gswiblueroof_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswibumpout"), gswibumpout_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswicistern"), gswicistern_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswidrainagewell"), gswidrainagewell_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswigreenroof"), gswigreenroof_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswipermeablepavement"), gswipermeablepavement_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiplanter"), gswiplanter_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiraingarden"), gswiraingarden_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiswale"), gswiswale_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswitree"), gswitree_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswitreetrench"), gswitreetrench_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswitrench"), gswitrench_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiwetland"), gswiwetland_new, append = TRUE)
 
-    dbWriteTable(mars, DBI::SQL("external.gswicleanout"), gswicleanout_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswicontrolstructure"), gswicontrolstructure_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiconveyance"), gswiconveyance_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswifitting"), gswifitting_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiinlet"), gswiinlet_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswimanhole"), gswimanhole_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswiobservationwell"), gswiobservationwell_new, append = TRUE)
-    dbWriteTable(mars, DBI::SQL("external.gswistructure"), gswistructure_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswicleanout"), gswicleanout_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswicontrolstructure"), gswicontrolstructure_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiconveyance"), gswiconveyance_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswifitting"), gswifitting_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiinlet"), gswiinlet_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswimanhole"), gswimanhole_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswiobservationwell"), gswiobservationwell_new, append = TRUE)
+    dbWriteTable(mars, DBI::SQL("external.tbl_gswistructure"), gswistructure_new, append = TRUE)
 }
 
 
@@ -417,134 +417,134 @@ if(params$write){
     
 #Update old assets
     if(nrow(gswibasin_update) > 0){
-    	update_gswibasin <- dbSendQuery(mars, 'UPDATE external.gswibasin set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswibasin_uid=?')
+        update_gswibasin <- dbSendQuery(mars, 'UPDATE external.tbl_gswibasin set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswibasin_uid=?')
         dbBind(update_gswibasin, gswibasin_update)
         dbClearResult(update_gswibasin)
     }
 
     if(nrow(gswiblueroof_update) > 0){
-    	update_gswiblueroof <- dbSendQuery(mars, 'UPDATE external.gswiblueroof set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiblueroof_uid=?')
+        update_gswiblueroof <- dbSendQuery(mars, 'UPDATE external.tbl_gswiblueroof set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiblueroof_uid=?')
         dbBind(update_gswiblueroof, gswiblueroof_update)
         dbClearResult(update_gswiblueroof)
     }
 
     if(nrow(gswibumpout_update) > 0){
-    	update_gswibumpout <- dbSendQuery(mars, 'UPDATE external.gswibumpout set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswibumpout_uid=?')
+        update_gswibumpout <- dbSendQuery(mars, 'UPDATE external.tbl_gswibumpout set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswibumpout_uid=?')
         dbBind(update_gswibumpout, gswibumpout_update)
         dbClearResult(update_gswibumpout)
     }
 
     if(nrow(gswicistern_update) > 0){
-    	update_gswicistern <- dbSendQuery(mars, 'UPDATE external.gswicistern set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswicistern_uid=?')
+        update_gswicistern <- dbSendQuery(mars, 'UPDATE external.tbl_gswicistern set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswicistern_uid=?')
         dbBind(update_gswicistern, gswicistern_update)
         dbClearResult(update_gswicistern)
     }
 
     if(nrow(gswidrainagewell_update) > 0){
-    	update_gswidrainagewell <- dbSendQuery(mars, 'UPDATE external.gswidrainagewell set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswidrainagewell_uid=?')
+        update_gswidrainagewell <- dbSendQuery(mars, 'UPDATE external.tbl_gswidrainagewell set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswidrainagewell_uid=?')
         dbBind(update_gswidrainagewell, gswidrainagewell_update)
         dbClearResult(update_gswidrainagewell)
     }
 
     if(nrow(gswigreenroof_update) > 0){
-    	update_gswigreenroof <- dbSendQuery(mars, 'UPDATE external.gswigreenroof set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswigreenroof_uid=?')
+        update_gswigreenroof <- dbSendQuery(mars, 'UPDATE external.tbl_gswigreenroof set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswigreenroof_uid=?')
         dbBind(update_gswigreenroof, gswigreenroof_update)
         dbClearResult(update_gswigreenroof)
     }
 
     if(nrow(gswipermeablepavement_update) > 0){
-    	update_gswipermeablepavement <- dbSendQuery(mars, 'UPDATE external.gswipermeablepavement set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, porous_maintenance=?, md5hash=? where gswipermeablepavement_uid=?')
+        update_gswipermeablepavement <- dbSendQuery(mars, 'UPDATE external.tbl_gswipermeablepavement set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, porous_maintenance=?, md5hash=? where gswipermeablepavement_uid=?')
         dbBind(update_gswipermeablepavement, gswipermeablepavement_update)
         dbClearResult(update_gswipermeablepavement)
     }
 
     if(nrow(gswiplanter_update) > 0){
-    	update_gswiplanter <- dbSendQuery(mars, 'UPDATE external.gswiplanter set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiplanter_uid=?')
+        update_gswiplanter <- dbSendQuery(mars, 'UPDATE external.tbl_gswiplanter set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiplanter_uid=?')
         dbBind(update_gswiplanter, gswiplanter_update)
         dbClearResult(update_gswiplanter)
     }
 
     if(nrow(gswiraingarden_update) > 0){
-    	update_gswiraingarden <- dbSendQuery(mars, 'UPDATE external.gswiraingarden set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiraingarden_uid=?')
+        update_gswiraingarden <- dbSendQuery(mars, 'UPDATE external.tbl_gswiraingarden set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiraingarden_uid=?')
         dbBind(update_gswiraingarden, gswiraingarden_update)
         dbClearResult(update_gswiraingarden)
     }
 
     if(nrow(gswiswale_update) > 0){
-    	update_gswiswale <- dbSendQuery(mars, 'UPDATE external.gswiswale set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiswale_uid=?')
+        update_gswiswale <- dbSendQuery(mars, 'UPDATE external.tbl_gswiswale set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiswale_uid=?')
         dbBind(update_gswiswale, gswiswale_update)
         dbClearResult(update_gswiswale)
     }
 
     if(nrow(gswitree_update) > 0){
-    	update_gswitree <- dbSendQuery(mars, 'UPDATE external.gswitree set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, subtype=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswitree_uid=?')
+        update_gswitree <- dbSendQuery(mars, 'UPDATE external.tbl_gswitree set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, subtype=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswitree_uid=?')
         dbBind(update_gswitree, gswitree_update)
         dbClearResult(update_gswitree)
     }
 
     if(nrow(gswitreetrench_update) > 0){
-    	update_gswitreetrench <- dbSendQuery(mars, 'UPDATE external.gswitreetrench set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswitreetrench_uid=?')
+        update_gswitreetrench <- dbSendQuery(mars, 'UPDATE external.tbl_gswitreetrench set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswitreetrench_uid=?')
         dbBind(update_gswitreetrench, gswitreetrench_update)
         dbClearResult(update_gswitreetrench)
     }
 
     if(nrow(gswitrench_update) > 0){
-    	update_gswitrench <- dbSendQuery(mars, 'UPDATE external.gswitrench set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswitrench_uid=?')
+        update_gswitrench <- dbSendQuery(mars, 'UPDATE external.tbl_gswitrench set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswitrench_uid=?')
         dbBind(update_gswitrench, gswitrench_update)
         dbClearResult(update_gswitrench)
     }
 
     if(nrow(gswiwetland_update) > 0){
-    	update_gswiwetland <- dbSendQuery(mars, 'UPDATE external.gswiwetland set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiwetland_uid=?')
+        update_gswiwetland <- dbSendQuery(mars, 'UPDATE external.tbl_gswiwetland set object_id=?, lifecycle_status=?, contract_number=?, facility_id=?, smp_id=?, surface_maintenance=?, subsurface_maintenance=?, md5hash=? where gswiwetland_uid=?')
         dbBind(update_gswiwetland, gswiwetland_update)
         dbClearResult(update_gswiwetland)
     }
 
 
     if(nrow(gswicleanout_update) > 0){
-        update_gswicleanout <- dbSendQuery(mars, 'update external.gswicleanout set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswicleanout_uid=?')
+        update_gswicleanout <- dbSendQuery(mars, 'update external.tbl_gswicleanout set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswicleanout_uid=?')
         dbBind(update_gswicleanout, gswicleanout_update)
         dbClearResult(update_gswicleanout)
     }
 
     if(nrow(gswicontrolstructure_update) > 0){
-        update_gswicontrolstructure <- dbSendQuery(mars, 'update external.gswicontrolstructure set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswicontrolstructure_uid=?')
+        update_gswicontrolstructure <- dbSendQuery(mars, 'update external.tbl_gswicontrolstructure set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswicontrolstructure_uid=?')
         dbBind(update_gswicontrolstructure, gswicontrolstructure_update)
         dbClearResult(update_gswicontrolstructure)
     }
 
     if(nrow(gswiconveyance_update) > 0){
-        update_gswiconveyance <- dbSendQuery(mars, 'update external.gswiconveyance set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, subtype=?, md5hash=? where gswiconveyance_uid=?,')
+        update_gswiconveyance <- dbSendQuery(mars, 'update external.tbl_gswiconveyance set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, subtype=?, md5hash=? where gswiconveyance_uid=?')
         dbBind(update_gswiconveyance, gswiconveyance_update)
         dbClearResult(update_gswiconveyance)
     }
 
     if(nrow(gswifitting_update) > 0){
-        update_gswifitting <- dbSendQuery(mars, 'update external.gswifitting set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswifitting_uid=?')
+        update_gswifitting <- dbSendQuery(mars, 'update external.tbl_gswifitting set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswifitting_uid=?')
         dbBind(update_gswifitting, gswifitting_update)
         dbClearResult(update_gswifitting)
     }
 
     if(nrow(gswiinlet_update) > 0){
-        update_gswiinlet <- dbSendQuery(mars, 'update external.gswiinlet set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, plug_status=?, md5hash=? where gswiinlet_uid=?')
+        update_gswiinlet <- dbSendQuery(mars, 'update external.tbl_gswiinlet set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, plug_status=?, md5hash=? where gswiinlet_uid=?')
         dbBind(update_gswiinlet, gswiinlet_update)
         dbClearResult(update_gswiinlet)
     }
 
     if(nrow(gswimanhole_update) > 0){
-        update_gswimanhole <- dbSendQuery(mars, 'update external.gswimanhole set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswimanhole_uid=?')
+        update_gswimanhole <- dbSendQuery(mars, 'update external.tbl_gswimanhole set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswimanhole_uid=?')
         dbBind(update_gswimanhole, gswimanhole_update)
         dbClearResult(update_gswimanhole)
     }
 
     if(nrow(gswiobservationwell_update) > 0){
-        update_gswiobservationwell <- dbSendQuery(mars, 'update external.gswiobservationwell set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswiobservationwell_uid=?')
+        update_gswiobservationwell <- dbSendQuery(mars, 'update external.tbl_gswiobservationwell set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, md5hash=? where gswiobservationwell_uid=?')
         dbBind(update_gswiobservationwell, gswiobservationwell_update)
         dbClearResult(update_gswiobservationwell)
     }
 
     if(nrow(gswistructure_update) > 0){
-        update_gswistructure <- dbSendQuery(mars, 'update external.gswistructure set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, symbol_group=?, structure_type=?, md5hash=? where gswistructure_uid=?')
+        update_gswistructure <- dbSendQuery(mars, 'update external.tbl_gswistructure set object_id=?, lifecycle_status=?, facility_id=?, component_id=?, symbol_group=?, structure_type=?, md5hash=? where gswistructure_uid=?')
         dbBind(update_gswistructure, gswistructure_new)
         dbClearResult(update_gswistructure)
     }
