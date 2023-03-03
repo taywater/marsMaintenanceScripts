@@ -31,10 +31,10 @@ errorCodes <- data.frame(code = 0:9,
               "No Access DBs found when crawling public/private site folders. Are we connected to Active Directory?",
               "Access DBs found without a corresponding fieldwork.tbl_ow entry. Was a Location created in the app?",
               "Existing DBs not found in the filesystem. Have any been moved or renamed?",
-              5,
-              6,
-              7,
-              8,
+              NA, #Write error from TryCatch will be used
+              NA,
+              "Existing Access DBs found without canonical tables. Was an SMP ID or OW changed?",
+              "Access DBs found without a main data table. Is the table name spelled wrong?",
               9), stringsAsFactors=FALSE)
 
 keepRunning = TRUE
@@ -187,56 +187,78 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     
   ###Section 1.4 Reconcile the new Access DBs with the existing defined OWs
     #1.4.1 New Access DBs that have matching defined OWs need can be added to the `admin.accessdb` table
-    output_newAccessDBs <- filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% mutate(filepath = filepath_server)
+    output_newAccessDBs <- filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% 
+      transmute(ow_uid, filepath = filepath_server)
 
+    #New Access DBs that don't have defined OWs need OWs defined for them
+    #All this script can do is report on these
+      ####Author's note: We could guess pretty well at creating new OWs in the database for these, but we aren't solving that problem now
+    accessdbswithoutow <- filter(allnewaccessdbs_ow, is.na(ow_uid)) %>% mutate(filepath = filepath_server)
+    
+    #Which known DBs weren't found? (Maybe deleted or moved)
+    existingdbs_notfound <- filter(accessdbtable_server, !(filepath %in% c(publicaccessdbs, privateaccessdbs))) %>%
+      left_join(ow) %>%
+      select(smp_id, ow_suffix, ow_uid, filepath)
 
 ```    
   
-```{r Section 1B - Incomplete entries, include = FALSE, eval = keepRunning}
-    #1.4.2 New Access DBs that don't have defined OWs need OWs defined for them
-    #All this script can do is report on these
-    accessdbswithoutow <- filter(allnewaccessdbs_ow, is.na(ow_uid)) %>% mutate(filepath = filepath_server)
+```{r Section 1B - Incomplete entries, echo = FALSE, eval = all(keepRunning, nrow(accessdbswithoutow) > 0)}
 
     ##############################################
     ####Error check - did we find orphaned DB files?
     ##############################################
-    if(length(accessdbswithoutow) > 0)
-    {
-      keepRunning = FALSE
-      errorCode = 3
-    }
-
-    #Which known DBs weren't found? (Maybe deleted or moved)
-    existingdbs_notfound <- filter(accessdbtable_server, !(filepath %in% c(publicaccessdbs, privateaccessdbs)))
+    knitr::asis_output(paste("### Access DBs found without a corresponding OW in `fieldwork.tbl_ow`: ",   nrow(accessdbswithoutow)))
+      
+    kable(transmute(accessdbswithoutow, smp_id, ow = ow_suffix, uid = ow_uid, 
+                    filename = paste(basename(dirname(filepath_server)), basename(filepath_server), sep = "/")))
     
+    keepRunning = FALSE
+    errorCode = 3
+
+```
+
+```{r Section 1B - Failure to Find, echo = FALSE, eval = all(keepRunning, nrow(existingdbs_notfound) > 0)}
+
     ##############################################
     ####Error check - did we fail to find any DBs?
     ##############################################
-    if(length(existingdbs_notfound) > 0)
-    {
-      keepRunning = FALSE
-      errorCode = 4
-    }
+    knitr::asis_output(paste("### AccessDBs in `admin.tbl_accessdb` not found in the filesystem: ",   nrow(existingdbs_notfound)))
+    kable(transmute(existingdbs_notfound, smp_id, ow = ow_suffix, uid = ow_uid, 
+                    filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/")))
+      
+    keepRunning = FALSE
+    errorCode = 4
 
     
 ```
 
-```{r Section R1: New Databases Output, echo = FALSE, eval = keepRunning}
-    knitr::asis_output(paste("### New Access DBs to add to `admin.tbl_accessdb`: ",   nrow(output_newAccessDBs), "  "))
+```{r Section R1: New Databases Output, echo = FALSE, eval = all(keepRunning, nrow(output_newAccessDBs) > 0)}
+    knitr::asis_output(paste("### New Access DBs to add to `admin.tbl_accessdb`: ",   nrow(output_newAccessDBs)))
 
-    if(nrow(output_newAccessDBs) > 0){
-      newdbs_display <- output_newAccessDBs %>% transmute(smp_id, ow_suffix, ow_uid, file = basename(filepath))
-      
-      kable(newdbs_display)
-    }
+    filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% 
+      transmute(smp_id, ow = ow_suffix, uid = ow_uid, 
+                filepath = paste(basename(dirname(filepath_server)), basename(filepath_server), sep = "/")) %>%
+      kable()
 
-    ###Trycatch to write and capture error
+    tryCatch(
+
+      expr = {
+        #dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
+        success <<- TRUE
+        },
+      error = function(e) {
+        keepRunning <<- FALSE
+        errorCode <<- 5
+        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+      }
+    )
 
 ```
   
 ```{r Section 2 - Checking the Access DBs for canonical table names, include = FALSE, eval = keepRunning}
 
   ###Pull Access table again
+  accessdbtable_server <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
 
   #Compose a data frame to use to check for tables in the Access databases
   #We need to verify that the tables we think are there still exist, and check for new ones
@@ -254,25 +276,31 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     # print(paste("Accessing", basename(accessdb_tableguesses$filepath[i])))
 
     #We need RODBC to connect to the DBs because odbc::odbc throws a "DSN too long" error. I would like to fix this sometime
-    accessdbCon <- RODBC::odbcConnectAccess2007(accessdb_tableguesses$filepath[i])
-
-    #List the tables in each database and check to see if we can find the guessed table name in there
-    dbtables <- RODBC::sqlTables(accessdbCon)
-    accessdb_tableguesses$datatable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$datatable_guess[i] %in% .$TABLE_NAME}
-    accessdb_tableguesses$sumptable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$sumptable_guess[i] %in% .$TABLE_NAME}
-
-    RODBC::odbcClose(accessdbCon)
+    tryCatch(
+      expr = {
+        accessdbCon <- RODBC::odbcConnectAccess2007(accessdb_tableguesses$filepath[i])
+  
+        #List the tables in each database and check to see if we can find the guessed table name in there
+        dbtables <- RODBC::sqlTables(accessdbCon)
+        accessdb_tableguesses$datatable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$datatable_guess[i] %in% .$TABLE_NAME}
+        accessdb_tableguesses$sumptable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$sumptable_guess[i] %in% .$TABLE_NAME}
     
-    #####If there's a crash, catch it here.####
-    
+        RODBC::odbcClose(accessdbCon)
+      },
+      error = function(e){
+        keepRunning <<- FALSE
+        errorCode <<- 6
+        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+      }
+    )
   }
-
-  ####New block for this####
+  
+  #If there was an error above, this stuff will not fire
 
   #Create the data frames of results to print/summarize
   #Access DBs where our current stored table names are both correct
     #Either we found what we expected to find, or we didn't find anything and expected to find nothing
-    #IE: Our guess equalled what we thought was there, or expected our guess to be wrong because we didn't think there was a table
+    #IE: Our guess equaled what we thought was there, or expected our guess to be wrong because we didn't think there was a table
     #We do it this way so we can more easily detect if a DB we thought had no table had one created since we last checked
     #If we just checked for what we thought was there, we'd still have to check again to see if any new tables got created
   accessdb_nochange <- filter(accessdb_tableguesses,
@@ -283,8 +311,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     #IE: We had no table name stored, and we found one with our guesses
     accessdb_foundnewtables <- filter(accessdb_tableguesses,
       (sumptable_guessresult == TRUE & is.na(sumptable)) | (datatable_guessresult == TRUE & is.na(datatable)))
-
-
+  
   #Access DBs where we didn't find tables we thought were there
     accessdb_missedsomething <- filter(accessdb_tableguesses,
       (sumptable_guessresult == FALSE & !is.na(sumptable)) | (datatable_guessresult == FALSE & !is.na(datatable)))
@@ -296,6 +323,36 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     accessdb_nocanonical <- filter(accessdb_tableguesses, datatable_guessresult == FALSE, is.na(datatable))
 
     ####Error on this####
+  
+```
+
+```{r Section X - Missed existing tables, echo = FALSE, eval = all(keepRunning, nrow(accessdb_missedsomething) > 0)}
+
+    ##############################################
+    ####Error check - Did we fail to find any canonical tables in the existing DBs?
+    ##############################################
+    knitr::asis_output(paste("### AccessDBs in `admin.tbl_accessdb` with newly missing tables: ",   nrow(accessdb_missedsomething)))
+    kable(transmute(accessdb_missedsomething, smp_id, ow = ow_suffix, uid = ow_uid, 
+                    filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/")))
+      
+    keepRunning = FALSE
+    errorCode = 7
+
+    
+```
+
+```{r Section X - Failure to Find, echo = FALSE, eval = all(keepRunning, nrow(accessdb_nocanonical) > 0)}
+
+    ##############################################
+    ####Error check - Do any new DBs have no data table?
+    ##############################################
+    knitr::asis_output(paste("### AccessDBs in `admin.tbl_accessdb` without a data table: ",   nrow(accessdb_nocanonical)))
+    kable(transmute(accessdb_nocanonical, smp_id, ow = ow_suffix, uid = ow_uid, 
+                    filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/")))
+      
+    keepRunning = FALSE
+    errorCode = 8
+
     
 ```
   
@@ -349,7 +406,10 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
 
     
 ```
-  
+
+# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+## Exit Code: `r errorCode`
+## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 4 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
