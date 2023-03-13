@@ -246,7 +246,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     tryCatch(
 
       expr = {
-        #dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
+        dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
         success <<- TRUE
         },
       error = function(e) {
