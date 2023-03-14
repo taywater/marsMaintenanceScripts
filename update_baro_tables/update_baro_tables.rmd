@@ -23,20 +23,13 @@ library(knitr)
 library(openssl)
 options(stringsAsFactors=FALSE)
 
-errorCodes <- data.frame(code = 0:11,
+errorCodes <- data.frame(code = 0:4,
   message = c("Execution successful.",
               "Could not connect to Postgres DB. Is Postgres down?",
               "No baro files found in site folders. Are we connected to Active Directory?",
               NA, #Write error from TryCatch will be used
-              "Existing DBs not found in the filesystem. Have any been moved or renamed?",
               NA, #Write error from TryCatch will be used
-              NA, #Write error from TryCatch will be used
-              "Existing Access DBs found without canonical tables. Was an SMP ID or OW changed?",
-              "Access DBs found without a main data table. Is the table name spelled wrong?",
-              NA, #Write error from TryCatch will be used
-              NA, #Write error from TryCatch will be used
-              NA #Write error from TryCatch will be used
-              ), stringsAsFactors=FALSE)
+               ), stringsAsFactors=FALSE)
 
 keepRunning = TRUE
 errorCode = 0
@@ -158,7 +151,7 @@ errorCode = 0
 
 
 ```{r Section R1: New Files Output, echo = FALSE, eval = all(keepRunning, nrow(display_filetable) > 0)}
-    knitr::asis_output(paste("### New Baro Files to add to `admin.tbl_baro_rawfile`: ",  nrow(display_filetable)))
+    knitr::asis_output(paste0("### New Baro Files to add to `admin.tbl_baro_rawfile`: ",  nrow(display_filetable)))
 
     kable(display_filetable)
 
@@ -167,7 +160,7 @@ errorCode = 0
       expr = {
         dbWriteTable(marsDBCon, 
           DBI::SQL("admin.tbl_baro_rawfile"), 
-          newrawfiles, 
+          output_filetable, 
           append= TRUE, 
           row.names = FALSE)
         success <<- TRUE
@@ -220,13 +213,9 @@ errorCode = 0
 ```
   
 
-## New baro data
-  
-The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data points.
-
 ```{r Section 2.5, Writing to the baro table, include = FALSE, eval = keepRunning}
   
-  knitr::asis_output(paste0("###The ", nrow(output_newfiles), " new files contain ", nrow(newdata), " new data points"))
+  knitr::asis_output(paste0("###The ", nrow(output_filetable), " new files contain ", nrow(newdata), " new data points"))
 
   kable(display_newdata)
 
@@ -251,14 +240,19 @@ The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data point
     
     newdata_currentfile <- filter(newdata, baro_rawfile_uid == newdata_results$baro_rawfile_uid[i])
 
-    if(nrow(newdata_currentfile) > 0 & params$write == TRUE){
+    if(nrow(newdata_currentfile) > 0){
       tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
           DBI::SQL("data.tbl_baro"), 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
         }, # append the data
-        error = function(e) e
+        error = function(e){
+          keepRunning <<- FALSE
+          errorCode <<- 4
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+          success <<- TRUE
+        }
       )
     }
     
@@ -267,7 +261,11 @@ The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data point
 
 ```
 
-`r if(nrow(newdata > 0)){kable(newdata_results)}`
+`r if(nrow(display_filetable > 0)){kable(newdata_results)}`
+
+# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+## Exit Code: `r errorCode`
+## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
