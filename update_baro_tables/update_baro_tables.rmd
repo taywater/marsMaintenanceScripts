@@ -5,9 +5,7 @@ author:
 - Updating baro and baro_rawfile
 date: "`r lubridate::now()`"
 output: html_document
-params:
-  database: "mars14_data"
-  write: TRUE #Write changes to database?
+
 ---
 
 ```{r setup, include=FALSE}
@@ -24,13 +22,41 @@ library(odbc)
 library(knitr)
 library(openssl)
 options(stringsAsFactors=FALSE)
+
+errorCodes <- data.frame(code = 0:11,
+  message = c("Execution successful.",
+              "Could not connect to Postgres DB. Is Postgres down?",
+              "No baro files found in site folders. Are we connected to Active Directory?",
+              NA, #Write error from TryCatch will be used
+              "Existing DBs not found in the filesystem. Have any been moved or renamed?",
+              NA, #Write error from TryCatch will be used
+              NA, #Write error from TryCatch will be used
+              "Existing Access DBs found without canonical tables. Was an SMP ID or OW changed?",
+              "Access DBs found without a main data table. Is the table name spelled wrong?",
+              NA, #Write error from TryCatch will be used
+              NA, #Write error from TryCatch will be used
+              NA #Write error from TryCatch will be used
+              ), stringsAsFactors=FALSE)
+
+keepRunning = TRUE
+errorCode = 0
+
 ```
 
 ```{r Section 0 - Preamble and database connections, include=FALSE}
 ###Section 0.1: Check parameter validity
 
 ###Section 0.2: Connect to the database using the DSN.
-	marsDBCon <- dbConnect(odbc::odbc(), params$database)
+	marsDBCon <- dbConnect(odbc::odbc(), "mars_data14")
+
+  #################################
+  ####Error check - Did we connect?
+  #################################
+  if(!odbc::dbIsValid(marsDBCon))
+  {
+    keepRunning = FALSE
+    errorCode = 1
+  }
 
 ###Section 0.3: Helper function to find the first date in a file
   #firstDate function reads a few lines of the file and finds a date at (or near) the top of the file
@@ -47,7 +73,7 @@ options(stringsAsFactors=FALSE)
 	
 ```
   
-```{r Section 1 - Gathering baro data, include = FALSE}
+```{r Section 1 - Gathering baro data, include = FALSE, eval = keepRunning}
  
   #Fetch all host folders for baro data
   baro_rawfolders <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_baro_rawfolder")
@@ -76,13 +102,23 @@ options(stringsAsFactors=FALSE)
       filter(!grepl("SRT", filepath, ignore.case = TRUE)) #Skip files from SRTs
     foundfiles <- rbind(foundfiles, tempfiles)
   }
+  
+  #################################
+  ####Error check - Found files?
+  #################################
+  if(nrow(foundfiles) == 0)
+  {
+    # There will be baro files always. If we find none, something is wrong
+    keepRunning = FALSE
+    errorCode = 2
+  }
 
   #Compute a variety of things relevant to the database
   #First, whether the file is already in the database
   filetable <- mutate(foundfiles, in_db = (filepath %in% fileswithdata$filepath)) %>% 
     
     #filter to only those files not in the database
-    filter(in_db == FALSE) %>% 
+    filter(in_db == FALSE) %>%
 
     #Find the first date in the files
     mutate(firstDate_est = mdy_hms(firstDate(filepath), tz = "EST")) %>% 
@@ -98,47 +134,55 @@ options(stringsAsFactors=FALSE)
     #So there can be files not in the rawfile table whose data is not relevant to us
     filter(firstDate_est > latestdate_est)
 
-```
-
-
-## Updates to `admin.tbl_baro_rawfile` Table
-
-The filesystem has been examined for new barometric pressure data. There are `r nrow(filetable)` new files containing relevant barometric pressure data.
-
-`r filetable %>% transmute(filename = basename(filepath), smp_id, firstDate_est) %>% kable`
-
-```{r Section 1.5 - Writing to the baro_rawfile table, include = FALSE}	
-  #First, compute hashes and add files to the rawfile table (to get their UIDs)
-  newrawfiles <- transmute(filetable,
-    smp_id,
-    filepath, 
-    md5hash = sapply(X = filepath, FUN = function(x) as.character(md5(file(x)))))
-
+  #################################
+  ####Error check - Any new files?
+  #################################
+  if(nrow(foundfiles) == 0)
+  {
+    # If there are no new relevant files, we can stop now
+    keepRunning = FALSE
+    errorCode = 0 #No error - this is a successful outcome
+    success <- TRUE
+  }  
+  
+  display_filetable <- transmute(filetable, filename = basename(filepath), smp_id, firstDate_est)
+  output_filetable <- transmute(filetable, smp_id, filepath, md5hash = sapply(X = filepath, FUN = function(x) as.character(md5(file(x)))))
+  
   #sapply will give names to the elements of the column, which we don't want
-  names(newrawfiles$md5hash) <- NULL
+  names(output_filetable$md5hash) <- NULL
   
-  #make unique
-  newrawfiles <- newrawfiles %>% unique()
+  # In case there is a duplicate. Not sure why this is possible but it is.
+  output_filetable <- output_filetable %>% unique()
   
-  # Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_newrawfiles <- FALSE
-
-  #If there's new data to append
-	if(nrow(newrawfiles) > 0 & params$write == TRUE){
-    tryCatch({outcome_newrawfiles <- dbWriteTable(marsDBCon, 
-        DBI::SQL("admin.tbl_baro_rawfile"), 
-        newrawfiles, 
-        append= TRUE, 
-        row.names = FALSE)
-      }, # append the data
-      error = function(e) e
-    )
-  }
 ```
 
-`r if(nrow(newrawfiles) > 0){ paste("New baro data files have", ifelse(outcome_newrawfiles, "SUCCESSFULLY", "NOT"), "been written to the baro_rawfile table")}`  
-  
-```{r Section 2 - Gathering the baro data, include = FALSE}
+
+```{r Section R1: New Files Output, echo = FALSE, eval = all(keepRunning, nrow(display_filetable) > 0)}
+    knitr::asis_output(paste("### New Baro Files to add to `admin.tbl_baro_rawfile`: ",  nrow(display_filetable)))
+
+    kable(display_filetable)
+
+    tryCatch(
+
+      expr = {
+        dbWriteTable(marsDBCon, 
+          DBI::SQL("admin.tbl_baro_rawfile"), 
+          newrawfiles, 
+          append= TRUE, 
+          row.names = FALSE)
+        success <<- TRUE
+        },
+      error = function(e) {
+        keepRunning <<- FALSE
+        errorCode <<- 3
+        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+      }
+    )
+
+```
+
+
+```{r Section 2 - Gathering the baro data, include = FALSE, eval = keepRunning}
 
   #Collect the table of baro files again to find their UID
   existingfiletable <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_baro_rawfile")
@@ -146,7 +190,7 @@ The filesystem has been examined for new barometric pressure data. There are `r 
 
   #Gather the data from each new file
   newdata <- data.frame(dtime_est = NULL, baro_psi = NULL, temp_f = NULL, baro_rawfile_uid = NULL)
-
+  
   for(i in 1:nrow(newfiles)){
     
     if(nrow(newfiles) == 0) {break} #Don't do anything if there are no files
@@ -160,7 +204,19 @@ The filesystem has been examined for new barometric pressure data. There are `r 
 
     newdata <- bind_rows(newdata, tempdata)
 }
-    
+
+  #################################
+  ####Error check - Any new files?
+  #################################
+  if(nrow(newdata) == 0)
+  {
+    # This is possible if all the new files are empty
+    keepRunning = FALSE
+    errorCode = 0 #No error - this is a successful outcome
+    success <- TRUE
+  } else{
+    display_newdata <- newdata %>% group_by(baro_rawfile_uid) %>% summarize(data_points = n(), first_est = first(dtime_est), last_est = last(dtime_est))
+  }
 ```
   
 
@@ -168,10 +224,12 @@ The filesystem has been examined for new barometric pressure data. There are `r 
   
 The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data points.
 
-`r if(nrow(newdata) > 0){ newdata %>% group_by(baro_rawfile_uid) %>% summarize(data_points = n(), first_est = first(dtime_est), last_est = last(dtime_est)) %>% kable }`
-
-```{r Section 2.5, Writing to the baro table, include = FALSE}
+```{r Section 2.5, Writing to the baro table, include = FALSE, eval = keepRunning}
   
+  knitr::asis_output(paste0("###The ", nrow(output_newfiles), " new files contain ", nrow(newdata), " new data points"))
+
+  kable(display_newdata)
+
   #Create a data frame of file-by-file writing results
   if(nrow(newdata) > 0){
     newdata_results <- newdata %>% 
@@ -203,7 +261,7 @@ The `r nrow(newfiles)` new baro files contained `r nrow(newdata)` new data point
         error = function(e) e
       )
     }
-        
+    
   }
 
 
