@@ -5,9 +5,6 @@ author:
 - Updating ow_leveldata
 date: "`r lubridate::now()`" 
 output: html_document
-params:
-  database: "mars14_data"
-  write: TRUE #Write changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -24,6 +21,29 @@ library(odbc)
 #Other stuff
 library(knitr)
 options(stringsAsFactors=FALSE)
+
+options(stringsAsFactors=FALSE)
+
+errorCodes <- data.frame(code = 0:11,
+  message = c("Execution successful.",
+              "Could not connect to Postgres DB. Is Postgres down?",
+              NA, #Write error from TryCatch will be used
+              "Access DBs found without a corresponding fieldwork.tbl_ow entry. Was a Location created in the app?",
+              "Existing DBs not found in the filesystem. Have any been moved or renamed?",
+              NA, #Write error from TryCatch will be used
+              NA, #Write error from TryCatch will be used
+              "Existing Access DBs found without canonical tables. Was an SMP ID or OW changed?",
+              "Access DBs found without a main data table. Is the table name spelled wrong?",
+              NA, #Write error from TryCatch will be used
+              NA, #Write error from TryCatch will be used
+              NA, #Write error from TryCatch will be used
+              ), stringsAsFactors=FALSE)
+
+keepRunning = TRUE
+success = FALSE
+errorCode = 0
+
+
 ```
 
 ```{r Section 0 - Preamble and database connections, include=FALSE}
@@ -31,7 +51,16 @@ options(stringsAsFactors=FALSE)
 
 ###Section 0.2: Connect to the database
  	#Connect using the DSN.
-	marsDBCon <- dbConnect(odbc::odbc(), params$database)
+	marsDBCon <- dbConnect(odbc::odbc(), "mars_data14")
+
+  #################################
+  ####Error check - Did we connect?
+  #################################
+  if(!odbc::dbIsValid(marsDBCon))
+  {
+    keepRunning = FALSE
+    errorCode = 1
+  }
 	
 ```
 
@@ -50,67 +79,119 @@ options(stringsAsFactors=FALSE)
   newdata <- data.frame(dtime_est = NULL, ow_uid = NULL, level_ft = NULL) #data frame to incrementally append to
 
   for(i in 1:nrow(accessdb_latestdates)){
-    accessdbCon <- odbcConnectAccess2007(accessdb_latestdates$filepath[i])
-    accessdb_latestdates$dtime_est[i][is.na(accessdb_latestdates$dtime_est[i])] <- mdy('2/20/2001', tz = "EST")
-    accessdb_query <- paste0("select * from [", accessdb_latestdates$datatable[i], "] where [Standard Dtime] > #",accessdb_latestdates$dtime_est[i], "# ")
-    print(accessdb_query)
-
-    accessdb_newdata <- sqlQuery(accessdbCon, accessdb_query, as.is = TRUE) %>%
-       select(dtime_est = 1, level_ft = ncol(.)) %>% #dtime is the first column, level is the last
-       mutate(dtime_est = ymd_hms(dtime_est, tz = "EST"), level_ft = as.numeric(level_ft)) %>% #Data comes in as plain text from RODBC
-       filter(dtime_est > accessdb_latestdates$dtime_est[i]) %>% #We still need to filter by > the latest date because Access will treat values with fractional seconds as > values without fractional seconds. When R recieves them, though, we get them without the fractional seconds, so from our perspective, we have a value that is = the latest date. This is very silly.
-       arrange(dtime_est) %>% #Order by ascending datetime in case it's out of order in the DB
-       mutate(ow_uid = accessdb_latestdates$ow_uid[i]) %>% #Attach OW UID to the data
-       mutate(key = paste(ow_uid, dtime_est, sep = "_"), 
-              dupe = duplicated(key)) %>% #Sometimes there are duplicates in the Access DBs
-       filter(dupe == FALSE) %>% #Remove the dupe rows
-       select(-key, -dupe) #Remove the key columns
-       
-    newdata <- bind_rows(newdata, accessdb_newdata)
-    odbcClose(accessdbCon)
+    #Debug statement. Uncomment if running interactively.
+    # print(paste("Accessing", accessdb_latestdates$filepath[i]))
+    
+    tryCatch(
+      expr = {
+        accessdbCon <- odbcConnectAccess2007(accessdb_latestdates$filepath[i])
+        accessdb_latestdates$dtime_est[i][is.na(accessdb_latestdates$dtime_est[i])] <- mdy('2/20/2001', tz = "EST")
+        accessdb_query <- paste0("select * from [", accessdb_latestdates$datatable[i], "] where [Standard Dtime] > #",accessdb_latestdates$dtime_est[i], "# ")
+        #print(accessdb_query)
+    
+        accessdb_newdata <- sqlQuery(accessdbCon, accessdb_query, as.is = TRUE) %>%
+           select(dtime_est = 1, level_ft = ncol(.)) %>% #dtime is the first column, level is the last
+           mutate(dtime_est = ymd_hms(dtime_est, tz = "EST"), level_ft = as.numeric(level_ft)) %>% #Data comes in as plain text from RODBC
+           filter(dtime_est > accessdb_latestdates$dtime_est[i]) %>% #We still need to filter by > the latest date because Access will treat values with fractional seconds as > values without fractional seconds. When R recieves them, though, we get them without the fractional seconds, so from our perspective, we have a value that is = the latest date. This is very silly.
+           arrange(dtime_est) %>% #Order by ascending datetime in case it's out of order in the DB
+           mutate(ow_uid = accessdb_latestdates$ow_uid[i]) %>% #Attach OW UID to the data
+           mutate(key = paste(ow_uid, dtime_est, sep = "_"), 
+                  dupe = duplicated(key)) %>% #Sometimes there are duplicates in the Access DBs
+           filter(dupe == FALSE) %>% #Remove the dupe rows
+           select(-key, -dupe) #Remove the key columns
+           
+        newdata <- bind_rows(newdata, accessdb_newdata)
+        odbcClose(accessdbCon)
+      },
+      error = function(e){
+        keepRunning <<- FALSE
+        errorCode <<- 2
+        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+      }
+    )
   }
   
   #Some nulls may exist so we purge them
-  ##TODO: Report the number of NAs that get purged per OW UID in some manner, possibly if above a certain number of NAs.
-  newdata %<>% filter(complete.cases(newdata))
-  newdata$dtime_est <- newdata$dtime_est %>% 
-    round_date(unit = "minute") %>%
-    as.character
+  #But only if we are proceeding with execution
+  if(keepRunning){
+    newdata %<>% filter(complete.cases(newdata))
+    newdata$dtime_est <- newdata$dtime_est %>% 
+      round_date(unit = "minute") %>%
+      as.character  
+  }
+  
 
   #Pull OW table for use in the report table
   ow <- dbGetQuery(marsDBCon, "select * from fieldwork.tbl_ow")
+  
+  #################################
+  ####Error check - Any new data?
+  #################################
+  if(nrow(newdata) == 0)
+  {
+    # This is possible if all the new files are empty
+    keepRunning = FALSE
+    errorCode = 0 #No error - this is a successful outcome
+    success <- TRUE
+  } else{
+    display_newdata <- newdata %>% group_by(ow_uid) %>% summarize(data_points = n(), first_est = first(dtime_est), last_est = last(dtime_est))
+    #count unique wells with new data
+  }
 
 ```
 
-## Updates to `data.ow_leveldata_raw` Table
-
-The Access DBs for each observation well have been examined. There are `r nrow(newdata)` new measurements to add to the `data.ow_leveldata_raw` table.
-
-`r if(nrow(newdata) > 0){group_by(newdata, ow_uid) %>% summarize(firstdate_est = first(dtime_est), lastdate_est = last(dtime_est), n = n()) %>% left_join(accessdb, by = "ow_uid") %>% left_join(ow, by = "ow_uid") %>% select(smp_id, ow_suffix, firstdate_est, lastdate_est, n) %>% kable }`
 
 ```{r Section 1B - Writing to the ow_leveldata table, include = FALSE}	
-# Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_newdata <- FALSE
-  
-  # Remove NA data
-  newdata <- newdata %>% dplyr::filter(!is.na(level_ft))
+  ###This is from the baro script. Fix this
+  knitr::asis_output(paste0("###The ", nrow(output_filetable), " new files contain ", nrow(newdata), " new data points"))
 
-  #If there's new data to append
-	if(nrow(newdata) > 0 & params$write == TRUE){
-    tryCatch({outcome_newdata <- dbWriteTable(marsDBCon,
-        DBI::SQL("data.tbl_ow_leveldata_raw"),
-        newdata,
-        append= TRUE,
-        row.names = FALSE)
-      }, # append the data
-      error = function(e) e
-    )
+  kable(display_newdata)
+
+  #Create a data frame of file-by-file writing results
+  if(nrow(newdata) > 0){
+    newdata_results <- newdata %>% 
+      group_by(baro_rawfile_uid) %>% 
+      summarize(outcome = NA, data_points = n()) %>% 
+      left_join(newfiles, by = "baro_rawfile_uid") %>% 
+      transmute(baro_rawfile_uid, 
+                filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/"), 
+                data_points, 
+                outcome)
+  } else {
+    newdata_results <- data.frame(NULL)
+  }
+
+
+  #Write each file's worth of data to the database one at a time
+  for(i in 1:nrow(newdata_results)){
+    if(nrow(newdata_results) == 0){break} #If there are no new data files, don't do anything
+    
+    newdata_currentfile <- filter(newdata, baro_rawfile_uid == newdata_results$baro_rawfile_uid[i])
+
+    if(nrow(newdata_currentfile) > 0){
+      tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
+          DBI::SQL("data.tbl_baro"), 
+          newdata_currentfile, 
+          append= TRUE, 
+          row.names = FALSE)
+        }, # append the data
+        error = function(e){
+          keepRunning <<- FALSE
+          errorCode <<- 4
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+          success <<- TRUE
+        }
+      )
+    }
+    
   }
 ```
 
 `r if(nrow(newdata) > 0){ paste("New level data has", ifelse(outcome_newdata, "SUCCESSFULLY", "NOT"), "been written to the tbl_ow_leveldata table")}`
 
 ```{r Section 2A - Gathering GW data, include = FALSE}
+
+  ###Take care of this
 
   #Read the latest date from each observation well from the mars database
   gw_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.viw_gwdata_latestdates") %>%
@@ -177,6 +258,9 @@ The Access DBs for each groundwater well have been examined. There are `r nrow(n
 
 `r if(nrow(newdata) > 0){ paste("New depth data has", ifelse(outcome_newgwdata, "SUCCESSFULLY", "NOT"), "been written to the gw_depthdata table")}`
 
+# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+## Exit Code: `r errorCode`
+## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
