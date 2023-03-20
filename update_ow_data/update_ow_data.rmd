@@ -36,7 +36,7 @@ errorCodes <- data.frame(code = 0:11,
               "Access DBs found without a main data table. Is the table name spelled wrong?",
               NA, #Write error from TryCatch will be used
               NA, #Write error from TryCatch will be used
-              NA, #Write error from TryCatch will be used
+              NA #Write error from TryCatch will be used
               ), stringsAsFactors=FALSE)
 
 keepRunning = TRUE
@@ -141,20 +141,19 @@ errorCode = 0
 ```
 
 
-```{r Section 1B - Writing to the ow_leveldata table, include = FALSE}	
+```{r Section 1B - Writing to the ow_leveldata table, include = FALSE, eval = all(keepRunning, nrow(display_newdata) > 0)}	
   ###This is from the baro script. Fix this
-  knitr::asis_output(paste0("###The ", nrow(output_filetable), " new files contain ", nrow(newdata), " new data points"))
+  knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new data points"))
 
   kable(display_newdata)
 
   #Create a data frame of file-by-file writing results
   if(nrow(newdata) > 0){
     newdata_results <- newdata %>% 
-      group_by(baro_rawfile_uid) %>% 
+      group_by(ow_uid) %>% 
       summarize(outcome = NA, data_points = n()) %>% 
-      left_join(newfiles, by = "baro_rawfile_uid") %>% 
-      transmute(baro_rawfile_uid, 
-                filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/"), 
+      left_join(ow, by = "ow_uid") %>% 
+      transmute(smp_id, ow_suffix, ow_uid, 
                 data_points, 
                 outcome)
   } else {
@@ -162,22 +161,22 @@ errorCode = 0
   }
 
 
-  #Write each file's worth of data to the database one at a time
+  #Write each well's worth of data to the database one at a time
   for(i in 1:nrow(newdata_results)){
-    if(nrow(newdata_results) == 0){break} #If there are no new data files, don't do anything
+    if(nrow(newdata_results) == 0){break} #If there are no new data sources, don't do anything
     
-    newdata_currentfile <- filter(newdata, baro_rawfile_uid == newdata_results$baro_rawfile_uid[i])
+    newdata_currentfile <- filter(newdata, ow_uid == newdata_results$ow_uid[i])
 
     if(nrow(newdata_currentfile) > 0){
       tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
-          DBI::SQL("data.tbl_baro"), 
+          DBI::SQL("data.tbl_ow_leveldata_raw"), 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
         }, # append the data
         error = function(e){
           keepRunning <<- FALSE
-          errorCode <<- 4
+          errorCode <<- 3
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
           success <<- TRUE
         }
