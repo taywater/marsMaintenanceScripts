@@ -24,29 +24,25 @@ options(stringsAsFactors=FALSE)
 
 options(stringsAsFactors=FALSE)
 
-errorCodes <- data.frame(code = 0:11,
+errorCodes <- data.frame(code = 0:5,
   message = c("Execution successful.",
               "Could not connect to Postgres DB. Is Postgres down?",
-              NA, #Write error from TryCatch will be used
-              "Access DBs found without a corresponding fieldwork.tbl_ow entry. Was a Location created in the app?",
-              "Existing DBs not found in the filesystem. Have any been moved or renamed?",
-              NA, #Write error from TryCatch will be used
-              NA, #Write error from TryCatch will be used
-              "Existing Access DBs found without canonical tables. Was an SMP ID or OW changed?",
-              "Access DBs found without a main data table. Is the table name spelled wrong?",
-              NA, #Write error from TryCatch will be used
-              NA, #Write error from TryCatch will be used
-              NA #Write error from TryCatch will be used
+              NA, #Error from TryCatch will be used
+              NA, #Error from TryCatch will be used
+              NA,  #Error from TryCatch will be used
+              NA  #Error from TryCatch will be used
               ), stringsAsFactors=FALSE)
 
-keepRunning = TRUE
+keepRunningMain = TRUE
+keepRunningCWL = TRUE
+keepRunningGW = TRUE
 success = FALSE
 errorCode = 0
 
 
 ```
 
-```{r Section 0 - Preamble and database connections, include=FALSE}
+```{r Section 0 - Preamble and database connections, include=FALSE, eval = keepRunningCWL}
 ###Section 0.1: Check parameter validity
 
 ###Section 0.2: Connect to the database
@@ -64,7 +60,7 @@ errorCode = 0
 	
 ```
 
-```{r Section 1A - Gathering OW data, include = FALSE}
+```{r Section 1A - Gathering OW data, include = FALSE, eval = keepRunningMain}
 
   #Read the latest date from each observation well from the mars database
   ow_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.viw_owdata_latestdates") %>%
@@ -80,7 +76,7 @@ errorCode = 0
 
   for(i in 1:nrow(accessdb_latestdates)){
     #Debug statement. Uncomment if running interactively.
-    # print(paste("Accessing", accessdb_latestdates$filepath[i]))
+    print(paste("Accessing", accessdb_latestdates$filepath[i]))
     
     tryCatch(
       expr = {
@@ -104,7 +100,7 @@ errorCode = 0
         odbcClose(accessdbCon)
       },
       error = function(e){
-        keepRunning <<- FALSE
+        keepRunningMain <<- FALSE
         errorCode <<- 2
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
@@ -113,7 +109,7 @@ errorCode = 0
   
   #Some nulls may exist so we purge them
   #But only if we are proceeding with execution
-  if(keepRunning){
+  if(keepRunningMain){
     newdata %<>% filter(complete.cases(newdata))
     newdata$dtime_est <- newdata$dtime_est %>% 
       round_date(unit = "minute") %>%
@@ -130,26 +126,28 @@ errorCode = 0
   if(nrow(newdata) == 0)
   {
     # This is possible if all the new files are empty
-    keepRunning = FALSE
-    errorCode = 0 #No error - this is a successful outcome
-    success <- TRUE
+    keepRunningCWL = FALSE
+    display_newdata <- NULL
   } else{
-    display_newdata <- newdata %>% group_by(ow_uid) %>% summarize(data_points = n(), first_est = first(dtime_est), last_est = last(dtime_est))
+    display_newdata <- newdata %>% 
+      group_by(ow_uid) %>% 
+      summarize(data_points = n(), first_est = first(dtime_est), last_est = last(dtime_est)) %>%
+      left_join(ow, by = "ow_uid") %>%
+      select(smp_id, ow_suffix, ow_uid, first_est, last_est, data_points)
     #count unique wells with new data
   }
 
 ```
 
 
-```{r Section 1B - Writing to the ow_leveldata table, include = FALSE, eval = all(keepRunning, nrow(display_newdata) > 0)}	
-  ###This is from the baro script. Fix this
-  knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new data points"))
+```{r Section 1B - Writing to the tbl_ow_leveldata_raw table, include = FALSE, eval = all(keepRunningMain, keepRunningCWL, nrow(display_newdata) > 0)}	
+  knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new CWL data points"))
 
   kable(display_newdata)
 
   #Create a data frame of file-by-file writing results
   if(nrow(newdata) > 0){
-    newdata_results <- newdata %>% 
+    owdata_results <- newdata %>% 
       group_by(ow_uid) %>% 
       summarize(outcome = NA, data_points = n()) %>% 
       left_join(ow, by = "ow_uid") %>% 
@@ -157,25 +155,25 @@ errorCode = 0
                 data_points, 
                 outcome)
   } else {
-    newdata_results <- data.frame(NULL)
+    owdata_results <- data.frame(NULL)
   }
 
 
   #Write each well's worth of data to the database one at a time
-  for(i in 1:nrow(newdata_results)){
-    if(nrow(newdata_results) == 0){break} #If there are no new data sources, don't do anything
+  for(i in 1:nrow(owdata_results)){
+    if(nrow(owdata_results) == 0){break} #If there are no new data sources, don't do anything
     
     newdata_currentfile <- filter(newdata, ow_uid == newdata_results$ow_uid[i])
 
     if(nrow(newdata_currentfile) > 0){
-      tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
+      tryCatch({owdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
           DBI::SQL("data.tbl_ow_leveldata_raw"), 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
         }, # append the data
         error = function(e){
-          keepRunning <<- FALSE
+          keepRunningMain <<- FALSE
           errorCode <<- 3
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
           success <<- TRUE
@@ -186,11 +184,8 @@ errorCode = 0
   }
 ```
 
-`r if(nrow(newdata) > 0){ paste("New level data has", ifelse(outcome_newdata, "SUCCESSFULLY", "NOT"), "been written to the tbl_ow_leveldata table")}`
 
-```{r Section 2A - Gathering GW data, include = FALSE}
-
-  ###Take care of this
+```{r Section 2A - Gathering GW data, include = FALSE, eval = keepRunningMain}
 
   #Read the latest date from each observation well from the mars database
   gw_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.viw_gwdata_latestdates") %>%
@@ -204,11 +199,19 @@ errorCode = 0
   newdata <- data.frame(dtime_est = NULL, ow_uid = NULL, depth_ft = NULL) #data frame to incrementally append to
 
   for(i in 1:nrow(accessdb_latestdates)){
-    accessdbCon <- odbcConnectAccess2007(accessdb_latestdates$filepath[i])
-    accessdb_latestdates$dtime_est[i][is.na(accessdb_latestdates$dtime_est[i])] <- mdy('2/20/2001', tz = "EST") #replace NAs with an early date
-    accessdb_query <- paste0("select * from [", accessdb_latestdates$datatable[i], "] where [Standard Dtime] > #",accessdb_latestdates$dtime_est[i], "# ") #query new rows
+  #Debug statement. Uncomment if running interactively.
+  print(paste("Accessing", basename(accessdb_latestdates$filepath[i])))
 
-    accessdb_newdata <- sqlQuery(accessdbCon, accessdb_query, as.is = TRUE) %>% 
+  #We need RODBC to connect to the DBs because odbc::odbc throws a "DSN too long" error. I would like to fix this sometime
+  tryCatch(
+    expr = {
+      accessdbCon <- RODBC::odbcConnectAccess2007(accessdb_latestdates$filepath[i])
+      accessdb_latestdates$dtime_est[i][is.na(accessdb_latestdates$dtime_est[i])] <- mdy('2/20/2001', tz = "EST") #replace NAs with an early date
+      accessdb_query <- paste0("select * from [", accessdb_latestdates$datatable[i], "] where [Standard Dtime] > #",accessdb_latestdates$dtime_est[i], "# ") #query new rows
+      #print(accessdb_query)
+
+
+      accessdb_newdata <- sqlQuery(accessdbCon, accessdb_query, as.is = TRUE) %>% 
       select(dtime_est = 1, depth_ft = ncol(.)) %>% #dtime is the first column, level is the last
       mutate(dtime_est = ymd_hms(dtime_est), depth_ft = as.numeric(depth_ft)) %>% #Data comes in as plain text from RODBC
       filter(dtime_est > accessdb_latestdates$dtime_est[i]) %>% #Only take the new data
@@ -219,45 +222,88 @@ errorCode = 0
        filter(dupe == FALSE) %>% #Remove the dupe rows
        select(-key, -dupe) #Remove the key columns
       
-    newdata <- bind_rows(newdata, accessdb_newdata)
-    odbcClose(accessdbCon)
-  }
+      newdata <- bind_rows(newdata, accessdb_newdata)
+      odbcClose(accessdbCon)
+    },
+    error = function(e){
+      keepRunningMain <<- FALSE
+      errorCode <<- 4
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+}
+  
   
   #Some nulls may exist so we purge them
   newdata %<>% filter(complete.cases(newdata))
   newdata$dtime_est <- newdata$dtime_est %>% 
     round_date(unit = "minute") %>%
     as.character
+  
+  #################################
+  ####Error check - Any new data?
+  #################################
+  if(nrow(newdata) == 0)
+  {
+    # This is possible if all the new files are empty
+    keepRunningGW = FALSE
+    display_newdata <- NULL
+  } else{
+    display_newdata <- newdata %>% 
+      group_by(ow_uid) %>% 
+      summarize(data_points = n(), first_est = first(dtime_est), last_est = last(dtime_est)) %>%
+      left_join(ow, by = "ow_uid") %>%
+      select(smp_id, ow_suffix, ow_uid, first_est, last_est, data_points)
+    #count unique wells with new data
+  }
 
 ```
 
+```{r Section 2B - Writing to the tbl_gw_depthdata table, include = FALSE, eval = all(keepRunningMain, keepRunningGW, nrow(display_newdata) > 0)}	
+  knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new CWL data points"))
 
-## Updates to `data.tbl_gw_leveldata_raw` Table
+  kable(display_newdata)
 
-The Access DBs for each groundwater well have been examined. There are `r nrow(newdata)` new measurements to add to the `gw_depthdata` table.
+  #Create a data frame of file-by-file writing results
+  if(nrow(newdata) > 0){
+    gwdata_results <- newdata %>% 
+      group_by(ow_uid) %>% 
+      summarize(outcome = NA, data_points = n()) %>% 
+      left_join(ow, by = "ow_uid") %>% 
+      transmute(smp_id, ow_suffix, ow_uid, 
+                data_points, 
+                outcome)
+  } else {
+    gwdata_results <- data.frame(NULL)
+  }
 
-`r if(nrow(newdata) > 0){ group_by(newdata, ow_uid) %>% summarize(firstdate_est = first(dtime_est), lastdate_est = last(dtime_est), n = n()) %>% left_join(gw_latestdates) %>% select(smp_id, ow_suffix, firstdate_est, lastdate_est, n) %>% kable }`
 
-```{r Section 2B - Writing to the data.tbl_gw_depthdata table, include = FALSE}	
-# Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_newgwdata <- FALSE
+  #Write each well's worth of data to the database one at a time
+  for(i in 1:nrow(gwdata_results)){
+    if(nrow(gwdata_results) == 0){break} #If there are no new data sources, don't do anything
+    
+    newdata_currentfile <- filter(newdata, ow_uid == newdata_results$ow_uid[i])
 
-  #If there's new data to append
-	if(nrow(newdata) > 0 & params$write == TRUE){
-    tryCatch({outcome_newgwdata <- dbWriteTable(marsDBCon, 
-        DBI::SQL("data.tbl_gw_depthdata_raw"), 
-        newdata, 
-        append= TRUE, 
-        row.names = FALSE)
-      }, # append the data
-      error = function(e) e
-    )
+    if(nrow(newdata_currentfile) > 0){
+      tryCatch({gwdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
+          DBI::SQL("data.tbl_gw_depthdata_raw"), 
+          newdata_currentfile, 
+          append= TRUE, 
+          row.names = FALSE)
+        }, # append the data
+        error = function(e){
+          keepRunning <<- FALSE
+          errorCode <<- 5
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+          success <<- TRUE
+        }
+      )
+    }
+    
   }
 ```
 
-`r if(nrow(newdata) > 0){ paste("New depth data has", ifelse(outcome_newgwdata, "SUCCESSFULLY", "NOT"), "been written to the gw_depthdata table")}`
-
-# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+# Script Results: `r ifelse(keepRunningMain, "SUCCESS", "FAILURE")`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
