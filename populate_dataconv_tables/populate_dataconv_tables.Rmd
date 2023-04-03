@@ -24,7 +24,7 @@ options(stringsAsFactors = FALSE)
 # ODBC Connection to DataConv
 dataconv <- dbConnect(odbc(),
     Driver = "ODBC Driver 17 for SQL Server",
-    Server = "pwdgis4",
+    Server = "pwdgissql",
     Database = "DataConv",
     uid = 'gisread',
     pwd = 'gisread')
