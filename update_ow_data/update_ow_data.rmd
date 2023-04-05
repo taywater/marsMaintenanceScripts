@@ -163,7 +163,7 @@ errorCode = 0
   for(i in 1:nrow(owdata_results)){
     if(nrow(owdata_results) == 0){break} #If there are no new data sources, don't do anything
     
-    newdata_currentfile <- filter(newdata, ow_uid == newdata_results$ow_uid[i])
+    newdata_currentfile <- filter(newdata, ow_uid == owdata_results$ow_uid[i])
 
     if(nrow(newdata_currentfile) > 0){
       tryCatch({owdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
@@ -282,7 +282,7 @@ errorCode = 0
   for(i in 1:nrow(gwdata_results)){
     if(nrow(gwdata_results) == 0){break} #If there are no new data sources, don't do anything
     
-    newdata_currentfile <- filter(newdata, ow_uid == newdata_results$ow_uid[i])
+    newdata_currentfile <- filter(newdata, ow_uid == gwdata_results$ow_uid[i])
 
     if(nrow(newdata_currentfile) > 0){
       tryCatch({gwdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
