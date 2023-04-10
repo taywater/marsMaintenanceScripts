@@ -3,9 +3,6 @@ title: "Worker Script Report: Populate Cipit Tables"
 author: "Taylor Heffernan, Brian Cruice"
 date: "`r lubridate::now()`"
 output: html_document
-params:
-  database: "mars_data" #Requires a DSN of the same name
-  write: FALSE #Write Changes to database?
 ---
 
 ```{r setup, include=FALSE}
@@ -32,14 +29,34 @@ cipit <- dbConnect(odbc(),
     uid = 'cipreadonly', 
     pwd = 'cipread')
 
-mars <- dbConnect(odbc(), params$database)
+mars <- dbConnect(odbc(), "mars_data14")
+
+errorCodes <- data.frame(code = 0:3,
+  message = c("Execution successful.",
+              "Could not connect to DB. Is Postgres or CIPIT down?",
+              NA, #Write error from TryCatch will be used
+              NA #Write error from TryCatch will be used
+              ), stringsAsFactors=FALSE)
+
+keepRunning = TRUE
+success = FALSE
+errorCode = 0
+
+  #################################
+  ####Error check - Did we connect?
+  #################################
+  if(any(!odbc::dbIsValid(mars), !odbc::dbIsValid(cipit)))
+  {
+    keepRunning = FALSE
+    errorCode = 1
+  }
 ```
 
 ## Worker Script Report: Populate CIPIT Tables
 
 This script is attempting to connect to the database `CIPITREADER` on the `PWDCIPSWLR` server. Once connected, the script will query data from `CIPITREADER`, hash rows of data, and compare the hashes from `CIPITREADER` to those stored on `mars_data`.
 
-```{r Section 1 - Querrying and Hashing, echo = FALSE, include = FALSE}
+```{r Section 1 - Querrying and Hashing, echo = FALSE, include = FALSE, eval = keepRunning}
 cipit_project_query <- 'select _Work_Number as work_number, _Project_Phase as project_phase, _Project_Phase_Status as project_phase_status, _Project_Title as project_title, _Targeted_Bid_FY as targeted_bid_fy, PC_NTP_Date as pc_ntp_date, CONST_Construction_Start_Date as construction_start_date, DESIGN_Design_Engineer as design_engineer, CONST_Division_Engineer as division_engineer, CONST_Contractor as contractor, ProjectAutoID as projectautoid, CONST_Substantially_Complete_Date as construction_complete_date, CONST_Contract_Close_Date as contract_closed_date from Project'
 cipit_project <- dbGetQuery(cipit, cipit_project_query)
 
@@ -51,34 +68,65 @@ cipit_project_hash <- cipit_project %>%
     mutate(md5hash = digest(temp, algo = 'md5')) %>%
     select(-temp)
 
-cipit_project_db <- dbGetQuery(mars, "select * from external.cipit_project")
-```
-
-```{r Section 2 - Comparing Databases and Writing to Databases, echo = FALSE, include = FALSE}
+cipit_project_db <- dbGetQuery(mars, "select * from external.tbl_cipit_project")
 
 cipit_project_anti <- anti_join(cipit_project_hash, cipit_project_db)
 cipit_project_new <- filter(cipit_project_anti,!(work_number %in% cipit_project_db$work_number))
 
-if(params$write){
-dbWriteTable(mars, DBI::SQL("external.cipit_project"), cipit_project_new, append = TRUE)
-}
-
 cipit_project_update = anti_join(cipit_project_anti, cipit_project_new) %>%
     left_join(select(cipit_project_db, cipit_project_uid, work_number))
+```
 
-if(nrow(cipit_project_update) > 0 && params$write){
-    update_cipit_project <- dbSendQuery(mars, 'update external.cipit_project set work_number=?, project_phase=?, project_phase_status=?, project_title=?, targeted_bid_fy=?, pc_ntp_date=?, construction_start_date=?, design_engineer=?, division_engineer=?, contractor=?, projectautoid=?, construction_complete_date=?, contract_closed_date=?, md5hash=? where cipit_project_uid=?')
-    dbBind(update_cipit_project, cipit_project_update)
-    dbClearResult(update_cipit_project)
-} 
+```{r Section 2 - Comparing Databases and Writing to Databases, echo = FALSE, eval = all(keepRunning, nrow(cipit_project_new) > 0)}
+knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_new), " new projects."))
+kable(head(cipit_project_new))
+
+
+tryCatch(
+
+  expr = {
+    dbWriteTable(mars, 
+      DBI::SQL("external.tbl_cipit_project"), 
+      cipit_project_new, 
+      append= TRUE, 
+      row.names = FALSE)
+    success <<- TRUE
+    },
+  error = function(e) {
+    keepRunning <<- FALSE
+    errorCode <<- 2
+    errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+  }
+)
 
 ```
 
-### The following `r nrow(cipit_project_new)` new projects were `r if(!params$write){"not"}` written to `mars_data`:
-`r if(nrow(cipit_project_new)>0){knitr::kable(cipit_project_new, caption = "New Projects")}`
+```{r Section 3: Updating existing records, echo = FALSE, eval = all(keepRunning, nrow(cipit_project_update) > 0)}
+knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_update), " updated projects."))
+kable(head(cipit_project_update))
 
-### The following `r nrow(cipit_project_update)` projects were `r if(!params$write){"not"}` updated in `mars_data`:
-`r if(nrow(cipit_project_update)>0){knitr::kable(cipit_project_update, caption = "Updated Projects")}`
+tryCatch(
+
+  expr = {
+    update_cipit_project <- dbSendQuery(mars, 'update external.tbl_cipit_project set work_number=?, project_phase=?, project_phase_status=?, project_title=?, targeted_bid_fy=?, pc_ntp_date=?, construction_start_date=?, design_engineer=?, division_engineer=?, contractor=?, projectautoid=?, construction_complete_date=?, contract_closed_date=?, md5hash=? where cipit_project_uid=?')
+    dbBind(update_cipit_project, cipit_project_update)
+    dbClearResult(update_cipit_project)
+    success <<- TRUE
+    },
+  error = function(e) {
+    keepRunning <<- FALSE
+    errorCode <<- 3
+    errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+  }
+)
+
+    
+
+```
+
+# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+## Exit Code: `r errorCode`
+## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 # Close database connections
