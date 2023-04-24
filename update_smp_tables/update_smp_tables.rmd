@@ -88,7 +88,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	blueroof <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIBLUEROOF_WGS84", quiet = TRUE)) %>% 
+	blueroof <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIBLUEROOF", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -96,7 +96,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	bumpout <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIBUMPOUT_WGS84", quiet = TRUE)) %>% 
+	bumpout <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIBUMPOUT", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -104,7 +104,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	cistern <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWICISTERN_WGS84", quiet = TRUE)) %>% 
+	cistern <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWICISTERN", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -112,7 +112,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	drainagewell <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIDRAINAGEWELL_WGS84", quiet = TRUE)) %>% 
+	drainagewell <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIDRAINAGEWELL", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -128,7 +128,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	permeablepavement <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIPERMEABLEPAVEMENT_WGS84", quiet = TRUE)) %>% 
+	permeablepavement <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIPERMEABLEPAVEMENT", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -136,7 +136,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	planter <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIPLANTER_WGS84", quiet = TRUE)) %>% 
+	planter <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIPLANTER", quiet = TRUE)) %>% 
   	st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -144,7 +144,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	raingarden <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIRAINGARDEN_WGS84", quiet = TRUE)) %>% 
+	raingarden <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIRAINGARDEN", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -160,7 +160,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	treetrench <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWITREETRENCH_WGS84", quiet = TRUE)) %>% 
+	treetrench <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWITREETRENCH", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -168,7 +168,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	trench <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWITRENCH_WGS84", quiet = TRUE)) %>% 
+	trench <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWITRENCH", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -176,7 +176,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	wetland <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIWETLAND_WGS84", quiet = TRUE)) %>% 
+	wetland <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIWETLAND", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
