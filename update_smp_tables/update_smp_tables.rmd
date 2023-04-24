@@ -120,9 +120,9 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	greenroof <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIGREENROOF_WGS84", quiet = TRUE)) %>% 
+	greenroof <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIGREENROOF", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
-	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
+	  st_make_valid %>% st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
 	  filter(!(smp_id %in% smp_loc$smp_id)) %>%
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
@@ -130,7 +130,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 
 	permeablepavement <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWIPERMEABLEPAVEMENT", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
-	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
+	  st_make_valid %>% st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
 	  filter(!(smp_id %in% smp_loc$smp_id)) %>%
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
@@ -152,7 +152,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	  {data.frame(st_coordinates(.), .$smp_id)} %>%
 	  select(smp_id = 3, lon_wgs84 = 1, lat_wgs84 = 2)
 
-	swale <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWISWALE_WGS84", quiet = TRUE)) %>% 
+	swale <- suppressWarnings(st_read(dsn_infra_pub, "gisad.GSWISWALE", quiet = TRUE)) %>% 
 	  st_set_crs(2272) %>% st_transform(4326) %>% #Convert from PA State Plane to WGS 1984
 	  st_centroid %>% filter(!is.na(SMP_ID)) %>% transmute(smp_id = gsub("\\s", "", SMP_ID)) %>%
 	  filter(!(grepl("[A-z]", smp_id))) %>% #No A-Z characters permitted. Upper and lower case.
@@ -223,7 +223,9 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 ###Section 2: Update smp_gage table
 ###If there are any SMPs with locations that do not have rain gage associations, apply those now
 	#Read table of SMP locations (in case it got updated in step 1)
-	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_smp_loc")
+	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_smp_loc") %>%
+             dplyr::filter(is.nan(lon_wgs84) == FALSE & is.nan(lat_wgs84) == FALSE) %>%
+             dplyr::filter(is.na(lon_wgs84) == FALSE & is.na(lat_wgs84) == FALSE)
 
 	#Read table of SMP/rain gage associations
 	smp_gage <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_smp_gage")
@@ -277,7 +279,9 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 ###Section 3: Update smp_radar table
 ###If there are any SMPs with locations that do not have radar associations, apply those now
 	#Read table of SMP locations (in case it got updated in step 1)
-	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_smp_loc")
+	smp_loc <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_smp_loc") %>%
+             dplyr::filter(is.nan(lon_wgs84) == FALSE & is.nan(lat_wgs84) == FALSE) %>%
+             dplyr::filter(is.na(lon_wgs84) == FALSE & is.na(lat_wgs84) == FALSE)
 
 	#Read table of SMP/radar associations
 	smp_radar <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_smp_radar")
