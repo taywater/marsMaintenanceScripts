@@ -7,7 +7,6 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: "mars_data14"
-
 ---
 
 ```{r setup, include=FALSE}
@@ -25,22 +24,20 @@ library(knitr)
 
 options(stringsAsFactors=FALSE)
 
-errorCodes <- data.frame(code = 0:11,
+errorCodes <- data.frame(code = 0:9,
   message = c("Execution successful.",
               "Could not connect to Postgres DB. Is Postgres down?",
               "No Access DBs found when crawling public/private site folders. Are we connected to Active Directory?",
-              "Access DBs found without a corresponding fieldwork.tbl_ow entry. Was a Location created in the app?",
-              "Existing DBs not found in the filesystem. Have any been moved or renamed?",
+              "Access DBs orphaned (without tbl_ow entry) or missing (not at tbl_accessdb.filepath)",
               NA, #Write error from TryCatch will be used
               NA, #Write error from TryCatch will be used
-              "Existing Access DBs found without canonical tables. Was an SMP ID or OW changed?",
-              "Access DBs found without a main data table. Is the table name spelled wrong?",
+              "Access DBs found without canonical tables",
               NA, #Write error from TryCatch will be used
               NA, #Write error from TryCatch will be used
-              NA, #Write error from TryCatch will be used
+              NA #Write error from TryCatch will be used
               ), stringsAsFactors=FALSE)
 
-keepRunning = TRUE
+kill = FALSE
 errorCode = 0
 
 ```
@@ -57,14 +54,24 @@ errorCode = 0
   #################################
   if(!odbc::dbIsValid(marsDBCon))
   {
-    keepRunning = FALSE
+    kill = TRUE
     errorCode = 1
   }
 
 
 ```
 
-```{r Section 0B - Preamble, include = FALSE, eval = keepRunning}
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 0B - Preamble, include = FALSE}
 	#Refresh materialized view so it has the newest cache of SMP IDs
 	#If we don't do this, new IDs won't be found, and we will get an insertion error.
 	dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW external.mat_assets WITH DATA;")
@@ -121,24 +128,26 @@ errorCode = 0
 	}
   
 ```
-  
-This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_ow_sumpdepth_intermediate`tables in the `r params$database` database. It crawls the GSI Monitoring Sites folder, and does the following:  
-  
- 1. Update the `admin.tbl_accessdb` table's set of information for GSI site Access DBs (`tbl_accessdb.filepath`, `tbl_accessdb.ow_uid`)  
-  * Look for all Access DBs in the roots of the various site folders (file paths end with .mdb or .accdb)
-  * Verify that all DB paths contained in `tbl_accessdb.filepath` can be found
-  * For newly created Access DBs, parse their filepath and look in `fieldwork.tbl_ow` for matching `tbl_ow.smp_id` and `tbl_ow.ow_suffix`
-  * Look for deleted/moved DBs, whose file paths can no longer be found
-  
- 2. Update the `admin.tbl_accessdb` table's set of canonical GSI table names (`tbl_accessdb.datatable`, `tbl_accessdb.sumptable`)
-  * Loop through Access DBs (`tbl_accessdb.filepath`), checking each for canonical data tables and stage-storage tables.
-  * Create data frames of additions to the set of canonical table names, and existing table names that can no longer be found
-  
- 3. Update the sump depths in the `fieldwork.tbl_ow_sumpdepth_intermediate` table  
-  
----  
-  
-```{r Section 1 - Gathering data for the accessdb table, include = FALSE, eval = keepRunning}
+
+This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_ow_sumpdepth_intermediate`tables in the `r params$database` database. It crawls the GSI Monitoring Sites folder, and does the following:
+
+1.  Update the `admin.tbl_accessdb` table's set of information for GSI site Access DBs (`tbl_accessdb.filepath`, `tbl_accessdb.ow_uid`)
+
+-   Look for all Access DBs in the roots of the various site folders (file paths end with .mdb or .accdb)
+-   Verify that all DB paths contained in `tbl_accessdb.filepath` can be found
+-   For newly created Access DBs, parse their filepath and look in `fieldwork.tbl_ow` for matching `tbl_ow.smp_id` and `tbl_ow.ow_suffix`
+-   Look for deleted/moved DBs, whose file paths can no longer be found
+
+2.  Update the `admin.tbl_accessdb` table's set of canonical GSI table names (`tbl_accessdb.datatable`, `tbl_accessdb.sumptable`)
+
+-   Loop through Access DBs (`tbl_accessdb.filepath`), checking each for canonical data tables and stage-storage tables.
+-   Create data frames of additions to the set of canonical table names, and existing table names that can no longer be found
+
+3.  Update the sump depths in the `fieldwork.tbl_ow_sumpdepth_intermediate` table
+
+------------------------------------------------------------------------
+
+```{r Section 1 - Gathering data for the accessdb table, include = FALSE}
   ###Section 1.1 Scan site folders
     #Find public site folders within 02 GSI Monitoring Sites
     #Site folders will end with an underscore and a number (eg _123)
@@ -153,21 +162,31 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     publicaccessdbs <- list.files(publicsitefolders, "\\.accdb$|\\.mdb$", recursive=FALSE, full.names=TRUE)
     privateaccessdbs <- list.files(privatesitefolders, "\\.accdb$|\\.mdb$", recursive=FALSE, full.names=TRUE)
     
+    #Fetch current version of the AccessDB table
+    accessdbtable_server <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
+    
     ##############################################
     ####Error check - did we find access DB files?
     ##############################################
     if(length(publicaccessdbs) == 0 | length(privateaccessdbs) == 0)
     {
-      keepRunning = FALSE
+      kill = TRUE
       errorCode = 2
     }
     
-    #Fetch current version of the AccessDB table
-    accessdbtable_server <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
-    
 ```
 
-```{r Section 1A - New Databases, include = FALSE, eval = keepRunning}
+```{r Break Point 2 - No Filesystem Access, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 1A - New Databases, include = FALSE}
     
   ###Section 1.2 Parse new DB names, SMP IDs, and OW suffixes
     #Exclude DBs already in the table
@@ -196,69 +215,73 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     #New Access DBs that don't have defined OWs need OWs defined for them
     #All this script can do is report on these
       ####Author's note: We could guess pretty well at creating new OWs in the database for these, but we aren't solving that problem now
-    accessdbswithoutow <- filter(allnewaccessdbs_ow, is.na(ow_uid)) %>% mutate(filepath = filepath_server)
+    error_accessdbswithoutow <- filter(allnewaccessdbs_ow, is.na(ow_uid)) %>% mutate(filepath = filepath_server, status = "orphaned") %>%
+      select(smp_id, ow_suffix, ow_uid, filepath, status)
     
     #Which known DBs weren't found? (Maybe deleted or moved)
-    existingdbs_notfound <- filter(accessdbtable_server, !(filepath %in% c(publicaccessdbs, privateaccessdbs))) %>%
+    error_existingdbs_notfound <- filter(accessdbtable_server, !(filepath %in% c(publicaccessdbs, privateaccessdbs))) %>%
       left_join(ow) %>%
-      select(smp_id, ow_suffix, ow_uid, filepath)
+      transmute(smp_id, ow_suffix, ow_uid, filepath, status = "missing")
+    
+    #############################################
+    ####Error check - any dbs in improper states?
+    #############################################
+    if(any(nrow(error_accessdbswithoutow) > 0, nrow(error_existingdbs_notfound) > 0)){
+      kill = TRUE
+      errorCode = 3
+      errorTable = bind_rows(error_accessdbswithoutow, error_existingdbs_notfound)
+    }
 
-```    
+```
+
+```{r Break Point 3 - Missing or Orphaned DBs, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
-```{r Section 1B - Incomplete entries, echo = FALSE, eval = all(keepRunning, nrow(accessdbswithoutow) > 0)}
-
-    ##############################################
-    ####Error check - did we find orphaned DB files?
-    ##############################################
-    knitr::asis_output(paste("### Access DBs found without a corresponding OW in `fieldwork.tbl_ow`: ",   nrow(accessdbswithoutow)))
-      
-    kable(transmute(accessdbswithoutow, smp_id, ow = ow_suffix, uid = ow_uid, 
-                    filename = paste(basename(dirname(filepath_server)), basename(filepath_server), sep = "/")))
-    
-    keepRunning = FALSE
-    errorCode = 3
+  kable(errorTable)
+  
+  knitr::knit_exit()
 
 ```
 
-```{r Section 1B - Failure to Find, echo = FALSE, eval = all(keepRunning, nrow(existingdbs_notfound) > 0)}
 
-    ##############################################
-    ####Error check - did we fail to find any DBs?
-    ##############################################
-    knitr::asis_output(paste("### AccessDBs in `admin.tbl_accessdb` not found in the filesystem: ",   nrow(existingdbs_notfound)))
-    kable(transmute(existingdbs_notfound, smp_id, ow = ow_suffix, uid = ow_uid, 
-                    filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/")))
-      
-    keepRunning = FALSE
-    errorCode = 4
-
-    
-```
-
-```{r Section R1: New Databases Output, echo = FALSE, eval = all(keepRunning, nrow(output_newAccessDBs) > 0)}
+```{r Section R1: New Databases Output, echo = FALSE, include = TRUE, eval = nrow(output_newAccessDBs) > 0}
     knitr::asis_output(paste("### New Access DBs to add to `admin.tbl_accessdb`: ",   nrow(output_newAccessDBs)))
-
+  
     filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% 
-      transmute(smp_id, ow = ow_suffix, uid = ow_uid, 
-                filepath = paste(basename(dirname(filepath_server)), basename(filepath_server), sep = "/")) %>%
-      kable()
-
+        transmute(smp_id, ow = ow_suffix, uid = ow_uid, 
+                  filepath = paste(basename(dirname(filepath_server)), basename(filepath_server), sep = "/")) %>%
+        kable()
+  
     tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 4
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
 
-      expr = {
-        dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
-        success <<- TRUE
-        },
-      error = function(e) {
-        keepRunning <<- FALSE
-        errorCode <<- 5
-        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-      }
-    )
 
 ```
+
+```{r Break Point 4 - Write Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
-```{r Section 2 - Checking the Access DBs for canonical table names, include = FALSE, eval = keepRunning}
+  knitr::knit_exit()
+
+```
+
+```{r Section 2 - Checking the Access DBs for canonical table names, include = FALSE}
 
   ###Pull Access table again
   accessdbtable_server <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
@@ -276,7 +299,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
 
   for(i in 1:nrow(accessdb_tableguesses)){
     #Debug statement. Uncomment if running interactively.
-    # print(paste("Accessing", basename(accessdb_tableguesses$filepath[i])))
+     print(paste("Accessing", basename(accessdb_tableguesses$filepath[i])))
 
     #We need RODBC to connect to the DBs because odbc::odbc throws a "DSN too long" error. I would like to fix this sometime
     tryCatch(
@@ -291,13 +314,25 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
         RODBC::odbcClose(accessdbCon)
       },
       error = function(e){
-        keepRunning <<- FALSE
-        errorCode <<- 6
+        kill <<- TRUE
+        errorCode <<- 5
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
   }
+```
+
+```{r Break Point 5 - AccessDB Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
+  knitr::knit_exit()
+
+```
+
+```{r Prepare canonical table outputs, echo = FALSE, include = FALSE}
   #Create the data frames of results to print/summarize
   #Access DBs where our current stored table names are both correct
     #Either we found what we expected to find, or we didn't find anything and expected to find nothing
@@ -321,79 +356,81 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
   
   #Access DBs where we didn't find tables we thought were there
   ####Error on this####
-
-    accessdb_missedsomething <- filter(accessdb_tableguesses,
-      (sumptable_guessresult == FALSE & !is.na(sumptable)) | (datatable_guessresult == FALSE & !is.na(datatable)))
+    error_missedsomething <- filter(accessdb_tableguesses,
+      (sumptable_guessresult == FALSE & !is.na(sumptable)) | (datatable_guessresult == FALSE & !is.na(datatable))) %>%
+      transmute(smp_id, ow_suffix, filepath, status = "Existing Table Gone")
     
   #Access DBs with no canonical tables
   ####Error on this####
   #Only checking for data table, because without a data table, a sump table is meaningless
-    accessdb_nocanonical <- filter(accessdb_tableguesses, datatable_guessresult == FALSE, is.na(datatable))
-
-```
-
-```{r Section X - Missed existing tables, echo = FALSE, eval = all(keepRunning, nrow(accessdb_missedsomething) > 0)}
-
-    ##############################################
-    ####Error check - Did we fail to find any canonical tables in the existing DBs?
-    ##############################################
-    knitr::asis_output(paste("### AccessDBs in `admin.tbl_accessdb` with newly missing tables: ",   nrow(accessdb_missedsomething)))
-    kable(transmute(accessdb_missedsomething, smp_id, ow = ow_suffix, uid = ow_uid, 
-                    filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/")))
-      
-    keepRunning = FALSE
-    errorCode = 7
-
+    error_nocanonical <- filter(accessdb_tableguesses, datatable_guessresult == FALSE, is.na(datatable)) %>%
+      transmute(smp_id, ow_suffix, filepath, status = "No Tables Anywhere")
     
+
+    #############################################
+    ####Error check - any dbs in improper states?
+    #############################################
+    if(any(nrow(error_missedsomething) > 0, nrow(error_nocanonical) > 0)){
+      kill = TRUE
+      errorCode = 6
+      errorTable = bind_rows(error_accessdbswithoutow, error_existingdbs_notfound)
+    }
+
 ```
 
-```{r Section X - Failure to Find, echo = FALSE, eval = all(keepRunning, nrow(accessdb_nocanonical) > 0)}
+```{r Break Point 6 - Canonical Tables, echo = FALSE, include = TRUE, eval = kill}
 
-    ##############################################
-    ####Error check - Do any new DBs have no data table?
-    ##############################################
-    knitr::asis_output(paste("### AccessDBs in `admin.tbl_accessdb` without a data table: ",   nrow(accessdb_nocanonical)))
-    kable(transmute(accessdb_nocanonical, smp_id, ow = ow_suffix, uid = ow_uid, 
-                    filename = paste(basename(dirname(filepath)), basename(filepath), sep = "/")))
-      
-    keepRunning = FALSE
-    errorCode = 8
-
-    
-```
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
-```{R Section R2 - Writing new canonical tables to the DB, echo = FALSE, eval = all(keepRunning, nrow(accessdb_newtablestowrite) > 0)}
-
-  knitr::asis_output(paste("### New Canonical Tables to add to `admin.tbl_accessdb`: ",   nrow(accessdb_newtablestowrite)))
-  kable(head(accessdb_newtablestowrite))
-
-  tryCatch(
-
-      expr = {
-        dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_accessdb_temp"), accessdb_newtablestowrite, temporary = TRUE,row.names = FALSE, overwrite = TRUE)
-
-        #Use this temp table to update the existing accessdb table
-        #Temporary table means R will copy the string "NA" into the table when a value is NA.
-          #We must explicitly exclude these or else they'll end up in the final table and fuck everything up.
-
-	      dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set datatable = t.datatable from admin.tbl_accessdb_temp t where a.accessdb_uid = t.accessdb_uid")
-	      dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set sumptable = t.sumptable from admin.tbl_accessdb_temp t where a.accessdb_uid = t.accessdb_uid
-	                              and t.sumptable <> 'NA'")
-        
-        success <<- TRUE
-        },
-      
-      error = function(e) {
-        keepRunning <<- FALSE
-        errorCode <<- 9
-        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-      }
-    )
-	  
+  kable(errorTable)
+  
+  knitr::knit_exit()
 
 ```
 
-```{r Section 3 - Gather data for new/updated sump depths, include=FALSE, eval = keepRunning}
+```{R Section R2 - Writing new canonical tables to the DB, echo = FALSE, include = TRUE, eval = nrow(accessdb_newtablestowrite) > 0}
+    knitr::asis_output(paste("### New Canonical Tables to add to `admin.tbl_accessdb`: ",   nrow(accessdb_newtablestowrite)))
+    kable(head(accessdb_newtablestowrite))
+  
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("tbl_accessdb_temp"), accessdb_newtablestowrite, temporary = TRUE,row.names = FALSE, overwrite = TRUE)
+
+          #Use this temp table to update the existing accessdb table
+          #Temporary table means R will copy the string "NA" into the table when a value is NA.
+            #We must explicitly exclude these or else they'll end up in the final table and fuck everything up.
+
+  	      dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set datatable = t.datatable from tbl_accessdb_temp t where a.accessdb_uid = t.accessdb_uid")
+  	      dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set sumptable = t.sumptable from tbl_accessdb_temp t where a.accessdb_uid = t.accessdb_uid
+  	                              and t.sumptable <> 'NA'")
+
+          success <<- TRUE
+          },
+        
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 7
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
+
+
+```
+
+```{r Break Point 7 - AccessDB Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 3 - Gather data for new/updated sump depths, include=FALSE}
   #Filter AccessDBs to DBs with a sumptable, connect to each DB, check each stage storage curve for a sump depth (>0, 0)
 
   #Grab known sump depths from the postgres database and compare them to the stae of the various accessdbs
@@ -432,8 +469,8 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
         RODBC::odbcClose(con)
       },
       error = function(e){
-        keepRunning <<- FALSE
-        errorCode <<- 10
+        kill <<- TRUE
+        errorCode <<- 8
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
@@ -451,57 +488,86 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     
 ```
 
-```{R Section R3 - Writing new sump depths to the DB, echo = FALSE, eval = all(keepRunning, nrow(accessdbs_newmeasurement) > 0)}
+```{r Break Point 8 - Sumptable Failure, echo = FALSE, include = TRUE, eval = kill}
 
-  knitr::asis_output(paste("### New Sump Depths to add to `fieldwork.tbl_ow_sumpdepth_intermediate`: ",   nrow(accessdbs_newmeasurement)))
-  kable(head(accessdbs_newmeasurement))
-
-  tryCatch(
-
-      expr = {
-        dbWriteTable(marsDBCon, DBI::SQL("fieldwork.tbl_ow_sumpdepth_intermediate"), accessdbs_newmeasurement, row.names = FALSE, append = TRUE)
-        success <<- TRUE
-      },
-      
-      error = function(e) {
-        keepRunning <<- FALSE
-        errorCode <<- 11
-        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-      }
-    )
-	  
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
 
 ```
 
-```{R Section R4 - Updating existing sump depths in the DB, echo = FALSE, eval = all(keepRunning, nrow(accessdbs_depthchanged) > 0)}
-
-  knitr::asis_output(paste("### Sump depths to update in `fieldwork.tbl_ow_sumpdepth_intermediate`: ",   nrow(accessdbs_depthchanged)))
-  kable(head(accessdbs_depthchanged))
-
-  tryCatch(
-
-      expr = {
-        dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_sumpdepth_temp"), accessdbs_depthchanged,row.names = FALSE, overwrite = FALSE)
-
-        #Use this temp table to update the existing table
-	      dbGetQuery(marsDBCon, "update fieldwork.tbl_ow_sumpdepth_intermediate s set sumpdepth_ft = t.sumpdepth_ft from admin.tbl_sumpdepth_temp t where s.ow_uid = t.ow_uid")
+```{R Section R3 - Writing new sump depths to the DB, echo = FALSE, include = TRUE, eval = nrow(accessdbs_newmeasurement) > 0}
+    knitr::asis_output(paste("### New Sump Depths to add to `fieldwork.tbl_ow_sumpdepth_intermediate`: ",   nrow(accessdbs_newmeasurement)))
+    kable(head(accessdbs_newmeasurement))
+  
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("fieldwork.tbl_ow_sumpdepth_intermediate"), accessdbs_newmeasurement, row.names = FALSE, append = TRUE)
+          success <<- TRUE
+        },
         
-        success <<- TRUE
-      },
-      
-      error = function(e) {
-        keepRunning <<- FALSE
-        errorCode <<- 11
-        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-      }
-    )
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 9
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      ) 
+
+```
+
+```{r Break Point 9 - Write Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+```{R Section R4 - Updating existing sump depths in the DB, echo = FALSE, include = TRUE, eval = nrow(accessdbs_depthchanged) > 0}
+    knitr::asis_output(paste("### Sump depths to update in `fieldwork.tbl_ow_sumpdepth_intermediate`: ",   nrow(accessdbs_depthchanged)))
+    kable(head(accessdbs_depthchanged))
+  
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("tbl_sumpdepth_temp"), accessdbs_depthchanged,row.names = FALSE, overwrite = FALSE)
+
+          #Use this temp table to update the existing table
+  	      dbGetQuery(marsDBCon, "update fieldwork.tbl_ow_sumpdepth_intermediate s set sumpdepth_ft = t.sumpdepth_ft from tbl_sumpdepth_temp t where s.ow_uid = t.ow_uid")
+          
+          success <<- TRUE
+        },
+        
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 10
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
+
 	  
 ```
 
-# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+```{r Break Point 10 - Update Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+# Script Results: Success!
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
-```{r Section 4 - Close DB connections and render this file, include = FALSE}
-	#Close database connections
-	dbDisconnect(marsDBCon)
+```{r Section 4 - Close DB connections and render this file, include = FALSE} 
+#Close database connections 
+dbDisconnect(marsDBCon)
+```
