@@ -22,8 +22,6 @@ library(odbc)
 library(knitr)
 options(stringsAsFactors=FALSE)
 
-options(stringsAsFactors=FALSE)
-
 errorCodes <- data.frame(code = 0:5,
   message = c("Execution successful.",
               "Could not connect to Postgres DB. Is Postgres down?",
@@ -33,16 +31,14 @@ errorCodes <- data.frame(code = 0:5,
               NA  #Error from TryCatch will be used
               ), stringsAsFactors=FALSE)
 
-keepRunningMain = TRUE
-keepRunningCWL = TRUE
-keepRunningGW = TRUE
+kill = FALSE
 success = FALSE
 errorCode = 0
 
 
 ```
 
-```{r Section 0 - Preamble and database connections, include=FALSE, eval = keepRunningCWL}
+```{r Section 0 - Preamble and database connections, include=FALSE}
 ###Section 0.1: Check parameter validity
 
 ###Section 0.2: Connect to the database
@@ -60,7 +56,17 @@ errorCode = 0
 	
 ```
 
-```{r Section 1A - Gathering OW data, include = FALSE, eval = keepRunningMain}
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 1A - Gathering OW data, include = FALSE}
 
   #Read the latest date from each observation well from the mars database
   ow_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.viw_owdata_latestdates") %>%
@@ -100,21 +106,22 @@ errorCode = 0
         odbcClose(accessdbCon)
       },
       error = function(e){
-        keepRunningMain <<- FALSE
+        kill <<- TRUE
         errorCode <<- 2
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
   }
-  
+
+```
+
+
+```{r Processing OW Data, echo = FALSE, include = FALSE}  
   #Some nulls may exist so we purge them
-  #But only if we are proceeding with execution
-  if(keepRunningMain){
-    newdata %<>% filter(complete.cases(newdata))
-    newdata$dtime_est <- newdata$dtime_est %>% 
+  newdata %<>% filter(complete.cases(newdata))
+  newdata$dtime_est <- newdata$dtime_est %>% 
       round_date(unit = "minute") %>%
       as.character  
-  }
   
 
   #Pull OW table for use in the report table
@@ -126,8 +133,7 @@ errorCode = 0
   if(nrow(newdata) == 0)
   {
     # This is possible if all the new files are empty
-    keepRunningCWL = FALSE
-    display_newdata <- NULL
+    display_newdata <- data.frame(NULL)
   } else{
     display_newdata <- newdata %>% 
       group_by(ow_uid) %>% 
@@ -140,24 +146,19 @@ errorCode = 0
 ```
 
 
-```{r Section 1B - Writing to the tbl_ow_leveldata_raw table, include = FALSE, eval = all(keepRunningMain, keepRunningCWL, nrow(display_newdata) > 0)}	
+```{r Section 1B - Writing to the tbl_ow_leveldata_raw table, include = FALSE, eval = nrow(display_newdata) > 0}	
   knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new CWL data points"))
 
   kable(display_newdata)
 
   #Create a data frame of file-by-file writing results
-  if(nrow(newdata) > 0){
-    owdata_results <- newdata %>% 
+  owdata_results <- newdata %>% 
       group_by(ow_uid) %>% 
       summarize(outcome = NA, data_points = n()) %>% 
       left_join(ow, by = "ow_uid") %>% 
       transmute(smp_id, ow_suffix, ow_uid, 
                 data_points, 
                 outcome)
-  } else {
-    owdata_results <- data.frame(NULL)
-  }
-
 
   #Write each well's worth of data to the database one at a time
   for(i in 1:nrow(owdata_results)){
@@ -173,7 +174,7 @@ errorCode = 0
           row.names = FALSE)
         }, # append the data
         error = function(e){
-          keepRunningMain <<- FALSE
+          kill <<- TRUE
           errorCode <<- 3
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
           success <<- TRUE
@@ -184,8 +185,17 @@ errorCode = 0
   }
 ```
 
+```{r Break Point 3 - Failure to write to Postgres, echo = FALSE, eval = kill}
 
-```{r Section 2A - Gathering GW data, include = FALSE, eval = keepRunningMain}
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 2A - Gathering GW data, include = FALSE}
 
   #Read the latest date from each observation well from the mars database
   gw_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.viw_gwdata_latestdates") %>%
@@ -226,13 +236,26 @@ errorCode = 0
       odbcClose(accessdbCon)
     },
     error = function(e){
-      keepRunningMain <<- FALSE
+      kill <<- TRUE
       errorCode <<- 4
       errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
   )
 }
   
+```
+
+```{r Break Point 4 - Access DB Failure, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+```{r Processing GW data, echo = FALSE, include = FALSE}
   
   #Some nulls may exist so we purge them
   newdata %<>% filter(complete.cases(newdata))
@@ -246,8 +269,8 @@ errorCode = 0
   if(nrow(newdata) == 0)
   {
     # This is possible if all the new files are empty
-    keepRunningGW = FALSE
-    display_newdata <- NULL
+    display_newdata <- data.frame(NULL)
+    
   } else{
     display_newdata <- newdata %>% 
       group_by(ow_uid) %>% 
@@ -259,8 +282,9 @@ errorCode = 0
 
 ```
 
-```{r Section 2B - Writing to the tbl_gw_depthdata table, include = FALSE, eval = all(keepRunningMain, keepRunningGW, nrow(display_newdata) > 0)}	
-  knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new CWL data points"))
+
+```{r Section 2B - Writing to the tbl_gw_depthdata table, include = FALSE, eval = nrow(display_newdata) > 0}	
+  knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new Groundwater data points"))
 
   kable(display_newdata)
 
@@ -293,7 +317,7 @@ errorCode = 0
         }, # append the data
         error = function(e){
           keepRunning <<- FALSE
-          errorCode <<- 5
+          errorCode <<- 6
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
           success <<- TRUE
         }
@@ -303,7 +327,17 @@ errorCode = 0
   }
 ```
 
-# Script Results: `r ifelse(keepRunningMain, "SUCCESS", "FAILURE")`
+```{r Break Point 6 - Groundwater write failure, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  knitr::knit_exit()
+
+```
+
+# Script Results: SUCCESS
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
