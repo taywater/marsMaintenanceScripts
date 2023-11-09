@@ -1,5 +1,6 @@
 # Script to back-up mars-data in PG14 database 
-# Author: Farshad Ebrahimi, Last modified: 11/14/2022
+# Author: Farshad Ebrahimi and TGH, Last modified: 11/09/2023
+# Version 3.0
 
 ## Set Up 1.0 ----
 #Dplyr stuff
@@ -15,7 +16,7 @@
   options(stringsAsFactors=FALSE)
   
 #DB connection
-  con <- odbc::dbConnect(odbc::odbc(), "mars_data_pg14")
+  con <- odbc::dbConnect(odbc::odbc(), "mars_data_pg14v2")
   
 ## Back up the database 2.0 ----  
 #which database to backup? what format?
@@ -28,11 +29,11 @@
   datestring <- Sys.time() %>% format("%Y%m%dT%H%M")
   extension <- "pgdump"
   filename <- paste0(datestring, "_", "mars_data", ".", extension)
-  filepath <- paste0("C:\\Users\\Farshad.Ebrahimi\\Documents\\mars_backup\\", filename)
+  filepath <- paste0("\\\\pwdoows\\oows\\Watershed Sciences\\GSI Monitoring\\07 Databases and Tracking Spreadsheets\\18 MARS Database Back Up Files\\PG 14\\", filename)
   filepath <- shQuote(filepath)
-  pg_dump <- "C:\\Program Files\\pgAdmin 4\\v6\\runtime\\pg_dump.exe"
+  pg_dump <- Sys.getenv("pg_dump_exe")
   pg_dump <- shQuote(pg_dump)
-  host <- "PWDOOWSDBS"
+  host <- "PWDMARSDBS1"
   host <- shQuote(host)
   port <- "5434" 
   port <- shQuote(port)
@@ -66,7 +67,7 @@
   
 ## Restore the archive ---- 4.0
   
-  pg_restore <- "C:\\Program Files\\pgAdmin 4\\v6\\runtime\\pg_restore.exe"
+  pg_restore <- Sys.getenv("pg_restore_exe")
   pg_restore <- shQuote(pg_restore)
   
   #Assemble the entire pg_restore string	
@@ -84,11 +85,10 @@
   
 ## Pruning old back ups
   #get a list of backup files  from the backup directory
-  backups <- list.files("C:\\Users\\Farshad.Ebrahimi\\Documents\\mars_backup")
-  backup_pathway <- paste("C:\\Users\\Farshad.Ebrahimi\\Documents\\mars_backup", backups, sep = "\\")
-  
+  backups <- list.files("//pwdoows/oows/Watershed Sciences/GSI Monitoring/07 Databases and Tracking Spreadsheets/18 MARS Database Back Up Files/PG 14/", pattern = "*\\.pgdump", full.names=TRUE)
+
   #extract the backup date from the backup name and reformat it as Date
-  backup_datestrings <- str_trunc(backups,8, "right", ellipsis = "")
+  backup_datestrings <- str_trunc(basename(backups),8, "right", ellipsis = "")
   Dates <- as.Date(backup_datestrings, format="%Y%m%d")
   
   #add the weekdays
@@ -99,10 +99,9 @@
   
   #get index of those rows that are older than 7 days, and are not day 28 or Friday
   delete_lastmonth <- which(backup_dates$Days_Ago > 6 & backup_dates$Days_Ago < 30 & backup_dates$W_Days !="Friday" & backup_dates$M_Days !=28)
-  delete_older <- which(backup_dates$Days_Ago > 29 & backup_dates$M_Days !=28)
-  
+
   #prune the delete index 
-  prune_result <- file.remove(backup_pathway[c(delete_lastmonth,delete_older)])
+  prune_result <- file.remove(backups[delete_lastmonth])
 
     
     
