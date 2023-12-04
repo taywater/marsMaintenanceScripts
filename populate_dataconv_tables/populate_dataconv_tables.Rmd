@@ -29,7 +29,7 @@ dataconv <- dbConnect(odbc(),
     uid = 'gisread',
     pwd = 'gisread')
 
-mars <- dbConnect(odbc(), "mars_data14")
+mars <- dbConnect(odbc(), "mars14_datav2")
 
 errorCodes <- data.frame(code = 0:3,
   message = c("Execution successful.",

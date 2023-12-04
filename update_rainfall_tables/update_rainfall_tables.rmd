@@ -6,8 +6,7 @@ author:
 date: "`r lubridate::now()`" #This doesn't use !r syntax (like the gagedb param below) because it's not a param. It's evaluated by default.
 output: html_document
 params:
-  database: "mars14_data" 
-  write: TRUE #Write changes to database?
+  database: "mars14_datav2" 
 ---
 
 ```{r setup, include=FALSE}
@@ -22,6 +21,22 @@ library(padr)
 #Other stuff
 library(knitr)
 options(stringsAsFactors=FALSE)
+
+
+errorCodes <- data.frame(code = 0:6,
+  message = c("Execution successful.",
+              "Could not connect to MARS and/or CentralDB. Are they down?",
+              NA, #Write error from TryCatch will be used,
+              NA, #Write error from TryCatch will be used,
+              NA, #Write error from TryCatch will be used
+              NA, #Write error from TryCatch will be used
+              NA)
+            , stringsAsFactors=FALSE)
+
+kill = FALSE
+errorCode = 0
+
+
 ```
 
 ```{r Section 0 - Preamble and database connections, include=FALSE}
@@ -29,10 +44,30 @@ options(stringsAsFactors=FALSE)
 
 
 ###Section 0.2: Connect to the database
-	#Indicate the database name: mars_testing or mars. 
-	#Only write to mars if you really know what you're doing.
 	marsDBCon <- dbConnect(odbc::odbc(), params$database)
+  hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
+
+    #################################
+  ####Error check - Did we connect?
+  #################################
+  if(any(!odbc::dbIsValid(marsDBCon), !odbc::dbIsValid(hhdbcon)))
+  {
+    kill = TRUE
+    errorCode = 1
+  }
 	
+  dbDisconnect(hhdbcon) #We will reconnect later. Don't crud up CentralDB with ghost connections if we fail
+  
+```
+
+```{r Break Point 1 - Connection Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+
+  knitr::knit_exit()
+
 ```
 
 ```{r Section 1 - Gathering rainfall data, include = FALSE}
@@ -47,9 +82,8 @@ options(stringsAsFactors=FALSE)
   hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
   hhrainfall_gage <- dbGetQuery(hhdbcon, "select * from pwdrg.tblModelRain") %>% 
     transmute(gagename = as.character(GaugeNo), dtime_edt = force_tz(ymd_hms(DateTime), "America/New_York"), rainfall_in = round(Rainfall, 4))
-  dbDisconnect(hhdbcon)
   
-  newdata <- hhrainfall_gage %>% 
+  newgagedata <- hhrainfall_gage %>% 
     left_join(rainfall_gage, by = "gagename") %>% 
     group_by(gagename) %>%
     filter(dtime_edt > maxtime_edt) %>%
@@ -60,32 +94,42 @@ options(stringsAsFactors=FALSE)
     arrange(gage_uid, dtime_edt) %>%
     mutate(rainfall_in = round(rainfall_in, 4))
   
+  output_newgagedata <- group_by(newgagedata, gage_uid) %>%
+    summarize(new_measurements = n(), 
+              latest_date = max(dtime_edt))
+  
 ```
 
-## Updates to `data.tbl_gage_rain` Table
-
-A new batch of rainfall data has been examined. There are `r nrow(newdata)` new rainfall measurements to add to the `data.tbl_gage_rain` table.
-
-`r if(nrow(newdata) > 0){ group_by(newdata, gage_uid) %>% arrange(dtime_edt) %>% summarize(new_measurements = n(), first_date = first(dtime_edt), last_date = last(dtime_edt)) %>% kable }`
-
-```{r Section 1.5 - Writing to the smp_loc table, include = FALSE}	
-  # Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_newdata <- FALSE
-
-  #If there's new data to append
-  	if(nrow(newdata) > 0 & params$write == TRUE){
-      outcome_newdata <- tryCatch({outcome_newdata <- dbWriteTable(marsDBCon,
-          DBI::SQL("data.tbl_gage_rain"),
-          newdata,
-          append= TRUE,
-          row.names = FALSE)
-        }, # append the data
-        error = function(e) e
+```{r Section R1: New Gage Data Output, echo = FALSE, include = TRUE, eval = nrow(newgagedata) > 0}
+    knitr::asis_output(paste("### New Rain Gage Data to add to `data.tbl_gage_rain`: ", nrow(output_newgagedata)))
+  
+    kable(output_newgagedata)
+  
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_rain"), newgagedata, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 2
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
       )
-  }
+
+
 ```
 
-`r if(nrow(newdata) > 0){ paste("New rain events have", ifelse(outcome_newdata, "SUCCESSFULLY", "NOT"), "been written to the rainfall_gage table")}`
+```{r Break Point 2 - Gage Write Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+
+  knitr::knit_exit()
+
+```
 
 ```{r Section 2 - Processing new rain events, include = FALSE}
   #Read the rain gage data from the mars database
@@ -93,11 +137,6 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
   #This captures both new data appended in the previous section, and any data that was clipped last time events were processed
   newrain_query <- "select rg.gage_uid, rg.dtime_edt, rg.rainfall_in from data.tbl_gage_rain rg left join data.viw_gage_event_latestdates rgel on rg.gage_uid = rgel.gage_uid where rg.dtime_edt > rgel.dtime_edt"
   rain_newdata <- dbGetQuery(marsDBCon, newrain_query)
-  #If we aren't writing the new data to the database, the above won't capture this batch of rain data
-  #Append the newdata frame to the above thing
-  if(params$write == FALSE){
-    rain_newdata <- bind_rows(rain_newdata, newdata) %>% arrange(gage_uid, dtime_edt)
-  }
   
   #If there's no defined rain events, that query will return nothing
   #So we need to grab the entire data set
@@ -124,30 +163,36 @@ A new batch of rainfall data has been examined. There are `r nrow(newdata)` new 
     select(-event_id)
 ```
 
+```{r Section R2: New Gage Event Output, echo = FALSE, include = TRUE, eval = nrow(rain_newevents) > 0}
+    knitr::asis_output(paste("### New Rain Gage events to add to `data.tbl_gage_rain_event`: ", nrow(rain_newevents)))
+  
+    kable(rain_newevents)
+  
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_rain_event"), rain_newevents, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 3
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
 
-## Updates to `tbl_gage_event` Table
 
-The latest rainfall data has been processed for event detection. There are `r nrow(rain_newevents)` new rain events to add to the `tbl_gage_event` table.
-
-`r if(nrow(rain_newevents) > 0){ rain_newevents %>% head(100) %>% kable }`
-
-```{r Section 2.5 - Writing to the smp_loc table, include = FALSE}  
-# Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_rain_newevents <- FALSE
-  #If there's new data to append
-  if(nrow(rain_newevents) > 0 & params$write == TRUE){
-    outcome_rain_newevents <- tryCatch({outcome_rain_newevents <- dbWriteTable(marsDBCon, 
-        DBI::SQL("data.tbl_gage_event"), 
-        rain_newevents, 
-        append= TRUE, 
-        row.names = FALSE)
-      }, # append the data
-      error = function(e) e
-    )
-  }
 ```
 
-`r if(nrow(rain_newevents) > 0){ paste("New rain events have", ifelse(outcome_rain_newevents, "SUCCESSFULLY", "NOT"), "been written to the rainfall_gage_event table")}`
+```{r Break Point 3 - Gage Data Write Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+
+  knitr::knit_exit()
+
+```
 
 ```{r Section 3 - Gathering radar data, include = FALSE}
   
@@ -207,46 +252,49 @@ The latest rainfall data has been processed for event detection. There are `r nr
   
 ```
 
-## Updates to the `admin.tbl_radar_rawfile` and `data.tbl_radar_rain` Table
+```{r Section R3: New Radar Data Output, echo = FALSE, include = TRUE, eval = nrow(newradardata) > 0}
+    knitr::asis_output(paste("### New Radar data to add to `data.tbl_radar_rain_event`: ", nrow(newradardata)))
+  
+    kable(new_rawfiles)
+  
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_radar_rawfile"), new_rawfiles, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 4
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
+    
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_radar_rain"), newradardata, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 5
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
 
-A new batch of rainfall data has been examined. There are `r nrow(newradardata)` new rainfall measurements to add to the `data.tbl_radar_rain` table.
-
-`r if(nrow(newradardata) > 0){ group_by(newradardata, radar_uid) %>% arrange(dtime_edt) %>% summarize(new_measurements = n(), first_date = first(dtime_edt), last_date = last(dtime_edt)) %>% kable }`
-
-```{r Section 3.5 - Writing to the radar tables, include = FALSE}  
-# Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_rawfiles <- FALSE
-  #If there's new data to append
-  if(nrow(new_rawfiles) > 0 & params$write == TRUE){
-    new_rawfiles <- select(new_rawfiles, -yearmon)
-    outcome_rawfiles <- tryCatch({outcome_rawfiles <- dbWriteTable(marsDBCon, 
-        DBI::SQL("admin.tbl_radar_rawfile"), 
-        new_rawfiles, 
-        append= TRUE, 
-        row.names = FALSE)
-      }, # append the data
-      error = function(e) e
-    )
-  }
-
-  outcome_radardata <- FALSE
-  #If there's new data to append
-  if(nrow(newradardata) > 0 & params$write == TRUE){
-    outcome_radardata <- tryCatch({outcome_radardata <- dbWriteTable(marsDBCon, 
-        DBI::SQL("data.tbl_radar_rain"), 
-        newradardata, 
-        append= TRUE, 
-        row.names = FALSE)
-      }, # append the data
-      error = function(e) e
-    )
-  }
 
 ```
 
-`r if(nrow(new_rawfiles) > 0){ paste("New radar rawfiles have", ifelse(outcome_rawfiles, "SUCCESSFULLY", "NOT"), "been written to the admin.tbl_radar_rawfile table")}`
+```{r Break Point 4 - Radar Data Write Failure, echo = FALSE, include = TRUE, eval = kill}
 
-`r if(nrow(newradardata) > 0){ paste("New radar data has", ifelse(outcome_radardata, "SUCCESSFULLY", "NOT"), "been written to the data.tbl_radar_rain table")}`
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+
+  knitr::knit_exit()
+
+```
 
 ```{r Section 4 - Processing new rain events for radar data, include = FALSE}
   #Read the radar data from the mars database
@@ -285,30 +333,40 @@ A new batch of rainfall data has been examined. There are `r nrow(newradardata)`
   
 ```
 
-## Updates to `data.tbl_radar_event` Table
+```{r Section R4: New Radar Event Output, echo = FALSE, include = TRUE, eval = nrow(rain_newevents) > 0}
+    knitr::asis_output(paste("### New Rain Radar events to add to `data.tbl_radar_rain_event`: ", nrow(rain_newevents)))
+  
+    kable(rain_newevents)
+  
+    tryCatch(
+  
+        expr = {
+          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_radar_event"), rain_newevents, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 6
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
 
-The latest rainfall data has been processed for event detection. There are `r nrow(rain_newevents)` new rain events to add to the `data.tbl_radar_event` table.
 
-`r if(nrow(rain_newevents) > 0){ rain_newevents %>% head(100) %>% kable }`
-
-
-```{r Section 4.5 - Writing to the data.tbl_radar_event table, include = FALSE}  
-# Fail safe. If the block below doesn't run, we didn't append anything
-  outcome_rain_totalevents <- FALSE
-  #If there's new data to append
-  if(nrow(rain_newevents) > 0 & params$write == TRUE){
-    outcome_rain_totalevents <- tryCatch({outcome_rain_totalevents <- dbWriteTable(marsDBCon, 
-        DBI::SQL("data.tbl_radar_event"), 
-        rain_newevents, 
-        append= TRUE, 
-        row.names = FALSE)
-      }, # append the data
-      error = function(e) e
-    )
-  }
 ```
 
-`r if(nrow(newdata) > 0){ paste("New rain events have", ifelse(outcome_rain_totalevents, "SUCCESSFULLY", "NOT"), "been written to the data.tbl_radar_event table")}`
+```{r Break Point 5 - Radar Event Write Failure, echo = FALSE, include = TRUE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+
+  knitr::knit_exit()
+
+```
+
+# Script Results: SUCCESS
+## Exit Code: `r errorCode`
+## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 	#Close database connections

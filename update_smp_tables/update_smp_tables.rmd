@@ -10,7 +10,7 @@ output: html_document
 ```{r setup, include=FALSE}
 
 #GIS stuff
-library(rgdal)
+#library(rgdal)
 library(sf)
 
 #Dplyr stuff
@@ -36,7 +36,7 @@ dsn_infra_pub <- paste0("MSSQL:server=PWDGISSQL;",
                           "PWD=gisread;")
 
 ###Section 0.2: Connect to the database.
-	marsDBCon <- dbConnect(odbc::odbc(), "mars_data14")
+	marsDBCon <- dbConnect(odbc::odbc(), "mars14_datav2")
 
 errorCodes <- data.frame(code = 0:4,
   message = c("Execution successful.",

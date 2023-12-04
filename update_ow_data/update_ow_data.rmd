@@ -43,7 +43,7 @@ errorCode = 0
 
 ###Section 0.2: Connect to the database
  	#Connect using the DSN.
-	marsDBCon <- dbConnect(odbc::odbc(), "mars_data14")
+	marsDBCon <- dbConnect(odbc::odbc(), "mars14_datav2")
 
   #################################
   ####Error check - Did we connect?

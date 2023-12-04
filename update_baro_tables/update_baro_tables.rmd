@@ -40,7 +40,7 @@ errorCode = 0
 ###Section 0.1: Check parameter validity
 
 ###Section 0.2: Connect to the database using the DSN.
-	marsDBCon <- dbConnect(odbc::odbc(), "mars_data14")
+	marsDBCon <- dbConnect(odbc::odbc(), "mars14_datav2")
 
   #################################
   ####Error check - Did we connect?
@@ -263,7 +263,7 @@ errorCode = 0
 
 `r if(nrow(display_filetable > 0)){kable(newdata_results)}`
 
-# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "SUCCESS", "FAILURE"))`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 

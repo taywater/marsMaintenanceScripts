@@ -2,11 +2,11 @@
 title: "MARS Maintenance Script: Update AccessDB Tables"
 author:
 - Taylor Heffernan
-- Updating accessdb and ow_sumpdepth
+- Updating accessdb
 date: "`r lubridate::now()`"
 output: html_document
 params:
-  database: "mars_data14"
+  database: "mars14_datav2"
 ---
 
 ```{r setup, include=FALSE}
@@ -138,12 +138,10 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
 -   For newly created Access DBs, parse their filepath and look in `fieldwork.tbl_ow` for matching `tbl_ow.smp_id` and `tbl_ow.ow_suffix`
 -   Look for deleted/moved DBs, whose file paths can no longer be found
 
-2.  Update the `admin.tbl_accessdb` table's set of canonical GSI table names (`tbl_accessdb.datatable`, `tbl_accessdb.sumptable`)
+2.  Update the `admin.tbl_accessdb` table's set of canonical GSI table names (Only `tbl_accessdb.datatable` now that sumps are handled in the web app)
 
--   Loop through Access DBs (`tbl_accessdb.filepath`), checking each for canonical data tables and stage-storage tables.
+-   Loop through Access DBs (`tbl_accessdb.filepath`), checking each for canonical data tables.
 -   Create data frames of additions to the set of canonical table names, and existing table names that can no longer be found
-
-3.  Update the sump depths in the `fieldwork.tbl_ow_sumpdepth_intermediate` table
 
 ------------------------------------------------------------------------
 
@@ -293,9 +291,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
   #We will also create a variable for the result of our guesses
   accessdb_tableguesses <- left_join(accessdbtable_server, ow, by = "ow_uid") %>%
       mutate(datatable_guess = ifelse(is.na(datatable), paste(smp_id, ow_suffix, "CWL_Monitoring", sep = "_"), datatable),
-             sumptable_guess = ifelse(is.na(sumptable), paste(smp_id, ow_suffix, "Stage_Storage_final", sep = "_"), sumptable),
-             datatable_guessresult = NA,
-             sumptable_guessresult = NA)
+             datatable_guessresult = NA)
 
   for(i in 1:nrow(accessdb_tableguesses)){
     #Debug statement. Uncomment if running interactively.
@@ -309,8 +305,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
         #List the tables in each database and check to see if we can find the guessed table name in there
         dbtables <- RODBC::sqlTables(accessdbCon)
         accessdb_tableguesses$datatable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$datatable_guess[i] %in% .$TABLE_NAME}
-        accessdb_tableguesses$sumptable_guessresult[i] <- dbtables %>% {accessdb_tableguesses$sumptable_guess[i] %in% .$TABLE_NAME}
-    
+
         RODBC::odbcClose(accessdbCon)
       },
       error = function(e){
@@ -340,24 +335,22 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     #We do it this way so we can more easily detect if a DB we thought had no table had one created since we last checked
     #If we just checked for what we thought was there, we'd still have to check again to see if any new tables got created
   accessdb_nochange <- filter(accessdb_tableguesses,
-      (sumptable_guessresult == TRUE & sumptable_guess == sumptable) | (sumptable_guessresult == FALSE & is.na(sumptable)),
-      (datatable_guessresult == TRUE & datatable_guess == datatable) | (datatable_guessresult == FALSE & is.na(datatable)))
+      (datatable_guessresult == TRUE & datatable_guess == datatable))
 
   #Access DBs where we we found tables where we thought there were none
     #IE: We had no table name stored, and we found one with our guesses
     #Write these to the DB
     accessdb_foundnewtables <- filter(accessdb_tableguesses,
-      (sumptable_guessresult == TRUE & is.na(sumptable)) | (datatable_guessresult == TRUE & is.na(datatable)))
+      (datatable_guessresult == TRUE & is.na(datatable)))
     
    #Trim columns that don't go in the table
     accessdb_newtablestowrite <- transmute(accessdb_foundnewtables, accessdb_uid, 
-     datatable = ifelse(datatable_guessresult, datatable_guess, datatable), 
-     sumptable = ifelse(sumptable_guessresult, sumptable_guess, sumptable))
-  
+     datatable = ifelse(datatable_guessresult, datatable_guess, datatable))
+    
   #Access DBs where we didn't find tables we thought were there
   ####Error on this####
     error_missedsomething <- filter(accessdb_tableguesses,
-      (sumptable_guessresult == FALSE & !is.na(sumptable)) | (datatable_guessresult == FALSE & !is.na(datatable))) %>%
+      (datatable_guessresult == FALSE & !is.na(datatable))) %>%
       transmute(smp_id, ow_suffix, filepath, status = "Existing Table Gone")
     
   #Access DBs with no canonical tables
@@ -373,7 +366,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     if(any(nrow(error_missedsomething) > 0, nrow(error_nocanonical) > 0)){
       kill = TRUE
       errorCode = 6
-      errorTable = bind_rows(error_accessdbswithoutow, error_existingdbs_notfound)
+      errorTable = bind_rows(error_missedsomething, error_nocanonical)
     }
 
 ```
@@ -404,8 +397,6 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
             #We must explicitly exclude these or else they'll end up in the final table and fuck everything up.
 
   	      dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set datatable = t.datatable from tbl_accessdb_temp t where a.accessdb_uid = t.accessdb_uid")
-  	      dbGetQuery(marsDBCon, "update admin.tbl_accessdb a set sumptable = t.sumptable from tbl_accessdb_temp t where a.accessdb_uid = t.accessdb_uid
-  	                              and t.sumptable <> 'NA'")
 
           success <<- TRUE
           },
@@ -421,139 +412,6 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
 ```
 
 ```{r Break Point 7 - AccessDB Failure, echo = FALSE, include = TRUE, eval = kill}
-
-  knitr::asis_output("# Script Results: Error\n")
-  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
-  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
-  
-  knitr::knit_exit()
-
-```
-
-```{r Section 3 - Gather data for new/updated sump depths, include=FALSE}
-  #Filter AccessDBs to DBs with a sumptable, connect to each DB, check each stage storage curve for a sump depth (>0, 0)
-
-  #Grab known sump depths from the postgres database and compare them to the stae of the various accessdbs
-  ow_sumpdepth <- dbGetQuery(marsDBCon, "SELECT * FROM fieldwork.tbl_ow_sumpdepth_intermediate")
-  
-  #Attach sump depths to OWs and Access DBs
-  accessdbs_sumpdepths <- left_join(accessdbtable_server, ow, by = "ow_uid") %>% 
-    left_join(ow_sumpdepth, by = "ow_uid") %>% 
-    filter(!is.na(sumptable)) %>%
-    select(ow_uid, filepath, sumptable, sumpdepth_ft, smp_id, ow_suffix)
-  
-  #Check sump depths of systems with sumptables to see if they've changed
-  accessdbs_sumpdepths$newsumpdepth_ft <- NA
-
-  for(i in 1:nrow(accessdbs_sumpdepths)){
-    
-    tryCatch(
-      expr = {
-        #Connect to the DB to find the sump depth contained within it
-        #We need RODBC to connect to the DBs because odbc::odbc throws a "DSN too long" error. I would like to fix this sometime
-        con <- RODBC::odbcConnectAccess2007(accessdbs_sumpdepths$filepath[i])
-      
-        #Grab the stage-storage curve
-        ssc <- RODBC::sqlFetch(con, accessdbs_sumpdepths$sumptable[i])
-        colnames(ssc) <- c("level_in", "vol_ft3")
-        
-        #Find the sump depth within the stage storage curve
-        #it will have level > 0 and volume = 0
-        accessdbs_sumpdepths$newsumpdepth_ft[i] <- filter(ssc, vol_ft3 == 0) %>% 
-          filter(level_in == max(level_in)) %>% 
-          slice(1) %>%
-          transmute(sumpdepth_ft = level_in / 12) %>% 
-          pull(sumpdepth_ft) %>%
-          round(4)
-    
-        RODBC::odbcClose(con)
-      },
-      error = function(e){
-        kill <<- TRUE
-        errorCode <<- 8
-        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-      }
-    )
-  }
-  
-  #Have any existing measured sump depths changed?
-  accessdbs_depthchanged <- filter(accessdbs_sumpdepths, !is.na(sumpdepth_ft), sumpdepth_ft != newsumpdepth_ft) %>% 
-    select(ow_uid, sumpdepth_ft = newsumpdepth_ft)
-  
-  #Did any sites get new sump depth measurements where there were none before?
-  accessdbs_newmeasurement <- filter(accessdbs_sumpdepths, is.na(sumpdepth_ft), !is.na(newsumpdepth_ft)) %>% 
-    select(ow_uid, sumpdepth_ft = newsumpdepth_ft)
-  
-
-    
-```
-
-```{r Break Point 8 - Sumptable Failure, echo = FALSE, include = TRUE, eval = kill}
-
-  knitr::asis_output("# Script Results: Error\n")
-  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
-  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
-  
-  knitr::knit_exit()
-
-```
-
-```{R Section R3 - Writing new sump depths to the DB, echo = FALSE, include = TRUE, eval = nrow(accessdbs_newmeasurement) > 0}
-    knitr::asis_output(paste("### New Sump Depths to add to `fieldwork.tbl_ow_sumpdepth_intermediate`: ",   nrow(accessdbs_newmeasurement)))
-    kable(head(accessdbs_newmeasurement))
-  
-    tryCatch(
-  
-        expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("fieldwork.tbl_ow_sumpdepth_intermediate"), accessdbs_newmeasurement, row.names = FALSE, append = TRUE)
-          success <<- TRUE
-        },
-        
-        error = function(e) {
-          kill <<- TRUE
-          errorCode <<- 9
-          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-        }
-      ) 
-
-```
-
-```{r Break Point 9 - Write Failure, echo = FALSE, include = TRUE, eval = kill}
-
-  knitr::asis_output("# Script Results: Error\n")
-  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
-  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
-  
-  knitr::knit_exit()
-
-```
-
-```{R Section R4 - Updating existing sump depths in the DB, echo = FALSE, include = TRUE, eval = nrow(accessdbs_depthchanged) > 0}
-    knitr::asis_output(paste("### Sump depths to update in `fieldwork.tbl_ow_sumpdepth_intermediate`: ",   nrow(accessdbs_depthchanged)))
-    kable(head(accessdbs_depthchanged))
-  
-    tryCatch(
-  
-        expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("tbl_sumpdepth_temp"), accessdbs_depthchanged,row.names = FALSE, overwrite = FALSE)
-
-          #Use this temp table to update the existing table
-  	      dbGetQuery(marsDBCon, "update fieldwork.tbl_ow_sumpdepth_intermediate s set sumpdepth_ft = t.sumpdepth_ft from tbl_sumpdepth_temp t where s.ow_uid = t.ow_uid")
-          
-          success <<- TRUE
-        },
-        
-        error = function(e) {
-          kill <<- TRUE
-          errorCode <<- 10
-          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-        }
-      )
-
-	  
-```
-
-```{r Break Point 10 - Update Failure, echo = FALSE, include = TRUE, eval = kill}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
