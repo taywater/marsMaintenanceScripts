@@ -38,25 +38,60 @@ errorCodes <- data.frame(code = 0:3,
               NA #Write error from TryCatch will be used
               ), stringsAsFactors=FALSE)
 
-keepRunning = TRUE
+kill = FALSE
 success = FALSE
 errorCode = 0
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "Testing DB Connection")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+
 
   #################################
   ####Error check - Did we connect?
   #################################
   if(any(!odbc::dbIsValid(mars), !odbc::dbIsValid(cipit)))
   {
-    keepRunning = FALSE
+    kill = TRUE
     errorCode = 1
   }
+```
+
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
 ```
 
 ## Worker Script Report: Populate CIPIT Tables
 
 This script is attempting to connect to the database `CIPITREADER` on the `PWDCIPSWLR` server. Once connected, the script will query data from `CIPITREADER`, hash rows of data, and compare the hashes from `CIPITREADER` to those stored on `mars_data`.
 
-```{r Section 1 - Querrying and Hashing, echo = FALSE, include = FALSE, eval = keepRunning}
+```{r Section 1 - Querrying and Hashing, echo = FALSE, include = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Querying CIPIT")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+
 cipit_project_query <- 'select _Work_Number as worknumber, _Project_Phase as project_phase, _Project_Phase_Status as project_phase_status, _Project_Title as project_title, _Targeted_Bid_FY as targeted_bid_fy, PC_NTP_Date as pc_ntp_date, CONST_Construction_Start_Date as construction_start_date, DESIGN_Design_Engineer as design_engineer, CONST_Division_Engineer as division_engineer, CONST_Contractor as contractor, ProjectAutoID as projectautoid, CONST_Substantially_Complete_Date as construction_complete_date, CONST_Contract_Close_Date as contract_closed_date from Project'
 cipit_project <- dbGetQuery(cipit, cipit_project_query)
 
@@ -77,10 +112,17 @@ cipit_project_update = anti_join(cipit_project_anti, cipit_project_new) %>%
     left_join(select(cipit_project_db, cipit_project_uid, worknumber))
 ```
 
-```{r Section 2 - Comparing Databases and Writing to Databases, echo = FALSE, eval = all(keepRunning, nrow(cipit_project_new) > 0)}
+```{r Section 2 - Comparing Databases and Writing to Databases, echo = FALSE, eval = all(!kill, nrow(cipit_project_new) > 0)}
 knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_new), " new projects."))
 kable(head(cipit_project_new))
 
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Writing New Data")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
 
 tryCatch(
 
@@ -93,7 +135,7 @@ tryCatch(
     success <<- TRUE
     },
   error = function(e) {
-    keepRunning <<- FALSE
+    kill <<- TRUE
     errorCode <<- 2
     errorCodes$message[errorCode+1] <<- e$message #Error object is a list
   }
@@ -101,9 +143,35 @@ tryCatch(
 
 ```
 
-```{r Section 3: Updating existing records, echo = FALSE, eval = all(keepRunning, nrow(cipit_project_update) > 0)}
+```{r Break Point 2 - Bad Write, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 3: Updating existing records, echo = FALSE, eval = all(!kill, nrow(cipit_project_update) > 0)}
 knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_update), " updated projects."))
 kable(head(cipit_project_update))
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Updating changed data")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
 
 tryCatch(
 
@@ -114,7 +182,7 @@ tryCatch(
     success <<- TRUE
     },
   error = function(e) {
-    keepRunning <<- FALSE
+    kill <<- TRUE
     errorCode <<- 3
     errorCodes$message[errorCode+1] <<- e$message #Error object is a list
   }
@@ -124,12 +192,39 @@ tryCatch(
 
 ```
 
-# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "PARTIAL FAILURE", "FAILURE"))`
+```{r Break Point 3 - Bad Update, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+# Script Results: `r ifelse(kill, "FAILURE", ifelse(success, "SUCCESS", "PARTIAL FAILURE"))`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 # Close database connections
+
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+
 dbDisconnect(mars)
 dbDisconnect(cipit)
 

@@ -41,7 +41,16 @@ errorCodes <- data.frame(code = 0:5,
               NA #Write error from TryCatch will be used
                ), stringsAsFactors=FALSE)
 
-keepRunning = TRUE
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "Checking DB connections")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+
+
+kill = FALSE
 success = FALSE
 errorCode = 0
 
@@ -50,14 +59,39 @@ errorCode = 0
 #################################
 if(any(!odbc::dbIsValid(mars_data), !odbc::dbIsValid(greenit)))
 {
-  keepRunning = FALSE
+  kill = TRUE
   errorCode = 1
 }
 ```
 
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
 #### The goal of this script is to succesfully read smp, system and project data from the `GreenIT` database and write a copy of new and updated records to`mars_data`.
 
 ```{r Section 1: Query GreenIT, echo = FALSE}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Querying GreenIT")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
 
 #Query GreenIT
 smpbestdata <- dbGetQuery(greenit, "select ProjectID as project_id, SMP_DataPhase as smp_dataphase, WorkNumber as worknumber, Status as cipit_status, StatusCategory as cipit_statuscategory, SystemNumber as system_id, SMPNumber as smp_id, SMP_SMPType as smp_smptype, SMP_FootPrint as smp_footprint_ft2, SMP_SMPTrees as smp_smptrees, SMP_PerviousArea as smp_perviousarea_ft2, SMP_VegetatedArea as smp_vegetatedarea_ft2, SMP_StorageDepth as smp_storagedepth_ft, SMP_PondingDepth as smp_pondingdepth_in, SMP_StorageType as smp_storagetype, SMP_Pretreatment as smp_pretreatment, SMP_NotBuiltRetired as smp_notbuiltretired, SMP_NotBuiltRetiredReason as smp_notbuiltretiredreason from vw_GreenIT_SMPBestData")
@@ -68,13 +102,39 @@ projectbestdata <- dbGetQuery(greenit, "select ProjectID as project_id, WorkNumb
 
 ###Error Check: Did we fail to download any tables from GreenIT?
 if(any(!exists("smpbestdata"), !exists("systembestdata"), !exists("projectbestdata"))){
-  keepRunning = FALSE
+  kill = TRUE
   errorCode = 2
 }
 
 ```
 
-```{r Filter for new projects, echo = FALSE, include = FALSE, eval = keepRunning}
+```{r Break Point 2 - Empty read, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+```{r Filter for new projects, echo = FALSE, include = FALSE}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Hashing GreenIT Data")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
 
 #Hash what we got from GreenIT
 smp_hash <- smpbestdata %>%
@@ -115,23 +175,31 @@ if(any(nrow(new_smps) > 0, nrow(new_systems) > 0, nrow(new_projects) > 0)){
 
 ```
 
-```{r Section We Are As One - external.tbl_smpbdv, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_smps) > 0)}
+```{r Section We Are As One - external.tbl_smpbdv, echo = FALSE, eval = all(!kill, newAssets, nrow(new_smps) > 0)}
 ###New SMP Polygons
 knitr::asis_output(paste("### New SMPs to add to `external.tbl_smpbdv`: ",   nrow(new_smps)))
 kable(head(new_smps))
 ```
 
-```{r Section We Are As One - external.tbl_systembdv, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_systems) > 0)}
+```{r Section We Are As One - external.tbl_systembdv, echo = FALSE, eval = all(!kill, newAssets, nrow(new_systems) > 0)}
 knitr::asis_output(paste("### New systems to add to `external.tbl_systembdv`: ",   nrow(new_systems)))
 kable(head(new_systems))
 ```
 
-```{r Section We Are As One - external.tbl_projectbdv, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_projects) > 0)}
+```{r Section We Are As One - external.tbl_projectbdv, echo = FALSE, eval = all(!kill, newAssets, nrow(new_projects) > 0)}
 knitr::asis_output(paste("### New projects to add to `external.tbl_projectbdv`: ",   nrow(new_projects)))
 kable(head(new_projects))
 ```
 
-```{r Section We Are As One - Write Everything, echo = FALSE, eval = all(keepRunning, newAssets)}
+```{r Section We Are As One - Write Everything, echo = FALSE, eval = all(!kill, newAssets)}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Writing New Data")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+
 #Write new assets
 if(newAssets){
   
@@ -143,7 +211,7 @@ if(newAssets){
       # success = TRUE
     },
     error = function(e){
-      keepRunning <<- FALSE
+      kill <<- TRUE
       errorCode <<- 3
       errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
@@ -153,6 +221,23 @@ if(newAssets){
 
 ```
 
+```{r Break Point 3 - Bad Write, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
 
 ```{r Section 3: Rerun Query and Update Data in Postgres, echo = FALSE}
 
@@ -189,23 +274,31 @@ if(any(nrow(update_smps) > 0, nrow(update_systems) > 0, nrow(update_projects) > 
 
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswibasin, echo = FALSE, include = TRUE, eval = all(keepRunning, newUpdates, nrow(update_smps) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswibasin, echo = FALSE, include = TRUE, eval = all(!kill, newUpdates, nrow(update_smps) > 0)}
 knitr::asis_output(paste("### SMPs to update in `external.tbl_smpbdv`: ",   nrow(update_smps)))
 kable(head(update_smps))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiblueroof, echo = FALSE, include = TRUE, eval = all(keepRunning, newUpdates, nrow(update_systems) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiblueroof, echo = FALSE, include = TRUE, eval = all(!kill, newUpdates, nrow(update_systems) > 0)}
 knitr::asis_output(paste("### Systems to update in `external.tbl_systembdv`: ",   nrow(update_systems)))
 kable(head(update_systems))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswibumpout, echo = FALSE, include = TRUE, eval = all(keepRunning, newUpdates, nrow(update_projects) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswibumpout, echo = FALSE, include = TRUE, eval = all(!kill, newUpdates, nrow(update_projects) > 0)}
 knitr::asis_output(paste("### Projects to update in `external.tbl_projectbdv`: ",   nrow(update_projects)))
 kable(head(update_projects))
 ```
 
 
-```{r Section We Are As One - Update Everything, echo = FALSE, eval = all(keepRunning, newUpdates)}
+```{r Section We Are As One - Update Everything, echo = FALSE, eval = all(!kill, newUpdates)}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 5,
+                           exit_code = NA,
+                           note = "Updating GreenIT Data")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+
 #Write new assets
 if(newUpdates){
   
@@ -231,7 +324,7 @@ if(newUpdates){
         }
     },
     error = function(e){
-      keepRunning <<- FALSE
+      kill <<- TRUE
       errorCode <<- 4
       errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
@@ -240,11 +333,37 @@ if(newUpdates){
     
 ```
 
-# Script Results: `r ifelse(keepRunning, "SUCCESS", "FAILURE")`
+```{r Break Point 4 - Bad Update, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+# Script Results: `r ifelse(kill, "FAILURE", "SUCCESS")`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 4: Clean Up Connections and Render This HTML Document, include = FALSE}
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+
 dbDisconnect(greenit)
 dbDisconnect(mars_data)
 ```

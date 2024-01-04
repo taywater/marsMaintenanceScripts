@@ -42,7 +42,6 @@ errorCode = 0
 ```{r Section 0 - Preamble and database connections, include=FALSE}
 ###Section 0.1: Check parameter validity
 
-
 ###Section 0.2: Connect to the database
 	marsDBCon <- dbConnect(odbc::odbc(), params$database)
   hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
@@ -55,6 +54,14 @@ errorCode = 0
     kill = TRUE
     errorCode = 1
   }
+  
+    ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "Testing DB connections")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
 	
   dbDisconnect(hhdbcon) #We will reconnect later. Don't crud up CentralDB with ghost connections if we fail
   
@@ -66,11 +73,29 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  
   knitr::knit_exit()
 
 ```
 
 ```{r Section 1 - Gathering rainfall data, include = FALSE}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Gathering Gage Data")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  
+  
   #Read the rain gage data from the mars database
   rainfall_gage <- dbGetQuery(marsDBCon, "SELECT * from data.viw_gage_rain_latestdates")  
   
@@ -104,6 +129,14 @@ errorCode = 0
     knitr::asis_output(paste("### New Rain Gage Data to add to `data.tbl_gage_rain`: ", nrow(output_newgagedata)))
   
     kable(output_newgagedata)
+    
+      ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Writing Gage Data")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
     tryCatch(
   
@@ -127,11 +160,27 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  
   knitr::knit_exit()
 
 ```
 
 ```{r Section 2 - Processing new rain events, include = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Processing Gage Events")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+
   #Read the rain gage data from the mars database
   #This query will grab all data from after the end of the latest event for each gage
   #This captures both new data appended in the previous section, and any data that was clipped last time events were processed
@@ -167,6 +216,15 @@ errorCode = 0
     knitr::asis_output(paste("### New Rain Gage events to add to `data.tbl_gage_rain_event`: ", nrow(rain_newevents)))
   
     kable(rain_newevents)
+    
+      ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 5,
+                           exit_code = NA,
+                           note = "Writing Gage Events")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+    
   
     tryCatch(
   
@@ -189,13 +247,29 @@ errorCode = 0
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
-
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)  
+  
   knitr::knit_exit()
 
 ```
 
 ```{r Section 3 - Gathering radar data, include = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 6,
+                           exit_code = NA,
+                           note = "Gathering Radar Data")
   
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)  
+
+
   hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
 
   #Assess raw files in our DB and H&H
@@ -208,7 +282,7 @@ errorCode = 0
   dbDisconnect(hhdbcon)
 
   #Which files don't we have
-  new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath))
+  new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath)) %>% select(-yearmon)
   
   #only cells in Philly
   phillycells <- dbGetQuery(marsDBCon, "select radar_uid from admin.tbl_radar")
@@ -256,6 +330,14 @@ errorCode = 0
     knitr::asis_output(paste("### New Radar data to add to `data.tbl_radar_rain_event`: ", nrow(newradardata)))
   
     kable(new_rawfiles)
+    
+      ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 7,
+                           exit_code = NA,
+                           note = "Writing Radar Data")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
     tryCatch(
   
@@ -292,11 +374,27 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  
   knitr::knit_exit()
 
 ```
 
 ```{r Section 4 - Processing new rain events for radar data, include = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 8,
+                           exit_code = NA,
+                           note = "Processing Radar Events")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+
   #Read the radar data from the mars database
   #This query will grab all data from after the end of the latest event for each cell
   #This captures both new data appended in the previous section, and any data that was clipped last time events were processed
@@ -337,6 +435,14 @@ errorCode = 0
     knitr::asis_output(paste("### New Rain Radar events to add to `data.tbl_radar_rain_event`: ", nrow(rain_newevents)))
   
     kable(rain_newevents)
+    
+      ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 9,
+                           exit_code = NA,
+                           note = "Writing Radar Events")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
     tryCatch(
   
@@ -360,6 +466,14 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  
   knitr::knit_exit()
 
 ```
@@ -370,5 +484,14 @@ errorCode = 0
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
+
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+
 	dbDisconnect(marsDBCon)
 ```

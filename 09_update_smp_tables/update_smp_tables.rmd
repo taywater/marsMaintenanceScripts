@@ -46,22 +46,30 @@ errorCodes <- data.frame(code = 0:4,
               NA #Write error from TryCatch will be used
                ), stringsAsFactors=FALSE)
 
-keepRunning = TRUE
+kill = FALSE
 success = FALSE
 errorCode = 0
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "Testing DB Connection")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
 #################################
 ####Error check - Did we connect?
 #################################
 if(!odbc::dbIsValid(marsDBCon))
 {
-  keepRunning = FALSE
+  kill = TRUE
   errorCode = 1
 }
 
 #Refresh materialized view so it has the newest cache of SMP IDs
 #If we don't do this, new IDs won't be found, and we will get an insertion error.
-if(keepRunning){
+if(!kill){
 	dbGetQuery(marsDBCon, "REFRESH MATERIALIZED VIEW external.mat_assets WITH DATA;")
 }
   
@@ -69,9 +77,35 @@ if(keepRunning){
 	
 ```
   
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+  
 This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_radar`, and `admin.tbl_smp_gage` tables in the PG14 database. It grabs the WGS1984 SMP polygons from the `INFRASTRUCTURE_PUBLIC` database on PWDGIS4, converts them to centroids, and stores them in the `admin.tbl_smp_loc` table. It then checks the `smp_id`s contained in that table to see if any don't exist in `admin.tbl_smp_gage`. If they don't, it calculates which rain gage is closest to that SMP's centroid. Finally, it repeats this process with radar grid cells. Radar grid cells are also stored as grid cell centroids.
 
-```{r Section 1 - Gathering data for the smp_loc table, include = FALSE, eval = keepRunning}
+```{r Section 1 - Gathering data for the smp_loc table, include = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Gathering location data")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+
 ###Section 1: Update smp_loc table
 ###Check GIS data for any new SMPs, and insert them into smp_loc
 	#Fetch current version of smp_loc
@@ -189,17 +223,25 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	row.names(smp_locNewData) <- NULL
 	
 	if(nrow(smp_locNewData) == 0){
-	  keepRunning = FALSE
+	  kill = TRUE
 	  success = TRUE
 	}
 
 ```
 
 
-```{r Section 1.5 - Writing to the smp_loc table, echo = FALSE, eval = all(keepRunning, nrow(smp_locNewData) > 0) }	
+```{r Section 1.5 - Writing to the smp_loc table, echo = FALSE, eval = all(!kill, nrow(smp_locNewData) > 0) }	
     knitr::asis_output(paste0("### New centroids to add to `admin.tbl_smp_loc`: ",  nrow(smp_locNewData)))
 
     kable(head(smp_locNewData))
+    
+      ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Writing centroids")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
     tryCatch(
 
@@ -212,14 +254,40 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
         success <<- TRUE
         },
       error = function(e) {
-        keepRunning <<- FALSE
+        kill <<- TRUE
         errorCode <<- 2
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
 ```
 
-```{r Section 2 - Gathering data for the smp_gage table, include = FALSE, eval = keepRunning}
+```{r Break Point 2 - Bad Write, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 2 - Gathering data for the smp_gage table, include = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Gathering gages")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+
 ###Section 2: Update smp_gage table
 ###If there are any SMPs with locations that do not have rain gage associations, apply those now
 	#Read table of SMP locations (in case it got updated in step 1)
@@ -252,10 +320,18 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 ```
 
 
-```{r Section 2.5 - Writing to the smp_gage table, echo = FALSE, eval = all(keepRunning, nrow(smp_loc_nogage) > 0)}
+```{r Section 2.5 - Writing to the smp_gage table, echo = FALSE, eval = all(!kill, nrow(smp_loc_nogage) > 0)}
     knitr::asis_output(paste0("### New gage associations in `admin.tbl_smp_gage`: ",  nrow(smp_loc_nogage)))
 
     kable(head(smp_loc_nogage))
+    
+      ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 5,
+                           exit_code = NA,
+                           note = "Writing gages")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
     tryCatch(
 
@@ -268,14 +344,41 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
         success <<- TRUE
         },
       error = function(e) {
-        keepRunning <<- FALSE
+        kill <<- TRUE
         errorCode <<- 3
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
 ```
 
+```{r Break Point 3 - Bad Write, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
 ```{r Section 3 - Gathering data for the smp_radar table, include = FALSE}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 6,
+                           exit_code = NA,
+                           note = "Gathering grid cells")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  
 ###Section 3: Update smp_radar table
 ###If there are any SMPs with locations that do not have radar associations, apply those now
 	#Read table of SMP locations (in case it got updated in step 1)
@@ -306,10 +409,18 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 	}
 ```
 
-```{r Section 3.5 - Writing to the smp_radar table, echo = FALSE, eval = all(keepRunning, nrow(smp_loc_noradar) > 0)}
+```{r Section 3.5 - Writing to the smp_radar table, echo = FALSE, eval = all(!kill, nrow(smp_loc_noradar) > 0)}
     knitr::asis_output(paste0("### New radar associations in `admin.tbl_smp_radar`: ",  nrow(smp_loc_noradar)))
 
     kable(head(smp_loc_noradar))
+    
+      ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 7,
+                           exit_code = NA,
+                           note = "Writing grid cells")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
     tryCatch(
 
@@ -322,14 +433,32 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
         success <<- TRUE
         },
       error = function(e) {
-        keepRunning <<- FALSE
+        kill <<- TRUE
         errorCode <<- 4
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
 ```
 
-# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "SUCCESS", "FAILURE"))`
+```{r Break Point 4 - Bad Write, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+# Script Results: `r ifelse(kill, "FAILURE", ifelse(success, "FAILURE", "SUCCESS"))`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 

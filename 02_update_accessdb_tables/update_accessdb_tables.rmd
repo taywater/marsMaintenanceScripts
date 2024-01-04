@@ -80,7 +80,7 @@ errorCode = 0
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -209,7 +209,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -285,7 +285,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -335,7 +335,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -399,7 +399,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -471,7 +471,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -483,7 +483,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
   
   ###Log: Writing New Canonical Table Names
   logMessage <- data.frame(date = as.Date(today()), 
-                           milestone = 1,
+                           milestone = 7,
                            exit_code = NA,
                            note = "Writing New Canonical Table Names")
   
@@ -525,7 +525,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -543,7 +543,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
 #Close database connections 
 dbDisconnect(marsDBCon)

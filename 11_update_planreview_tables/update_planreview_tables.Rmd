@@ -5,7 +5,6 @@ date: "11/10/2021"
 output: html_document
 params:
   database: "mars14_datav2" #Requires a DSN of the same name
-  write: FALSE #Write Changes to database?
 ---
 
 ```{r Section 0.1 Setup and DB connections, include=FALSE}
@@ -22,6 +21,16 @@ library(tidyverse)
 #hashing packages
 library(digest)
 
+errorCodes <- data.frame(code = 0:4,
+  message = c("Execution successful.",
+              "Could not connect to DBs. Is Postgres down?",
+              "Query Failure.",
+              NA, #Write error from TryCatch will be used
+              NA #Write error from TryCatch will be used
+               ), stringsAsFactors=FALSE)
+
+kill = FALSE
+errorCode = 0
 
 #db connections 
 
@@ -29,19 +38,60 @@ planreview <- dbConnect(odbc(),
                         Driver = "ODBC Driver 17 for SQL Server", 
                         Server = "PWDSPRA", 
                         Database = "SPRA_ReportingDB", 
-                        uid = 'GISREAD ', 
-                        pwd = 'GISREAD ')
+                        uid = 'gisread', 
+                        pwd = 'gisread')
 
 
 mars_data <- dbConnect(odbc(), params$database)
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "Testing DB Connection")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+
+  #################################
+  ####Error check - Did we connect?
+  #################################
+  if(any(!odbc::dbIsValid(mars_data), !odbc::dbIsValid(planreview)))
+  {
+    kill = TRUE
+    errorCode = 1
+  }
 ```
 
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
 
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
 
 ```{r Section 1: Querrying and Hashing, echo=FALSE}
 
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Querying new data")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+
 #Query plan review tables
-view_smp_designation <- dbGetQuery(planreview, "select * from View_SMP_Designation")
+view_smp_designation <- dbGetQuery(planreview, "select * from dbo.View_SMP_Designation")
 
 crosstab <- dbGetQuery(planreview, "select * from view_smpsummary_crosstab_asbuiltall") %>% select(-Depaving)
 
@@ -65,7 +115,32 @@ crosstab_md <- dbGetQuery(mars_data, "select * from external.planreview_view_smp
 query_test <- (nrow(view_smp_designation > 0) & nrow(crosstab > 0))
 query_test_md <- (nrow(view_smp_designation_md > 0) & nrow(crosstab_md > 0))
 
+  #################################
+  ####Error check - Did we find anything?
+  #################################
+  if(any(!query_test, !query_test_md))
+  {
+    kill = TRUE
+    errorCode = 2
+  }
 
+```
+
+```{r Break Point 2 - Bad Read, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
 
 ```
 
@@ -94,9 +169,19 @@ new_smp_hashes <- view_smp_designation_hash %>%
 new_crosstab_hashes <- crosstab_hash %>%
   left_join(crosstab_md_trim, by = "SMPID") %>%
   anti_join(crosstab_md, by = c("SMPID", "hash_md5")) 
+```
 
+```{r Section R1: New Edits Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0, nrow(new_crosstab_hashes) > 0))}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Writing new updates")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  
 #Write to mars_data
-if(params$write){
   #write update query-----
   update_smp <- dbSendQuery(mars_data, 'update external.planreview_view_smp_designation set ProjectID=?, TrackingNumber=?,  SMPID=?, Designation=?, ProgramType=?, OOWProgramType=?, SMIP=?, GARP=?, hash_md5=? WHERE planreview_view_smp_designation_uid=?')
   
@@ -117,18 +202,45 @@ if(params$write){
   #release the prepared statement
   dbClearResult(update_crosstab)
   
-}
 ```
 
-### The following `r nrow(new_smp_hashes)` records have `r if(!params$write){"not"}` been added to the `external.planreivew_view_smp_designation` table within `mars_data`:
-`r if(nrow(new_smp_hashes)>0){knitr::kable(new_smp_hashes, caption = "New SMPs")}`
+```{r Break Point 3 - Bad Write, echo = FALSE, eval = kill}
 
-### The following `r nrow(new_crosstab_hashes)` records have `r if(!params$write){"not"}` been added to the `external.planreview_view_smpsummary_crosstab_asbuiltall` table within `mars_data`:
-`r if(nrow(new_crosstab_hashes)>0){knitr::kable(new_crosstab_hashes, caption = "New Systems")}`
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
 
 ```{r Section3: Clean Up Connections and Render This HTML Document, include = FALSE}
 
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  
+
 dbDisconnect(planreview)
 dbDisconnect(mars_data)
+
+  knitr::knit_exit()
+
 
 ```

@@ -31,7 +31,7 @@ errorCodes <- data.frame(code = 0:4,
               NA #Write error from TryCatch will be used
                ), stringsAsFactors=FALSE)
 
-keepRunning = TRUE
+kill = FALSE
 errorCode = 0
 
 ```
@@ -47,7 +47,7 @@ errorCode = 0
   #################################
   if(!odbc::dbIsValid(marsDBCon))
   {
-    keepRunning = FALSE
+    kill = TRUE
     errorCode = 1
   }
 
@@ -73,8 +73,26 @@ errorCode = 0
   }
 	
 ```
+
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
-```{r Section 1 - Gathering baro data, include = FALSE, eval = keepRunning}
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 1 - Gathering baro data, include = FALSE}
  
   ###Log: Gathering Baro Data
   logMessage <- data.frame(date = as.Date(today()), 
@@ -118,7 +136,7 @@ errorCode = 0
   if(nrow(foundfiles) == 0)
   {
     # There will be baro files always. If we find none, something is wrong
-    keepRunning = FALSE
+    kill = TRUE
     errorCode = 2
   }
 
@@ -149,7 +167,7 @@ errorCode = 0
   if(nrow(foundfiles) == 0)
   {
     # If there are no new relevant files, we can stop now
-    keepRunning = FALSE
+    kill = TRUE
     errorCode = 0 #No error - this is a successful outcome
     success <- TRUE
   }  
@@ -165,8 +183,26 @@ errorCode = 0
   
 ```
 
+```{r Break Point 2 - No files found, echo = FALSE, eval = kill}
 
-```{r Section R1: New Files Output, echo = FALSE, include = TRUE, eval = all(keepRunning, nrow(display_filetable) > 0)}
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+
+```{r Section R1: New Files Output, echo = FALSE, include = TRUE, eval = all(!kill, nrow(display_filetable) > 0)}
     knitr::asis_output(paste0("### New Baro Files to add to `admin.tbl_baro_rawfile`: ",  nrow(display_filetable)))
 
     kable(display_filetable)
@@ -191,7 +227,7 @@ errorCode = 0
         success <<- TRUE
         },
       error = function(e) {
-        keepRunning <<- FALSE
+        kill <<- TRUE
         errorCode <<- 3
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
@@ -199,8 +235,25 @@ errorCode = 0
 
 ```
 
+```{r Break Point 3 - Write Failure, echo = FALSE, eval = kill}
 
-```{r Section 2 - Gathering the baro data, include = FALSE, eval = keepRunning}
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section 2 - Gathering the baro data, include = FALSE}
 
   ###Log: Gathering Baro Data
   logMessage <- data.frame(date = as.Date(today()), 
@@ -237,19 +290,18 @@ errorCode = 0
   if(nrow(newdata) == 0)
   {
     # This is possible if all the new files are empty
-    keepRunning = FALSE
+    kill = TRUE
     errorCode = 0 #No error - this is a successful outcome
     success <- TRUE
   } else{
     display_newdata <- newdata %>% group_by(baro_rawfile_uid) %>% summarize(data_points = n(), first_est = first(dtime_est), last_est = last(dtime_est))
   }
 ```
-  
 
-```{r Section 2.5, Writing to the baro table, include = TRUE, echo = FALSE, eval = keepRunning}
+```{r Section 2.5, Writing to the baro table, include = TRUE, echo = FALSE, eval = all(!kill, nrow(newdata) > 0)}
   knitr::asis_output(paste0("###The ", nrow(output_filetable), " new files contain ", nrow(newdata), " new data points"))
 
-  kable(display_newdata)
+  kable(display_newdata) 
   
    ###Log: Writing Baro Data
   logMessage <- data.frame(date = as.Date(today()), 
@@ -288,7 +340,7 @@ errorCode = 0
           row.names = FALSE)
         }, # append the data
         error = function(e){
-          keepRunning <<- FALSE
+          kill <<- TRUE
           errorCode <<- 4
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
           success <<- TRUE
@@ -301,9 +353,27 @@ errorCode = 0
 
 ```
 
+```{r Break Point 4 - Write Failure, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
 `r if(nrow(display_filetable > 0)){kable(newdata_results)}`
 
-# Script Results: `r ifelse(keepRunning, "SUCCESS", ifelse(success, "SUCCESS", "FAILURE"))`
+# Script Results: `r ifelse(kill, "FAILURE", ifelse(success, "SUCCESS", "FAILURE"))`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 

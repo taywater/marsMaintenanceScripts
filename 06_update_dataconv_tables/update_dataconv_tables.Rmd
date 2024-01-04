@@ -38,25 +38,59 @@ errorCodes <- data.frame(code = 0:3,
               NA #Write error from TryCatch will be used
               ), stringsAsFactors=FALSE)
 
-keepRunning = TRUE
+kill = FALSE
 errorCode = 0
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "Testing DB connections")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
   #################################
   ####Error check - Did we connect?
   #################################
   if(any(!odbc::dbIsValid(mars), !odbc::dbIsValid(dataconv)))
   {
-    keepRunning = FALSE
+    kill = TRUE
     errorCode = 1
   }
 
 
 ```
 
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
 ## Worker Script Report: Populate Data Conversion Tables
 This script is attempting to update DataConv tables within the `external` schema base on additions or edits to values on the `DataConv` GIS server.
 
-```{r Section 1 - Gathering data from pwdgis4, echo = FALSE, eval = keepRunning}
+```{r Section 1 - Gathering data from pwdgis4, echo = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Gathering new data")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+
 # Queries to populate the tables
     #SMP tables
     qry_basin <- 'select OBJECTID as object_id, LIFECYCLESTATUS as lifecycle_status, CONTRACTNUMBER as contract_number, FACILITYID as facility_id, SMP_ID as smp_id, SURFACE_MAINTENANCE as surface_maintenance, SUBSURFACE_MAINTENANCE as subsurface_maintenance from gisad.gswibasin'
@@ -111,7 +145,15 @@ This script is attempting to update DataConv tables within the `external` schema
 
 ```
     
-```{r Section 2 - Hashing Tables, echo = FALSE, eval = keepRunning}  
+```{r Section 2 - Hashing Tables, echo = FALSE}  
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Hashing new data")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+
 # hash the tables
     hash_basin <- basin %>%
         unite("temp", remove = FALSE) %>%
@@ -247,7 +289,7 @@ This script is attempting to update DataConv tables within the `external` schema
 
 ```
 
-```{r Section 3 - Pull existing tables from MARS PG14 database, include=FALSE, eval = keepRunning}
+```{r Section 3 - Pull existing tables from MARS PG14 database, include=FALSE}
 #Query the DB to pull the existing versions
     db_basin <- dbGetQuery(mars, "select * from external.tbl_gswibasin")
     db_blueroof <- dbGetQuery(mars, "select * from external.tbl_gswiblueroof")
@@ -274,7 +316,7 @@ This script is attempting to update DataConv tables within the `external` schema
     db_structure <- dbGetQuery(mars, "select * from external.tbl_gswistructure")
 ```
 
-```{r Section 4 - Identify differnces between tables, include=FALSE, eval = keepRunning}
+```{r Section 4 - Identify differnces between tables, include=FALSE}
 #Anti join to find what is different
     anti_basin <- anti_join(hash_basin, db_basin)
     anti_blueroof <- anti_join(hash_blueroof, db_blueroof)
@@ -339,119 +381,127 @@ This script is attempting to update DataConv tables within the `external` schema
 
 ```
 
-```{r Section We Are As One - external.tbl_gswibasin, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_basin) > 0)}
+```{r Section We Are As One - external.tbl_gswibasin, echo = FALSE, eval = all(!kill, newAssets, nrow(new_basin) > 0)}
 ###New SMP Polygons
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswibasin`: ",   nrow(new_basin)))
 kable(head(new_basin))
 ```
 
-```{r Section We Are As One - external.tbl_gswiblueroof, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_blueroof) > 0)}
+```{r Section We Are As One - external.tbl_gswiblueroof, echo = FALSE, eval = all(!kill, newAssets, nrow(new_blueroof) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiblueroof`: ",   nrow(new_blueroof)))
 kable(head(new_blueroof))
 ```
 
-```{r Section We Are As One - external.tbl_gswibumpout, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_bumpout) > 0)}
+```{r Section We Are As One - external.tbl_gswibumpout, echo = FALSE, eval = all(!kill, newAssets, nrow(new_bumpout) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswibumpout`: ",   nrow(new_bumpout)))
 kable(head(new_bumpout))
 ```
 
-```{r Section We Are As One - external.tbl_gswicistern, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_cistern) > 0)}
+```{r Section We Are As One - external.tbl_gswicistern, echo = FALSE, eval = all(!kill, newAssets, nrow(new_cistern) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswicistern`: ",   nrow(new_cistern)))
 kable(head(new_cistern))
 ```
 
-```{r Section We Are As One - external.tbl_gswidrainagewell, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_drainagewell) > 0)}
+```{r Section We Are As One - external.tbl_gswidrainagewell, echo = FALSE, eval = all(!kill, newAssets, nrow(new_drainagewell) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswidrainagewell`: ",   nrow(new_drainagewell)))
 kable(head(new_drainagewell))
 ```
 
-```{r Section We Are As One - external.tbl_gswigreenroof, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_greenroof) > 0)}
+```{r Section We Are As One - external.tbl_gswigreenroof, echo = FALSE, eval = all(!kill, newAssets, nrow(new_greenroof) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswigreenroof`: ",   nrow(new_greenroof)))
 kable(head(new_greenroof))
 ```
 
-```{r Section We Are As One - external.tbl_gswipermeablepavement, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_permeablepavement) > 0)}
+```{r Section We Are As One - external.tbl_gswipermeablepavement, echo = FALSE, eval = all(!kill, newAssets, nrow(new_permeablepavement) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswipermeablepavement`: ",   nrow(new_permeablepavement)))
 kable(head(new_permeablepavement))
 ```
 
-```{r Section We Are As One - external.tbl_gswiplanter, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_planter) > 0)}
+```{r Section We Are As One - external.tbl_gswiplanter, echo = FALSE, eval = all(!kill, newAssets, nrow(new_planter) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiplanter`: ",   nrow(new_planter)))
 kable(head(new_planter))
 ```
 
-```{r Section We Are As One - external.tbl_gswiraingarden, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_raingarden) > 0)}
+```{r Section We Are As One - external.tbl_gswiraingarden, echo = FALSE, eval = all(!kill, newAssets, nrow(new_raingarden) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiraingarden`: ",   nrow(new_raingarden)))
 kable(head(new_raingarden))
 ```
 
-```{r Section We Are As One - external.tbl_gswiswale, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_swale) > 0)}
+```{r Section We Are As One - external.tbl_gswiswale, echo = FALSE, eval = all(!kill, newAssets, nrow(new_swale) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiswale`: ",   nrow(new_swale)))
 kable(head(new_swale))
 ```
 
-```{r Section We Are As One - external.tbl_gswitree, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_tree) > 0)}
+```{r Section We Are As One - external.tbl_gswitree, echo = FALSE, eval = all(!kill, newAssets, nrow(new_tree) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswitree`: ",   nrow(new_tree)))
 kable(head(new_tree))
 ```
 
-```{r Section We Are As One - external.tbl_gswitreetrench, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_treetrench) > 0)}
+```{r Section We Are As One - external.tbl_gswitreetrench, echo = FALSE, eval = all(!kill, newAssets, nrow(new_treetrench) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswitreetrench`: ",   nrow(new_treetrench)))
 kable(head(new_treetrench))
 ```
 
-```{r Section We Are As One - external.tbl_gswitrench, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_trench) > 0)}
+```{r Section We Are As One - external.tbl_gswitrench, echo = FALSE, eval = all(!kill, newAssets, nrow(new_trench) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswitrench`: ",   nrow(new_trench)))
 kable(head(new_trench))
 ```
 
-```{r Section We Are As One - external.tbl_gswiwetland, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_wetland) > 0)}
+```{r Section We Are As One - external.tbl_gswiwetland, echo = FALSE, eval = all(!kill, newAssets, nrow(new_wetland) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiwetland`: ",   nrow(new_wetland)))
 kable(head(new_wetland))
 ```
 
-```{r Section We Are As One - external.tbl_gswicleanout, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_cleanout) > 0)}
+```{r Section We Are As One - external.tbl_gswicleanout, echo = FALSE, eval = all(!kill, newAssets, nrow(new_cleanout) > 0)}
 ###New SMP Components
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswicleanout`: ",   nrow(new_cleanout)))
 kable(head(new_cleanout))
 ```
 
-```{r Section We Are As One - external.tbl_gswicontrolstructure, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_controlstructure) > 0)}
+```{r Section We Are As One - external.tbl_gswicontrolstructure, echo = FALSE, eval = all(!kill, newAssets, nrow(new_controlstructure) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswicontrolstructure`: ",   nrow(new_controlstructure)))
 kable(head(new_controlstructure))
 ```
 
-```{r Section We Are As One - external.tbl_gswiconveyance, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_conveyance) > 0)}
+```{r Section We Are As One - external.tbl_gswiconveyance, echo = FALSE, eval = all(!kill, newAssets, nrow(new_conveyance) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiconveyance`: ",   nrow(new_conveyance)))
 kable(head(new_conveyance))
 ```
 
-```{r Section We Are As One - external.tbl_gswifitting, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_fitting) > 0)}
+```{r Section We Are As One - external.tbl_gswifitting, echo = FALSE, eval = all(!kill, newAssets, nrow(new_fitting) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswifitting`: ",   nrow(new_fitting)))
 kable(head(new_fitting))
 ```
 
-```{r Section We Are As One - external.tbl_gswiinlet, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_inlet) > 0)}
+```{r Section We Are As One - external.tbl_gswiinlet, echo = FALSE, eval = all(!kill, newAssets, nrow(new_inlet) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiinlet`: ",   nrow(new_inlet)))
 kable(head(new_inlet))
 ```
 
-```{r Section We Are As One - external.tbl_gswimanhole, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_manhole) > 0)}
+```{r Section We Are As One - external.tbl_gswimanhole, echo = FALSE, eval = all(!kill, newAssets, nrow(new_manhole) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswimanhole`: ",   nrow(new_manhole)))
 kable(head(new_manhole))
 ```
 
-```{r Section We Are As One - external.tbl_gswiobservationwell, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_observationwell) > 0)}
+```{r Section We Are As One - external.tbl_gswiobservationwell, echo = FALSE, eval = all(!kill, newAssets, nrow(new_observationwell) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswiobservationwell`: ",   nrow(new_observationwell)))
 kable(head(new_observationwell))
 ```
 
-```{r Section We Are As One - external.tbl_gswistructure, echo = FALSE, eval = all(keepRunning, newAssets, nrow(new_structure) > 0)}
+```{r Section We Are As One - external.tbl_gswistructure, echo = FALSE, eval = all(!kill, newAssets, nrow(new_structure) > 0)}
 knitr::asis_output(paste("### New assets to add to `external.tbl_gswistructure`: ",   nrow(new_structure)))
 kable(head(new_structure))
 ```
 
-```{r Section We Are As One - Write Everything, echo = FALSE, eval = all(keepRunning, newAssets)}
+```{r Section We Are As One - Write Everything, echo = FALSE, eval = all(!kill, newAssets)}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Writing new data")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+
 #Write new assets
 if(newAssets){
   
@@ -482,7 +532,7 @@ if(newAssets){
       dbWriteTable(mars, DBI::SQL("external.tbl_gswistructure"), new_structure, append = TRUE)
     },
     error = function(e){
-      keepRunning <<- FALSE
+      kill <<- TRUE
       errorCode <<- 2
       errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
@@ -492,7 +542,34 @@ if(newAssets){
 
 ```
 
-```{r Section X abc, echo = FALSE, include = FALSE, eval = keepRunning}
+```{r Break Point 2 - Bad Write, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section X abc, echo = FALSE, include = FALSE}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 5,
+                           exit_code = NA,
+                           note = "Searching for updates")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  
 # Old facility = update the row
 #Set UID to be the last column to facilitate the substitution mechanism in dbSendQuery
    
@@ -572,117 +649,125 @@ if(newAssets){
     
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswibasin, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_basin) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswibasin, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_basin) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswibasin`: ",   nrow(update_basin)))
 kable(head(update_basin))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiblueroof, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_blueroof) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiblueroof, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_blueroof) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiblueroof`: ",   nrow(update_blueroof)))
 kable(head(update_blueroof))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswibumpout, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_bumpout) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswibumpout, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_bumpout) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswibumpout`: ",   nrow(update_bumpout)))
 kable(head(update_bumpout))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswicistern, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_cistern) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswicistern, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_cistern) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswicistern`: ",   nrow(update_cistern)))
 kable(head(update_cistern))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswidrainagewell, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_drainagewell) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswidrainagewell, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_drainagewell) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswidrainagewell`: ",   nrow(update_drainagewell)))
 kable(head(update_drainagewell))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswigreenroof, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_greenroof) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswigreenroof, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_greenroof) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswigreenroof`: ",   nrow(update_greenroof)))
 kable(head(update_greenroof))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswipermeablepavement, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_permeablepavement) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswipermeablepavement, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_permeablepavement) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswipermeablepavement`: ",   nrow(update_permeablepavement)))
 kable(head(update_permeablepavement))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiplanter, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_planter) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiplanter, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_planter) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiplanter`: ",   nrow(update_planter)))
 kable(head(update_planter))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiraingarden, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_raingarden) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiraingarden, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_raingarden) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiraingarden`: ",   nrow(update_raingarden)))
 kable(head(update_raingarden))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiswale, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_swale) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiswale, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_swale) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiswale`: ",   nrow(update_swale)))
 kable(head(update_swale))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswitree, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_tree) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswitree, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_tree) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswitree`: ",   nrow(update_tree)))
 kable(head(update_tree))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswitreetrench, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_treetrench) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswitreetrench, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_treetrench) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswitreetrench`: ",   nrow(update_treetrench)))
 kable(head(update_treetrench))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswitrench, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_trench) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswitrench, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_trench) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswitrench`: ",   nrow(update_trench)))
 kable(head(update_trench))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiwetland, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_wetland) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiwetland, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_wetland) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiwetland`: ",   nrow(update_wetland)))
 kable(head(update_wetland))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswicleanout, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_cleanout) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswicleanout, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_cleanout) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswicleanout`: ",   nrow(update_cleanout)))
 kable(head(update_cleanout))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswicontrolstructure, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_controlstructure) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswicontrolstructure, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_controlstructure) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswicontrolstructure`: ",   nrow(update_controlstructure)))
 kable(head(update_controlstructure))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiconveyance, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_conveyance) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiconveyance, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_conveyance) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiconveyance`: ",   nrow(update_conveyance)))
 kable(head(update_conveyance))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswifitting, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_fitting) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswifitting, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_fitting) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswifitting`: ",   nrow(update_fitting)))
 kable(head(update_fitting))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiinlet, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_inlet) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiinlet, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_inlet) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiinlet`: ",   nrow(update_inlet)))
 kable(head(update_inlet))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswimanhole, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_manhole) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswimanhole, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_manhole) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswimanhole`: ",   nrow(update_manhole)))
 kable(head(update_manhole))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswiobservationwell, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_observationwell) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswiobservationwell, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_observationwell) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswiobservationwell`: ",   nrow(update_observationwell)))
 kable(head(update_observationwell))
 ```
 
-```{r Section We Are As One - Updates to external.tbl_gswistructure, echo = FALSE, eval = all(keepRunning, newUpdates, nrow(update_structure) > 0)}
+```{r Section We Are As One - Updates to external.tbl_gswistructure, echo = FALSE, eval = all(!kill, newUpdates, nrow(update_structure) > 0)}
 knitr::asis_output(paste("### Assets to update in `external.tbl_gswistructure`: ",   nrow(update_structure)))
 kable(head(update_structure))
 ```
 
-```{r Section We Are As One - Update Everything, echo = FALSE, eval = all(keepRunning, newUpdates)}
+```{r Section We Are As One - Update Everything, echo = FALSE, eval = all(!kill, newUpdates)}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 6,
+                           exit_code = NA,
+                           note = "Writing new updates")
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+
 #Write new assets
 if(newUpdates){
   
@@ -823,7 +908,7 @@ if(newUpdates){
         }
     },
     error = function(e){
-      keepRunning <<- FALSE
+      kill <<- TRUE
       errorCode <<- 3
       errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
@@ -832,11 +917,37 @@ if(newUpdates){
     
 ```
 
-# Script Results: `r ifelse(keepRunning, "SUCCESS", "FAILURE")`
+```{r Break Point 3 - Bad Update, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+# Script Results: `r ifelse(kill, "FAILURE", "SUCCESS")`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 6: Close Out Access Database, echo = FALSE}
+
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
 dbDisconnect(dataconv)
 dbDisconnect(mars)

@@ -1,5 +1,5 @@
 # Script to back-up mars-data in PG14 database 
-# Author: Farshad Ebrahimi and TGH, Last modified: 11/09/2023
+# Author: Farshad Ebrahimi and TGH
 # Version 3.0
 
 ## Set Up 1.0 ----
@@ -88,13 +88,13 @@ logMessage <- data.frame(date = as.Date(today()),
                          note = "Creating Restoration DB")
 
 dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
-  #create db
-  #testdbname <- paste(database_archive,"_","archivetest_",datestring, sep = "") longnames don't get recognize by pg_restore
-  testdbname <- paste("backup", datestring, sep = "_")
+
+  # #create db
+  testdbname <- "backuptest" #must use generic name
   query_str <- "CREATE DATABASE %s WITH TEMPLATE = template0 OWNER = mars_admin"
   sql_query <- paste(sprintf(query_str,testdbname),collapse="")
   test_db <- dbSendQuery(marsDBCon, sql_query)
-  
+
 ## Restore the archive ---- 4.0
   
   pg_restore <- Sys.getenv("pg_restore_exe")
@@ -127,6 +127,9 @@ logMessage <- data.frame(date = as.Date(today()),
                          exit_code = NA,
                          note = "Pruning old backups")
 
+dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+
+
   #get a list of backup files  from the backup directory
   backups <- list.files("//pwdoows/oows/Watershed Sciences/GSI Monitoring/07 Databases and Tracking Spreadsheets/18 MARS Database Back Up Files/PG 14/", pattern = "*\\.pgdump", full.names=TRUE)
 
@@ -151,5 +154,24 @@ logMessage <- data.frame(date = as.Date(today()),
                            milestone = 7,
                            exit_code = NA,
                            note = "Old backups pruned")
-    
-    
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+  
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 8,
+                           exit_code = NA,
+                           note = "Purging test database")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+  
+  purge_str <- "drop database backuptest;"
+  purge_result <- dbSendQuery(marsDBCon, purge_str)
+  
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 9,
+                           exit_code = NA,
+                           note = "Test Database Purged")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+  
+  

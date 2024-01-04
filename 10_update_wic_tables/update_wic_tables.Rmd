@@ -32,6 +32,7 @@ params:
                   Database = "PWD_Cityworks",
                   uid = Sys.getenv("cw_uid"),
                   pwd= Sys.getenv("cw_pwd"))
+  
   GISDB_con <- dbConnect(odbc(),
                   Driver = "ODBC Driver 17 for SQL Server",
                   Server = "PWDGISSQL",
@@ -54,7 +55,13 @@ params:
   wic_parcel_attach <- data.frame(matrix(NA, 0, 4))
   wic_parcels <- NULL
   
-
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "Checking DB Connections")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
       
   
 ```
@@ -63,6 +70,14 @@ params:
 ```{r Section 1 - Checking for new WIC complaints, new WIC comments, and any other changes, include=FALSE}
     
 # gather wic orders and comments from citywork 
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Gathering WIC records")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
    cityworks_workorders <- dbGetQuery(cityworksDB_con, "SELECT wo.WORKORDERID, wo.INITIATEDATE AS WO_INITIATEDATE, wo.LOCATION, wo.WOXCOORDINATE, 
     wo.WOYCOORDINATE, woe.ENTITYUID AS FACILITYID FROM Azteca.WORKORDER wo INNER JOIN 
@@ -106,12 +121,29 @@ params:
    
 # find the new wic complaint and changed ones in cityworks DB
    
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Check for Updates")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+   
    new_wic <- cityworks_workorders %>% filter(!(workorder_id %in% wic_workorders$workorder_id))
    cityworks_workorders_old <- anti_join(cityworks_workorders, new_wic, by = "workorder_id")
    changed_wic_cityworks <- cityworks_workorders_old  %>%
      anti_join(wic_workorders, by = c("workorder_id","wo_initiatedate","location","wo_xcoordinate","wo_ycoordinate","facility_id")) 
    wo_noparcels <- bind_rows(changed_wic_cityworks, new_wic)
 
+   
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Write new WICs to MARS")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+   
    
 # Append the new WIC to wic_workorders
    
@@ -123,6 +155,14 @@ params:
    
 # Update the workorders in wic_workorders that have been changed in cityworks DB 
    
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 5,
+                           exit_code = NA,
+                           note = "Write Updates to MARS")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  
    if(nrow(changed_wic_cityworks) > 0 & params$write == TRUE){
      
      sql_string <- "UPDATE fieldwork.tbl_wic_workorders SET wo_initiatedate = '%s', location = '%s',  wo_xcoordinate = %s,wo_ycoordinate= %s,facility_id = '%s' WHERE workorder_id = %s;"
@@ -147,7 +187,14 @@ params:
    changed_comments <- anti_join(old_wo_comments, wic_comments, by = c("comments"))
    changed_comments_cityworks <- changed_comments %>% select(workorder_id) %>% inner_join(cw_wic_comments, by = "workorder_id")
    
-
+    ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 6,
+                           exit_code = NA,
+                           note = "Write Comments to MARS")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+   
    
     if( nrow(new_wo_comments) > 0 & params$write == TRUE ){
       
@@ -185,6 +232,14 @@ params:
 
 ```{r Section 3- attach parcels to new and changed workorder based on facility id ,include=FALSE, eval= nrow(wo_noparcels) > 0}
     
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 7,
+                           exit_code = NA,
+                           note = "Attaching parcels")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
      Parcels_Frame <- dbGetQuery(GISDB_con, "SELECT * from GISDATA.GISAD.PWD_PARCELS")
      Parcels_facility_id <- select(Parcels_Frame, FACILITYID)
      Parcels_Address_id <- select(Parcels_Frame, ADDRESS, FACILITYID)
@@ -301,6 +356,13 @@ params:
 
 
 ```{r Section 6- write to DB ,include=FALSE, eval = nrow(wic_parcel_attach)>0}
+    ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 8,
+                           exit_code = NA,
+                           note = "Write parcels to MARS")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
        
     # union the matching tables-Final output is in FACID_ADD_XY
@@ -342,6 +404,14 @@ The new and modified work orders (total = `r nrow(bind_rows(changed_wic_citywork
 
 
 ```{r Section 8- SMP intersect, include=FALSE, eval= !is.null(wic_parcels) }
+
+    ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 9,
+                           exit_code = NA,
+                           note = "SMP Intersections")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
       basin <- suppressWarnings(st_read(gis_apps_con, "gisad.GSWIBASIN", quiet = TRUE)) 
       blueroof <- suppressWarnings(st_read(gis_apps_con, "gisad.GSWIBLUEROOF", quiet = TRUE)) 
@@ -656,6 +726,14 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
 
 
 ```{r section 9- SMP map data update, include = FALSE, eval= nrow(fieldwork.tbl_wic_smps)>0}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 10,
+                           exit_code = NA,
+                           note = "Write SMP Intersections")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
   new_smp_list <- fieldwork.tbl_wic_smps %>% 
   select(smp_id) %>%

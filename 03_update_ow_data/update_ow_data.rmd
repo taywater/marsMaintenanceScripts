@@ -54,6 +54,14 @@ errorCode = 0
     errorCode = 1
   }
 	
+###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "DB Connection Successful")
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
 ```
 
 ```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
@@ -62,11 +70,29 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
+  
   knitr::knit_exit()
 
 ```
 
 ```{r Section 1A - Gathering OW data, include = FALSE}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Gathering OW Data")
+
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
 
   #Read the latest date from each observation well from the mars database
   ow_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.viw_owdata_latestdates") %>%
@@ -82,7 +108,7 @@ errorCode = 0
 
   for(i in 1:nrow(accessdb_latestdates)){
     #Debug statement. Uncomment if running interactively.
-    print(paste("Accessing", accessdb_latestdates$filepath[i]))
+    #print(paste("Accessing", accessdb_latestdates$filepath[i]))
     
     tryCatch(
       expr = {
@@ -117,6 +143,15 @@ errorCode = 0
 
 
 ```{r Processing OW Data, echo = FALSE, include = FALSE}  
+
+###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Processing OW Data")
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
+
   #Some nulls may exist so we purge them
   newdata %<>% filter(complete.cases(newdata))
   newdata$dtime_est <- newdata$dtime_est %>% 
@@ -146,10 +181,17 @@ errorCode = 0
 ```
 
 
-```{r Section 1B - Writing to the tbl_ow_leveldata_raw table, include = FALSE, eval = nrow(display_newdata) > 0}	
+```{r Section 1B - Writing to the tbl_ow_leveldata_raw table, eval = nrow(display_newdata) > 0}	
   knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new CWL data points"))
 
   kable(display_newdata)
+  
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Writing New OW Data")
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
   #Create a data frame of file-by-file writing results
   owdata_results <- newdata %>% 
@@ -191,11 +233,26 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
+    ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  
   knitr::knit_exit()
 
 ```
 
 ```{r Section 2A - Gathering GW data, include = FALSE}
+###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 5,
+                           exit_code = NA,
+                           note = "Gathering GW Data")
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
 
   #Read the latest date from each observation well from the mars database
   gw_latestdates <- dbGetQuery(marsDBCon, "SELECT * FROM data.viw_gwdata_latestdates") %>%
@@ -251,11 +308,26 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
+    ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  
   knitr::knit_exit()
 
 ```
 
 ```{r Processing GW data, echo = FALSE, include = FALSE}
+
+###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 6,
+                           exit_code = NA,
+                           note = "Processing GW Data")
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
   
   #Some nulls may exist so we purge them
   newdata %<>% filter(complete.cases(newdata))
@@ -283,10 +355,18 @@ errorCode = 0
 ```
 
 
-```{r Section 2B - Writing to the tbl_gw_depthdata table, include = FALSE, eval = nrow(display_newdata) > 0}	
+```{r Section 2B - Writing to the tbl_gw_depthdata table, eval = nrow(display_newdata) > 0}	
   knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new Groundwater data points"))
 
   kable(display_newdata)
+  
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = 7,
+                           exit_code = NA,
+                           note = "Writing GW Data")
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  
 
   #Create a data frame of file-by-file writing results
   if(nrow(newdata) > 0){
@@ -333,6 +413,14 @@ errorCode = 0
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
+    ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  
   knitr::knit_exit()
 
 ```
@@ -343,5 +431,14 @@ errorCode = 0
 
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
+
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), 
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
 	dbDisconnect(marsDBCon)
 ```
