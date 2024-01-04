@@ -32,6 +32,8 @@ errorCodes <- data.frame(code = 0:4,
 kill = FALSE
 errorCode = 0
 
+log_code <- digest(now()) #Unique ID for the log batches
+
 #db connections 
 
 planreview <- dbConnect(odbc(), 
@@ -45,7 +47,7 @@ planreview <- dbConnect(odbc(),
 mars_data <- dbConnect(odbc(), params$database)
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "Testing DB Connection")
@@ -69,7 +71,7 @@ mars_data <- dbConnect(odbc(), params$database)
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -83,7 +85,7 @@ mars_data <- dbConnect(odbc(), params$database)
 ```{r Section 1: Querrying and Hashing, echo=FALSE}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Querying new data")
@@ -133,7 +135,7 @@ query_test_md <- (nrow(view_smp_designation_md > 0) & nrow(crosstab_md > 0))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -174,7 +176,7 @@ new_crosstab_hashes <- crosstab_hash %>%
 ```{r Section R1: New Edits Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0, nrow(new_crosstab_hashes) > 0))}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Writing new updates")
@@ -211,7 +213,7 @@ new_crosstab_hashes <- crosstab_hash %>%
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -229,7 +231,7 @@ new_crosstab_hashes <- crosstab_hash %>%
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])

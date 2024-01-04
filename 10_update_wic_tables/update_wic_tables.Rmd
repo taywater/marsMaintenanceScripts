@@ -24,6 +24,7 @@ params:
   library(shiny)
   library(lubridate)
   library(knitr)
+  library(digest)
 
   MARSDB_con <- dbConnect(odbc(), dsn = params$database)
   cityworksDB_con <- dbConnect(odbc(),
@@ -44,6 +45,8 @@ params:
                               "database=GIS_APPS;",
                               "UID=gisread;",
                               "PWD=gisread;")
+
+  log_code <- digest(now()) #Unique ID for the log batches
    
   output_25 <- data.frame(matrix(NA, 0, 2))
   output_50 <- data.frame(matrix(NA, 0, 2))
@@ -56,7 +59,7 @@ params:
   wic_parcels <- NULL
   
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "Checking DB Connections")
@@ -72,7 +75,7 @@ params:
 # gather wic orders and comments from citywork 
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Gathering WIC records")
@@ -122,7 +125,7 @@ params:
 # find the new wic complaint and changed ones in cityworks DB
    
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Check for Updates")
@@ -137,7 +140,7 @@ params:
 
    
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 4,
                            exit_code = NA,
                            note = "Write new WICs to MARS")
@@ -156,7 +159,7 @@ params:
 # Update the workorders in wic_workorders that have been changed in cityworks DB 
    
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 5,
                            exit_code = NA,
                            note = "Write Updates to MARS")
@@ -188,7 +191,7 @@ params:
    changed_comments_cityworks <- changed_comments %>% select(workorder_id) %>% inner_join(cw_wic_comments, by = "workorder_id")
    
     ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 6,
                            exit_code = NA,
                            note = "Write Comments to MARS")
@@ -233,7 +236,7 @@ params:
 ```{r Section 3- attach parcels to new and changed workorder based on facility id ,include=FALSE, eval= nrow(wo_noparcels) > 0}
     
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 7,
                            exit_code = NA,
                            note = "Attaching parcels")
@@ -357,7 +360,7 @@ params:
 
 ```{r Section 6- write to DB ,include=FALSE, eval = nrow(wic_parcel_attach)>0}
     ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 8,
                            exit_code = NA,
                            note = "Write parcels to MARS")
@@ -406,7 +409,7 @@ The new and modified work orders (total = `r nrow(bind_rows(changed_wic_citywork
 ```{r Section 8- SMP intersect, include=FALSE, eval= !is.null(wic_parcels) }
 
     ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 9,
                            exit_code = NA,
                            note = "SMP Intersections")
@@ -728,7 +731,7 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
 ```{r section 9- SMP map data update, include = FALSE, eval= nrow(fieldwork.tbl_wic_smps)>0}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 10,
                            exit_code = NA,
                            note = "Write SMP Intersections")

@@ -21,6 +21,7 @@ library(odbc)
 #Other stuff
 library(knitr)
 library(openssl)
+library(digest)
 options(stringsAsFactors=FALSE)
 
 errorCodes <- data.frame(code = 0:4,
@@ -33,6 +34,9 @@ errorCodes <- data.frame(code = 0:4,
 
 kill = FALSE
 errorCode = 0
+
+log_code <- digest(now()) #Unique ID for the log batches
+
 
 ```
 
@@ -52,7 +56,7 @@ errorCode = 0
   }
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "DB Connection Successful")
@@ -81,7 +85,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -95,7 +99,7 @@ errorCode = 0
 ```{r Section 1 - Gathering baro data, include = FALSE}
  
   ###Log: Gathering Baro Data
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Searching for Baro Files")
@@ -190,7 +194,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -208,7 +212,7 @@ errorCode = 0
     kable(display_filetable)
     
   ###Log: Writing Baro Files
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Writing Baro Files")
@@ -242,7 +246,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -256,7 +260,7 @@ errorCode = 0
 ```{r Section 2 - Gathering the baro data, include = FALSE}
 
   ###Log: Gathering Baro Data
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 4,
                            exit_code = NA,
                            note = "Gathering Baro Data")
@@ -304,7 +308,7 @@ errorCode = 0
   kable(display_newdata) 
   
    ###Log: Writing Baro Data
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 5,
                            exit_code = NA,
                            note = "Writing Baro Data")
@@ -360,7 +364,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -380,7 +384,7 @@ errorCode = 0
 ```{r Section 3 - Close DB connections and render this file, include = FALSE}
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])

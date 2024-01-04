@@ -21,6 +21,7 @@ library(RODBC)
 
 #Other stuff
 library(knitr)
+library(digest)
 
 options(stringsAsFactors=FALSE)
 
@@ -39,6 +40,7 @@ errorCodes <- data.frame(code = 0:9,
 
 kill = FALSE
 errorCode = 0
+log_code <- digest(now()) #Unique ID for the log batches
 
 ```
 
@@ -62,7 +64,7 @@ errorCode = 0
   logMessage <- data.frame(date = as.Date(today()), 
                            milestone = 1,
                            exit_code = NA,
-                           note = "DB Connection Successful")
+                           note = "Checking DB Connection")
   
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
 
