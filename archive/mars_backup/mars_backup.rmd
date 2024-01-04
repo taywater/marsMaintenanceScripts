@@ -1,0 +1,247 @@
+---
+title: "Maintenance Script Report: Backing up the MARS Analysis Database"
+author:
+- Taylor Heffernan
+- Backing up the `r params$database` database
+date: "`r lubridate::now()`"
+output: html_document
+params:
+  database: "mars_testing" #One of mars or mars_testing. Requires a DSN of the same name.
+---
+
+```{r setup, include=FALSE}
+
+#Dplyr stuff
+library(magrittr)
+library(tidyverse)
+library(lubridate)
+
+#Database Stuff
+library(odbc)
+
+#Other stuff
+library(knitr)
+library(openssl)
+options(stringsAsFactors=FALSE)
+```
+
+```{r Section 0 - Preamble , include=FALSE}
+###Section 0.1: Set filename parameters
+	#Standard timestamp format found on Stack Overflow
+		#%Y: 4 digit year [1:4]
+		#%m: 2 digit month [5:6]
+		#%d: 2 digit day [7:8]
+		#%H: 2 digit 24h hour [10:11]
+		#%M: 2 digit month [12:13]
+		#%S: 2 digit second [14:15]
+	datestring <- Sys.time() %>% format("%Y%m%dT%H%M")
+	extension <- "pgdump"
+	
+###Section 0.2: set pg_dump parameters
+  #User to perform the dump (-U)
+	#Can't dump with mars_readonly because it will not have access to the ODBC user mappings for the foreign tables
+	#No password is asked for because it's contained in our pgpass.conf file
+	dump_user <- "postgres"
+
+	#Additional parameters
+		#-Fc: Custom archive format - create a compressed archive suitable for pg_restore
+	dump_params <- "-Fc"
+	
+###Section 0.3: Set pg_restore parameters
+	#Test DB name tag
+	restorename <- "archivetest"
+	
+	#Additional parameters
+	  #-j5: Restore the database 5 tables at a time, which is much faster
+	restore_params <- "-j5"
+	
+```
+  
+
+```{r Section 1 - Back up the database to the W drive, include = FALSE}
+  
+  #W drive filepath
+  drive_letter <- "W"
+	filename <- paste0(datestring, "_", params$database, ".", extension)
+  filepath <- paste0(drive_letter, ":\\marsbackup/", params$database, "/", filename)
+
+  #Assemble the entire pg_dump	
+	pgdumpstring <- paste("pg_dump", 
+  	"-U", dump_user,
+  	dump_params,
+  	params$database,
+  	">", filepath)
+	
+	results_dump <- shell(pgdumpstring, intern = TRUE)
+
+```
+
+
+## Backing up the `r params$database` database to the W drive
+
+The `r params$database` database was `r ifelse(length(results_dump) == 0, "SUCCESSFULLY", "NOT")` backed up to the W drive.
+
+`r if(length(results_dump) == 0){ paste("The file is located at", gsub("\\\\", "/", filepath)) }`
+
+---
+
+```{r Section 2 - Restoring the W drive backup, include = FALSE}	
+
+  #Compose test name for the restored database
+  testdatabase <- paste(drive_letter, "archivetest", params$database, datestring, sep = "_")
+  
+  #PG_Restore the archive at `filepath` back to the database with the test name
+  #Create the string that will be used to create the db
+  createdbstring <- paste("createdb",
+    "-U", dump_user,
+    "-T template0", #Template0 is a blank database
+    testdatabase)
+  
+  #Create that database
+  results_createdb <- shell(createdbstring, intern = TRUE)
+
+  #Compose pg_restore command string
+  pgrestorestring <- paste("pg_restore",
+    "-U", dump_user,
+    restore_params,
+    "-d", testdatabase,
+    filepath)
+  
+  #Restore the archived database
+  results_restore <- shell(pgrestorestring, intern = TRUE)
+
+```
+  
+  
+## Creating the scratch database to test the backup
+
+The scratch database, was `r ifelse(length(results_createdb) == 0, "SUCCESSFULLY", "NOT")` created on the MARS postgres server.  
+  
+`r if(length(results_createdb) == 0){ paste("The database is named", testdatabase) }`  
+  
+The scratch database was `r ifelse(length(results_restore) == 0, "SUCCESSFULLY", "NOT")` populated by the database archive located at `r gsub("\\\\", "/", filepath)`.
+
+---
+  
+```{r Section 3 - Verifying the W drive backup, include = FALSE}
+
+  ############################
+  # Incomplete!
+  ############################
+
+  # #Read all tables in each database (backup and live) and verify they're the same
+  # liveDBCon <- dbConnect(odbc(), params$database)
+  # 
+  # #Assemble all tables in the live database (params$database)
+  #   #Tables we need to check for their integrity are non-foreign, non-matview tables
+  # livetables <- list()
+  # livetables$table <- dbListTables(liveDBCon, table_type = "table")
+  # livetables$foreign <- dbListTables(liveDBCon, table_type = "foreign table")
+  # livetables$matview <- dbListTables(liveDBCon, table_type = "matview")
+  # livetables$regulartables <- setdiff(livetables$table, c(livetables$foreign, livetables$matview)) 
+  # 
+  # #Repeat that process for the test database
+  # testDBCon <- dbConnect(odbc(), 
+  #   server = "28-ARATHEFFE2.water.gov", 
+  #   driver = "PostgreSQL Unicode(x64)", 
+  #   database = testdatabase, 
+  #   uid = "mars_readonly", 
+  #   pwd = "ihatepostgrespermissions",
+  #   port = "5432")
+  # 
+  # #Assemble all tables in the live database (params$database)
+  #   #Tables we need to check for their integrity are non-foreign, non-matview tables
+  # testtables <- list()
+  # testtables$table <- dbListTables(testDBCon, table_type = "table")
+  # testtables$foreign <- dbListTables(testDBCon, table_type = "foreign table")
+  # testtables$matview <- dbListTables(testDBCon, table_type = "matview")
+  # testtables$regulartables <- setdiff(testtables$table, c(testtables$foreign, testtables$matview)) 
+  
+  
+  # #Match the contents of each table against each other, to see if they are identical
+  # #Doing that hash business
+  # # https://www.periscopedata.com/blog/hashing-tables-to-ensure-consistency-in-postgres-redshift-and-mysql
+  # tables_identical <- NA
+  # 
+  # for(neverdothis in 1){
+  #   #If the list of tables in each DB aren't the same, then don't bother with the rest of this stuff
+  #   if(!identical(testtables$regulartables, livetables$regulartables)){
+  #     tables_identical <- FALSE
+  #     break
+  #   }
+  #   
+  #   #iterate along tables and compose hash queries
+  #   for(i in 1:length(livetables$regulartables)){
+  #     table_info <- dbGetQuery(liveDBCon, paste0("select table_name, column_name, data_type from information_schema.columns where table_name = '", livetables$regulartables[i], "'::text"))
+  #     
+  #     
+  #   }
+  # }
+  # 
+    
+```
+
+```{r Section 3 - Back up the database to the X drive, include = FALSE}
+  
+  #W drive filepath
+  drive_letter <- "X"
+	filename <- paste0(datestring, "_", params$database, ".", extension)
+  filepath <- paste0(drive_letter, ":\\marsbackup/", params$database, "/", filename)
+
+  #Assemble the entire pg_dump	
+	pgdumpstring <- paste("pg_dump", 
+  	"-U", dump_user,
+  	dump_params,
+  	params$database,
+  	">", filepath)
+	
+	results_dump <- shell(pgdumpstring, intern = TRUE)
+
+```
+
+
+## Backing up the `r params$database` database to the X drive
+
+The `r params$database` database was `r ifelse(length(results_dump) == 0, "SUCCESSFULLY", "NOT")` backed up to the W drive.
+
+`r if(length(results_dump) == 0){ paste("The file is located at", gsub("\\\\", "/", filepath)) }`
+
+---
+
+```{r Section 4 - Restoring the X drive backup, include = FALSE}	
+
+  #Compose test name for the restored database
+  testdatabase <- paste(drive_letter, "archivetest", params$database, datestring, sep = "_")
+  
+  #PG_Restore the archive at `filepath` back to the database with the test name
+  #Create the string that will be used to create the db
+  createdbstring <- paste("createdb",
+    "-U", dump_user,
+    "-T template0", #Template0 is a blank database
+    testdatabase)
+  
+  #Create that database
+  results_createdb <- shell(createdbstring, intern = TRUE)
+
+  #Compose pg_restore command string
+  pgrestorestring <- paste("pg_restore",
+    "-U", dump_user,
+    restore_params,
+    "-d", testdatabase,
+    filepath)
+  
+  #Restore the archived database
+  results_restore <- shell(pgrestorestring, intern = TRUE)
+
+```
+  
+  
+## Creating the scratch database to test the backup
+
+The scratch database, was `r ifelse(length(results_createdb) == 0, "SUCCESSFULLY", "NOT")` created on the MARS postgres server.  
+  
+`r if(length(results_createdb) == 0){ paste("The database is named", testdatabase) }`  
+  
+The scratch database was `r ifelse(length(results_restore) == 0, "SUCCESSFULLY", "NOT")` populated by the database archive located at `r gsub("\\\\", "/", filepath)`.
+
+---
