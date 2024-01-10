@@ -80,7 +80,7 @@ if(!kill){
 	
 ```
   
-```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
@@ -264,7 +264,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     )
 ```
 
-```{r Break Point 2 - Bad Write, echo = FALSE, eval = kill}
+```{r Break Point 2 - Bad Write, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
@@ -354,7 +354,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     )
 ```
 
-```{r Break Point 3 - Bad Write, echo = FALSE, eval = kill}
+```{r Break Point 3 - Bad Write, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
@@ -443,7 +443,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     )
 ```
 
-```{r Break Point 4 - Bad Write, echo = FALSE, eval = kill}
+```{r Break Point 4 - Bad Write, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
@@ -461,11 +461,20 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 
 ```
 
-# Script Results: `r ifelse(kill, "FAILURE", ifelse(success, "FAILURE", "SUCCESS"))`
+# Script Results: `r ifelse(kill, ifelse(success, "SUCCESS", "FAILURE"), "FAILURE")`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 4 - Close DB connections and render this file, include = FALSE}
+
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+
 	#Close database connections
 	dbDisconnect(marsDBCon)
 ```

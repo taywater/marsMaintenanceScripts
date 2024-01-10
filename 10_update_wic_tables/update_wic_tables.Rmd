@@ -926,6 +926,14 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
 
 ```{r section 14- DB disconnect, include=FALSE}
 
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = NA,
+                           exit_code = 0,
+                           note = "Execution successful")
+  
+  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
       dbDisconnect(MARSDB_con)
       dbDisconnect(cityworksDB_con)
       dbDisconnect(GISDB_con)

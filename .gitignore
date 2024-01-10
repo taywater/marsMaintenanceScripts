@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+*.html
 marsMaintenanceScripts.Rproj
 mars_backup/output
 update_accessdb_tables/output
@@ -11,4 +12,3 @@ update_rainfall_tables/output
 update_smp_tables/output
 update_smp_tables/centroids_folder
 update_rainfall_tables/Metadata.txt
-marsMaintenanceScripts_pg9.Rproj

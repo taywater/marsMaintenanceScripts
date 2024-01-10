@@ -45,13 +45,16 @@ log_code <- digest(now()) #Unique ID for the log batches
 ###Section 0.1: Check parameter validity
 
 ###Section 0.2: Connect to the database
-	marsDBCon <- dbConnect(odbc::odbc(), params$database)
-  hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
+	marsDBCon <- tryCatch({dbConnect(odbc::odbc(), params$database)},
+                         error = function(e){e})
 
-    #################################
+  hhdbcon <- tryCatch({dbConnect(odbc::odbc(), "CentralDB")},
+                       error = function(e){e})
+
+  #################################
   ####Error check - Did we connect?
   #################################
-  if(any(!odbc::dbIsValid(marsDBCon), !odbc::dbIsValid(hhdbcon)))
+  if(any(typeof(marsDBCon) == "list", typeof(hhdbcon) == "list"))
   {
     kill = TRUE
     errorCode = 1
@@ -65,8 +68,6 @@ log_code <- digest(now()) #Unique ID for the log batches
   
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
 	
-  dbDisconnect(hhdbcon) #We will reconnect later. Don't crud up CentralDB with ghost connections if we fail
-  
 ```
 
 ```{r Break Point 1 - Connection Failure, echo = FALSE, include = TRUE, eval = kill}
@@ -106,7 +107,6 @@ log_code <- digest(now()) #Unique ID for the log batches
   rainfall_gage <- left_join(rainfall_gage, gage, by = "gage_uid") %>% select(gagename, maxtime_edt)
   
   #Read the rain gage data from the H&H database
-  hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
   hhrainfall_gage <- dbGetQuery(hhdbcon, "select * from pwdrg.tblModelRain") %>% 
     transmute(gagename = as.character(GaugeNo), dtime_edt = force_tz(ymd_hms(DateTime), "America/New_York"), rainfall_in = round(Rainfall, 4))
   
@@ -271,16 +271,14 @@ log_code <- digest(now()) #Unique ID for the log batches
   
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)  
 
-
-  hhdbcon <- dbConnect(odbc::odbc(), "CentralDB")
-
   #Assess raw files in our DB and H&H
   db_rawfiles <- dbGetQuery(marsDBCon, "select * from admin.tbl_radar_rawfile")
   hh_rawfiles <- dbGetQuery(hhdbcon, "select yearmon, path as filepath from radar2sheds.garr_inventory") %>%
     mutate(yearmon = str_replace(yearmon, "-", "")) %>%
     mutate(filepath = str_replace(filepath, "\\\\", "/")) %>%
     mutate(filepath = str_replace(filepath, "M:/", "//pwdoows/OOWS/Modeling/")) %>%
-    filter(yearmon > "201401")
+    filter(yearmon > "201401") %>%
+    select(-yearmon)
   dbDisconnect(hhdbcon)
 
   #Which files don't we have
