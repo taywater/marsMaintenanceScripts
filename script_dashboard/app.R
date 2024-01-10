@@ -25,6 +25,7 @@ library(DBI)
 
 #set default page length for datatables
 options(DT.options = list(pageLength = 15))
+version = '1.0.0'
 
 #set db connection
 #using a pool connection so separate connnections are unified
@@ -38,34 +39,41 @@ onStop(function(){
 
 
 # Define UI
-ui <- fluidPage(
-  
-  # Application title
-  titlePanel("Hello Shiny!"),
-  
-  sidebarLayout(
+ui <- navbarPage(paste("Script Dashboard", version), theme = shinytheme("cerulean"),
     
-    # Sidebar with a slider input
-    sidebarPanel(
-      selectizeInput('foo', label = "Scripts", choices = NULL)
-    ),
-    
-    # Show a plot of the generated distribution
-    mainPanel(
-      DTOutput("logs")
-    )
-  )
+    tabPanel("Condensed View",
+      DTOutput("logs"))
 )
 
 # Server logic
 server <- function(input, output) {
   print("Querying DB. This should only happen once.")
   
-  script_table <- dbGetQuery(poolConn, "select * from log.viw_script_dashboard")
-  script_names <- pull(script_table, script) %>% unique
+  script_table <- dbGetQuery(poolConn, "select * from log.viw_script_dashboard") %>%
+    transmute(Script = script, `Task Order` = as.numeric(task_order), `Date` = date, `Exit Code` = coalesce(status, 0), Note = note) %>%
+    arrange(`Task Order`) %>%
+    select(-`Task Order`)
+  script_names <- pull(script_table, Script) %>% unique
+  
+  date_cutoff <- lubridate::today() - days(2) #Script runs older than this indicate a non-firing script
   
   output$logs <- renderDT(
-    script_table
+    DT::datatable(
+      script_table,
+      rownames = FALSE,
+      options = list(
+        columnDefs = list(list(className = 'dt-center', targets = c(2)))
+      )
+    ) %>% formatStyle(
+      3, #Exit Code column
+      target = 'row',
+      backgroundColor = styleInterval(0, c(NA, '#CC7F50'))
+    )%>% formatStyle(
+      2, #Date column,
+      target = 'row',
+      backgroundColor = styleInterval(date_cutoff, c('#770000', NA)),
+      color = styleInterval(date_cutoff, c('white', 'black'))
+    )
   )
 }
 
