@@ -282,7 +282,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   dbDisconnect(hhdbcon)
 
   #Which files don't we have
-  new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath)) %>% select(-yearmon)
+  new_rawfiles <- filter(hh_rawfiles, !(filepath %in% db_rawfiles$filepath)) 
   
   #only cells in Philly
   phillycells <- dbGetQuery(marsDBCon, "select radar_uid from admin.tbl_radar")
