@@ -31,6 +31,8 @@ cipit <- dbConnect(odbc(),
 
 mars <- dbConnect(odbc(), "mars14_datav2")
 
+log_code <- digest(now()) #Unique ID for the log batches
+
 errorCodes <- data.frame(code = 0:3,
   message = c("Execution successful.",
               "Could not connect to DB. Is Postgres or CIPIT down?",
@@ -43,7 +45,7 @@ success = FALSE
 errorCode = 0
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "Testing DB Connection")
@@ -68,7 +70,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -85,7 +87,7 @@ This script is attempting to connect to the database `CIPITREADER` on the `PWDCI
 
 ```{r Section 1 - Querrying and Hashing, echo = FALSE, include = FALSE}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Querying CIPIT")
@@ -117,7 +119,7 @@ knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_new), " new p
 kable(head(cipit_project_new))
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Writing New Data")
@@ -150,7 +152,7 @@ tryCatch(
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -166,7 +168,7 @@ knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_update), " up
 kable(head(cipit_project_update))
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 4,
                            exit_code = NA,
                            note = "Updating changed data")
@@ -199,7 +201,7 @@ tryCatch(
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -218,7 +220,7 @@ tryCatch(
 # Close database connections
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])

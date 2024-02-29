@@ -18,6 +18,7 @@ library(digest)
 
 #Other stuff
 library(knitr)
+library(digest)
 options(stringsAsFactors = FALSE)
 
 # Connecting to the DB's
@@ -41,8 +42,11 @@ errorCodes <- data.frame(code = 0:3,
 kill = FALSE
 errorCode = 0
 
+log_code <- digest(now()) #Unique ID for the log batches
+
+
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "Testing DB connections")
@@ -68,7 +72,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -84,7 +88,7 @@ This script is attempting to update DataConv tables within the `external` schema
 
 ```{r Section 1 - Gathering data from pwdgis4, echo = FALSE}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Gathering new data")
@@ -147,7 +151,7 @@ This script is attempting to update DataConv tables within the `external` schema
     
 ```{r Section 2 - Hashing Tables, echo = FALSE}  
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Hashing new data")
@@ -495,7 +499,7 @@ kable(head(new_structure))
 
 ```{r Section We Are As One - Write Everything, echo = FALSE, eval = all(!kill, newAssets)}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 4,
                            exit_code = NA,
                            note = "Writing new data")
@@ -549,7 +553,7 @@ if(newAssets){
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -563,7 +567,7 @@ if(newAssets){
 ```{r Section X abc, echo = FALSE, include = FALSE}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 5,
                            exit_code = NA,
                            note = "Searching for updates")
@@ -761,7 +765,7 @@ kable(head(update_structure))
 
 ```{r Section We Are As One - Update Everything, echo = FALSE, eval = all(!kill, newUpdates)}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 6,
                            exit_code = NA,
                            note = "Writing new updates")
@@ -924,7 +928,7 @@ if(newUpdates){
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -942,7 +946,7 @@ if(newUpdates){
 ```{r Section 6: Close Out Access Database, echo = FALSE}
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])

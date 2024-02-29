@@ -20,6 +20,7 @@ library(odbc)
 
 #Other stuff
 library(knitr)
+library(digest)
 options(stringsAsFactors=FALSE)
 
 errorCodes <- data.frame(code = 0:5,
@@ -35,6 +36,7 @@ kill = FALSE
 success = FALSE
 errorCode = 0
 
+log_code <- digest(now()) #Unique ID for the log batches
 
 ```
 
@@ -55,7 +57,7 @@ errorCode = 0
   }
 	
 ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "DB Connection Successful")
@@ -71,7 +73,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -86,7 +88,7 @@ errorCode = 0
 ```{r Section 1A - Gathering OW data, include = FALSE}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Gathering OW Data")
@@ -145,7 +147,7 @@ errorCode = 0
 ```{r Processing OW Data, echo = FALSE, include = FALSE}  
 
 ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Processing OW Data")
@@ -187,7 +189,7 @@ errorCode = 0
   kable(display_newdata)
   
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 4,
                            exit_code = NA,
                            note = "Writing New OW Data")
@@ -234,7 +236,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
     ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -247,7 +249,7 @@ errorCode = 0
 
 ```{r Section 2A - Gathering GW data, include = FALSE}
 ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 5,
                            exit_code = NA,
                            note = "Gathering GW Data")
@@ -309,7 +311,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
     ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -323,7 +325,7 @@ errorCode = 0
 ```{r Processing GW data, echo = FALSE, include = FALSE}
 
 ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 6,
                            exit_code = NA,
                            note = "Processing GW Data")
@@ -361,7 +363,7 @@ errorCode = 0
   kable(display_newdata)
   
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 7,
                            exit_code = NA,
                            note = "Writing GW Data")
@@ -414,7 +416,7 @@ errorCode = 0
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
     ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -433,7 +435,7 @@ errorCode = 0
 	#Close database connections
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])

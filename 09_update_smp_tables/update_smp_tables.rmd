@@ -22,6 +22,7 @@ library(odbc)
 
 #Other stuff
 library(knitr)
+library(digest)
 options(stringsAsFactors=FALSE)
 
 ```
@@ -34,6 +35,8 @@ dsn_infra_pub <- paste0("MSSQL:server=PWDGISSQL;",
                           "database=GIS_APPS;",
                           "UID=gisread;",
                           "PWD=gisread;")
+
+log_code <- digest(now()) #Unique ID for the log batches
 
 ###Section 0.2: Connect to the database.
 	marsDBCon <- dbConnect(odbc::odbc(), "mars14_datav2")
@@ -51,7 +54,7 @@ success = FALSE
 errorCode = 0
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "Testing DB Connection")
@@ -77,14 +80,14 @@ if(!kill){
 	
 ```
   
-```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -99,7 +102,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 
 ```{r Section 1 - Gathering data for the smp_loc table, include = FALSE}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Gathering location data")
@@ -236,7 +239,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     kable(head(smp_locNewData))
     
       ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Writing centroids")
@@ -261,14 +264,14 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     )
 ```
 
-```{r Break Point 2 - Bad Write, echo = FALSE, eval = kill}
+```{r Break Point 2 - Bad Write, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -281,7 +284,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 
 ```{r Section 2 - Gathering data for the smp_gage table, include = FALSE}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 4,
                            exit_code = NA,
                            note = "Gathering gages")
@@ -326,7 +329,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     kable(head(smp_loc_nogage))
     
       ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 5,
                            exit_code = NA,
                            note = "Writing gages")
@@ -351,14 +354,14 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     )
 ```
 
-```{r Break Point 3 - Bad Write, echo = FALSE, eval = kill}
+```{r Break Point 3 - Bad Write, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -372,7 +375,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 ```{r Section 3 - Gathering data for the smp_radar table, include = FALSE}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 6,
                            exit_code = NA,
                            note = "Gathering grid cells")
@@ -415,7 +418,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     kable(head(smp_loc_noradar))
     
       ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 7,
                            exit_code = NA,
                            note = "Writing grid cells")
@@ -440,14 +443,14 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
     )
 ```
 
-```{r Break Point 4 - Bad Write, echo = FALSE, eval = kill}
+```{r Break Point 4 - Bad Write, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -458,11 +461,20 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
 
 ```
 
-# Script Results: `r ifelse(kill, "FAILURE", ifelse(success, "FAILURE", "SUCCESS"))`
+# Script Results: `r ifelse(kill, ifelse(success, "SUCCESS", "FAILURE"), "FAILURE")`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
 ```{r Section 4 - Close DB connections and render this file, include = FALSE}
+
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+
 	#Close database connections
 	dbDisconnect(marsDBCon)
 ```

@@ -41,8 +41,10 @@ errorCodes <- data.frame(code = 0:5,
               NA #Write error from TryCatch will be used
                ), stringsAsFactors=FALSE)
 
+log_code <- digest(now()) #Unique ID for the log batches
+
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 1,
                            exit_code = NA,
                            note = "Checking DB connections")
@@ -53,6 +55,7 @@ errorCodes <- data.frame(code = 0:5,
 kill = FALSE
 success = FALSE
 errorCode = 0
+
 
 #################################
 ####Error check - Did we connect?
@@ -71,7 +74,7 @@ if(any(!odbc::dbIsValid(mars_data), !odbc::dbIsValid(greenit)))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -86,7 +89,7 @@ if(any(!odbc::dbIsValid(mars_data), !odbc::dbIsValid(greenit)))
 ```{r Section 1: Query GreenIT, echo = FALSE}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 2,
                            exit_code = NA,
                            note = "Querying GreenIT")
@@ -115,7 +118,7 @@ if(any(!exists("smpbestdata"), !exists("systembestdata"), !exists("projectbestda
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -129,7 +132,7 @@ if(any(!exists("smpbestdata"), !exists("systembestdata"), !exists("projectbestda
 ```{r Filter for new projects, echo = FALSE, include = FALSE}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 3,
                            exit_code = NA,
                            note = "Hashing GreenIT Data")
@@ -193,7 +196,7 @@ kable(head(new_projects))
 
 ```{r Section We Are As One - Write Everything, echo = FALSE, eval = all(!kill, newAssets)}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 4,
                            exit_code = NA,
                            note = "Writing New Data")
@@ -228,7 +231,7 @@ if(newAssets){
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -292,7 +295,7 @@ kable(head(update_projects))
 
 ```{r Section We Are As One - Update Everything, echo = FALSE, eval = all(!kill, newUpdates)}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 5,
                            exit_code = NA,
                            note = "Updating GreenIT Data")
@@ -340,7 +343,7 @@ if(newUpdates){
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -357,7 +360,7 @@ if(newUpdates){
 
 ```{r Section 4: Clean Up Connections and Render This HTML Document, include = FALSE}
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), 
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])

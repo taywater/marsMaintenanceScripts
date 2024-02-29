@@ -13,19 +13,38 @@
 
 #Other stuff
   library(openssl)
+  library(digest)
   options(stringsAsFactors=FALSE)
   
 #DB connection
   marsDBCon <- odbc::dbConnect(odbc::odbc(), "mars_data_pg14v2")
+
+log_code <- digest(now()) #Unique ID for the log batches
   
 ###Log: Start
-logMessage <- data.frame(date = as.Date(today()), 
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          milestone = 1,
                          exit_code = NA,
                          note = "DB Connection Successful")
 
 dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
   
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 2,
+                         exit_code = NA,
+                         note = "Purging test database")
+
+dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+
+purge_str <- "drop database if exists backuptest;"
+purge_result <- dbSendQuery(marsDBCon, purge_str)
+
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 3,
+                         exit_code = NA,
+                         note = "Test Database Purged")
+
+
 ## Back up the database 2.0 ----  
 #which database to backup? what format?
   format_archive <- "c"
@@ -51,8 +70,8 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
   role <- shQuote(role)
   
 ###Log: Start
-logMessage <- data.frame(date = as.Date(today()), 
-                         milestone = 2,
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 4,
                          exit_code = NA,
                          note = "Initiating DB Backup")
 
@@ -71,9 +90,11 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
  # run the command line using system function 
   results_dump <- system(pgdumpstring, intern = TRUE, wait = FALSE)
   
+  if(length(results_dump) > 0) { stop() }
+  
 ###Log: Start
-logMessage <- data.frame(date = as.Date(today()), 
-                         milestone = 3,
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 5,
                          exit_code = NA,
                          note = "DB Backup Complete")
 
@@ -82,15 +103,20 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
 ## Create a database to host the test DB 3.0 ----  
 
 ###Log: Start
-logMessage <- data.frame(date = as.Date(today()), 
-                         milestone = 4,
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 6,
                          exit_code = NA,
                          note = "Creating Restoration DB")
 
 dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
 
-  # #create db
+  #If a test database exists, drop it
   testdbname <- "backuptest" #must use generic name
+  delete_str <- "DROP DATABASE IF EXISTS %s"
+  delete_query <- paste(sprintf(delete_str, testdbname), collapse = "")
+  test_db <- dbSendQuery(marsDBCon, delete_query)
+
+  # #create db
   query_str <- "CREATE DATABASE %s WITH TEMPLATE = template0 OWNER = mars_admin"
   sql_query <- paste(sprintf(query_str,testdbname),collapse="")
   test_db <- dbSendQuery(marsDBCon, sql_query)
@@ -112,18 +138,38 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
                         filepath)
   results_restore <- system(pgrestorestring, intern = TRUE, wait = FALSE)
   
+  
+  if(length(results_restore) > 0) { stop() }
+  
 ###Log: Restore end
-logMessage <- data.frame(date = as.Date(today()), 
-                         milestone = 5,
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 7,
                          exit_code = NA,
                          note = "Restoration DB populated")
 
 dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
   
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 8,
+                         exit_code = NA,
+                         note = "Purging test database")
+
+dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+
+purge_str <- "drop database if exists backuptest;"
+purge_result <- dbSendQuery(marsDBCon, purge_str)
+
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 9,
+                         exit_code = NA,
+                         note = "Test Database Purged")
+
+dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+
 ## Pruning old back ups
 ###Log: Prune Start
-logMessage <- data.frame(date = as.Date(today()), 
-                         milestone = 6,
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 10,
                          exit_code = NA,
                          note = "Pruning old backups")
 
@@ -150,28 +196,17 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
   prune_result <- file.remove(backups[delete_lastmonth])
 
   ###Log: Prune wens
-  logMessage <- data.frame(date = as.Date(today()), 
-                           milestone = 7,
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 11,
                            exit_code = NA,
                            note = "Old backups pruned")
   
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
   
-  logMessage <- data.frame(date = as.Date(today()), 
-                           milestone = 8,
-                           exit_code = NA,
-                           note = "Purging test database")
+  ###Log: Complete
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = NA,
+                           exit_code = 0,
+                           note = "Execution Successful")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
-  
-  purge_str <- "drop database backuptest;"
-  purge_result <- dbSendQuery(marsDBCon, purge_str)
-  
-  logMessage <- data.frame(date = as.Date(today()), 
-                           milestone = 9,
-                           exit_code = NA,
-                           note = "Test Database Purged")
-  
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
-  
-  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
