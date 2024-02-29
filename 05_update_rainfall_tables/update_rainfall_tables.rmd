@@ -231,7 +231,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_rain_event"), rain_newevents, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_event"), rain_newevents, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -447,7 +447,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_radar_event"), rain_newevents, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_radar_event"), rain_newevents, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
