@@ -110,8 +110,13 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
 
 dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
 
-  # #create db
+  #If a test database exists, drop it
   testdbname <- "backuptest" #must use generic name
+  delete_str <- "DROP DATABASE IF EXISTS %s"
+  delete_query <- paste(sprintf(delete_str, testdbname), collapse = "")
+  test_db <- dbSendQuery(marsDBCon, delete_query)
+
+  # #create db
   query_str <- "CREATE DATABASE %s WITH TEMPLATE = template0 OWNER = mars_admin"
   sql_query <- paste(sprintf(query_str,testdbname),collapse="")
   test_db <- dbSendQuery(marsDBCon, sql_query)
@@ -205,4 +210,3 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
                            note = "Execution Successful")
   
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
-  
