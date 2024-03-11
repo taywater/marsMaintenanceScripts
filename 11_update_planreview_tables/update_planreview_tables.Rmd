@@ -228,7 +228,7 @@ updated_smps <- view_smp_designation_hash %>%
   
         expr = {
           update_smp <- dbSendQuery(mars_data, 'update external.planreview_view_smp_designation set ProjectID=?, SMPID=?, Projectname =  ?, TrackingNumber=?, Designation=?,  OOWProgramType=?, hash_md5=?, SMIP=?, GARP=? WHERE planreview_view_smp_designation_uid=?')
-          
+
           #send the updated data
           dbBind(update_smp, edited_smps)
           
