@@ -93,34 +93,31 @@ mars_data <- dbConnect(odbc(), params$database)
   dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
 
 #Query plan review tables
-view_smp_designation <- dbGetQuery(planreview, "select * from dbo.View_SMP_Designation")
+view_smp_designation <- dbGetQuery(planreview, "select p.spra_legacyprojectid as \"ProjectID\", s.spra_name as \"SMPID\", p.spra_projectname as \"Projectname\", p.spra_trackingid as \"TrackingNumber\",
+	d.Designation as \"Designation\", p.spra_smipfundedname as \"SMIP\", p.spra_garpfundedname as \"GARP\",
+	pt.spra_oowprogramtype as \"OOWProgramType\"
+from spra_project p inner join 
+	(select * from spra_projectsmpdetails s where s.spra_smptypename <> 'Site Characteristics') s
+		on p.spra_trackingid = s.spra_projectname
+	inner join View_Project_Designation d on p.spra_trackingid = d.TrackingNumber
+	left join spra_programtype pt on p.spra_programtypes = pt.spra_programtypeid
+order by p.spra_trackingid, s.spra_name")
 
-crosstab <- dbGetQuery(planreview, "select * from view_smpsummary_crosstab_asbuiltall") %>% select(-Depaving)
 
 #Hash plan view tables
 view_smp_designation_hash <- view_smp_designation %>% 
     rowwise() %>% 
-    mutate("hash_md5" = digest(paste(`ProjectID`, `TrackingNumber`,  `SMPID`, `Designation`, `ProgramType`, `OOWProgramType`, `SMIP`, `GARP`), algo = "md5")) 
-  
-  crosstab_hash <- crosstab %>% 
-    rowwise() %>% 
-    mutate("hash_md5" = digest(paste(	`ProjectID`, `TrackingNumber`, `Projectname`, `SMPID`, `SMPType`, `Plan Label`, `Total Drainage Area`, `DCIA`, `Footprint`, `Loading Ratio`, `System Type`, `Location`, `Stone Storage Depth`, `Underdrain`, `Depth of Medium`, `Other - Pretreatment 1`, `Slow Release Volume`, `Static Storage`, `Water Quality Volume`, `Storage Material`, `Porous Material`, `Management Type`, `WQ Release Rate`, `Test Infiltration Rate`, `Orifice Diameter`, `Proprietary Rate Control`, `Effective Head`, `Drains To`, `Non-Regs`, `Brand Name`, `System Count`, `Rated WQ Flow Rate`, `CF Per Day`, `Tank Volume`, `Water Use`, `SW Credit`, `Total Pavement Disconnections`, `Existing Tree Credit Area`, `Number of New Trees`, `New Tree Credit Area`, `Planter Area`, `Number of Planters`, `Rooftop Area Disconnected`, `Confirmed`, `Last Modified By:`, `Date Modified:`), algo = "md5"))
-
-#Query mars database
-view_smp_designation_md <- dbGetQuery(mars_data, "select * from external.planreview_view_smp_designation")
-  
-crosstab_md <- dbGetQuery(mars_data, "select * from external.planreview_view_smpsummary_crosstab_asbuiltall")
+    mutate("hash_md5" = digest(paste(`ProjectID`, `TrackingNumber`,  `SMPID`, `Designation`, `OOWProgramType`, `SMIP`, `GARP`), algo = "md5")) 
 
 
   
 #Logical test if queries were successful
-query_test <- (nrow(view_smp_designation > 0) & nrow(crosstab > 0))
-query_test_md <- (nrow(view_smp_designation_md > 0) & nrow(crosstab_md > 0))
+query_test <- nrow(view_smp_designation) > 0
 
   #################################
   ####Error check - Did we find anything?
   #################################
-  if(any(!query_test, !query_test_md))
+  if(!query_test)
   {
     kill = TRUE
     errorCode = 2
@@ -146,34 +143,29 @@ query_test_md <- (nrow(view_smp_designation_md > 0) & nrow(crosstab_md > 0))
 
 ```
 
-#### The script has `r if(query_test & query_test_md){"successfully connected"}else{"not successfully connected"}` to the databases.
-
-There are `r nrow(view_smp_designation)` records in the `View_SMP_Designation` table of `PWD_SWTracking` and `r nrow(view_smp_designation_md)` records in the `external.planreivew_view_smp_designation` table within `mars_data`. 
-
-There are `r nrow(crosstab)` records in the `view_smpsummary_crosstab_asbuiltall` table of `PWD_SWTracking` and `r nrow(crosstab_md)` records in the `external.planreview_view_smpsummary_crosstab_asbuiltall` table within `mars_data`. 
-
 ```{r Section 2: Trimming, Joining, and Writing, echo = FALSE}
 
-#Trimming dataframes
-view_smp_designation_md_trim <- view_smp_designation_md %>% 
-    dplyr::select(planreview_view_smp_designation_uid, `SMPID`)
+#QUery existing table from MARS
+mars_private <- dbGetQuery(mars_data, "select planreview_private_uid, \"SMPID\"::text, hash_md5 from external.tbl_planreview_private")
 
-crosstab_md_trim <- crosstab_md %>% 
-  dplyr::select(planreview_view_smpsummary_crosstab_asbuiltall_uid, `SMPID`)
+#Trim existing table to just hashes
 
 #New hashes
-#smp designation
 new_smp_hashes <- view_smp_designation_hash %>% 
-  left_join(view_smp_designation_md_trim, by = "SMPID") %>% 
-  anti_join(view_smp_designation_md, by = c("SMPID", "hash_md5"))
-  
-#system
-new_crosstab_hashes <- crosstab_hash %>%
-  left_join(crosstab_md_trim, by = "SMPID") %>%
-  anti_join(crosstab_md, by = c("SMPID", "hash_md5")) 
+  filter(!(SMPID %in% mars_private$SMPID))
+
+#Updated metrics
+updated_smps <- view_smp_designation_hash %>%
+  filter(!(SMPID %in% new_smp_hashes$SMPID)) %>%
+  anti_join(mars_private, by = "hash_md5")
+
+#Append UIDs for update
+  updated_uids <- select(mars_private, SMPID, planreview_private_uid)
+  edited_smps <- left_join(updated_smps, updated_uids, by = "SMPID")
+
 ```
 
-```{r Section R1: New Edits Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0, nrow(new_crosstab_hashes) > 0))}
+```{r Section R1: New SMP Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0))}
 
   ###Log: Start
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
@@ -184,25 +176,20 @@ new_crosstab_hashes <- crosstab_hash %>%
   dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
 #Write to mars_data
-  #write update query-----
-  update_smp <- dbSendQuery(mars_data, 'update external.planreview_view_smp_designation set ProjectID=?, TrackingNumber=?,  SMPID=?, Designation=?, ProgramType=?, OOWProgramType=?, SMIP=?, GARP=?, hash_md5=? WHERE planreview_view_smp_designation_uid=?')
   
-  #send the updated data
-  dbBind(update_smp, new_smp_hashes)
+  #append new SMPs
+      tryCatch(
   
-  #release the prepared statement
-  dbClearResult(update_smp)
-  
-  #crosstab-----
-  
-  #write update query
-  update_crosstab <- dbSendQuery(mars_data, 'update external.planreview_view_smpsummary_crosstab_asbuiltall set "ProjectID"=?, "TrackingNumber"=?, "Projectname"=?, "SMPID"=?, "SMPType"=?, "Plan Label"=?, "Total Drainage Area"=?, "DCIA"=?, "Footprint"=?, "Loading Ratio"=?, "System Type"=?, "Location"=?, "Stone Storage Depth"=?, "Underdrain"=?, "Depth of Medium"=?, "Other - Pretreatment 1"=?, "Slow Release Volume"=?, "Static Storage"=?, "Water Quality Volume"=?, "Storage Material"=?, "Porous Material"=?, "Management Type"=?, "WQ Release Rate"=?, "Test Infiltration Rate"=?, "Orifice Diameter"=?, "Proprietary Rate Control"=?, "Effective Head"=?, "Drains To"=?, "Non-Regs"=?, "Brand Name"=?, "System Count"=?, "Rated WQ Flow Rate"=?, "CF Per Day"=?, "Tank Volume"=?, "Water Use"=?, "SW Credit"=?, "Total Pavement Disconnections"=?, "Existing Tree Credit Area"=?, "Number of New Trees"=?, "New Tree Credit Area"=?, "Planter Area"=?, "Number of Planters"=?, "Rooftop Area Disconnected"=?, "Confirmed"=?, "Last Modified By:"=?, "Date Modified:", hash_md5=? where planreview_view_smpsummary_crosstab_asbuiltall_uid=?')
-  
-  # send the updated data
-  dbBind(update_crosstab, new_crosstab_hashes)
-  
-  #release the prepared statement
-  dbClearResult(update_crosstab)
+        expr = {
+          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_private"), new_smp_hashes, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 3
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
   
 ```
 
@@ -224,9 +211,62 @@ new_crosstab_hashes <- crosstab_hash %>%
 
 ```
 
-```{r Section3: Clean Up Connections and Render This HTML Document, include = FALSE}
+```{r Section R2: New Edits Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(edited_smps) > 0))}
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Writing new edits")
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  
+#Write to mars_data
+  
+  #write update query-----
+        tryCatch(
+  
+        expr = {
+          update_smp <- dbSendQuery(mars_data, 'update external.planreview_view_smp_designation set ProjectID=?, SMPID=?, Projectname =  ?, TrackingNumber=?, Designation=?,  OOWProgramType=?, hash_md5=?, SMIP=?, GARP=? WHERE planreview_view_smp_designation_uid=?')
+          
+          #send the updated data
+          dbBind(update_smp, edited_smps)
+          
+          #release the prepared statement
+          dbClearResult(update_smp)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 3
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
+
+  
+```
+
+```{r Break Point 4 - Bad Update, echo = FALSE, eval = kill}
 
   knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
+
+```
+
+```{r Section3: Clean Up Connections and Render This HTML Document, echo = FALSE}
+
+  knitr::asis_output("# Script Results: Success\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
