@@ -13,4 +13,3 @@ folder = "C:/Users/taylor.heffernan.wa/Documents/marsMaintenanceScripts/01_datab
 r_script = "mars_backup_pg14.R"
 
 source(paste0(folder, "/", r_script))
-
