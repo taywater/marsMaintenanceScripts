@@ -29,7 +29,7 @@ errorCodes <- data.frame(code = 0:9,
   message = c("Execution successful.",
               "Could not connect to Postgres DB. Is Postgres down?",
               "No Access DBs found when crawling public/private site folders. Are we connected to Active Directory?",
-              "Access DBs orphaned (without tbl_ow entry) or missing (not at tbl_accessdb.filepath)",
+              NA, #Orphaned Access DBs enumerated in block
               NA, #Write error from TryCatch will be used
               NA, #Write error from TryCatch will be used
               "Access DBs found without canonical tables",
@@ -279,13 +279,18 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
-  kable(errorTable)
+  orphans <- errorTable %>% 
+    mutate(orphans = paste(smp_id, ow_suffix)) %>%
+    pull(orphans) %>%
+    collapse(sep = ", ")
   
-    ###Log: End
+  message = paste("Orphaned:", orphans)
+  
+  ###Log: End
   logMessage <- data.frame(date = as.Date(today()), 
                            milestone = NA,
                            exit_code = errorCode,
-                           note = errorCodes$message[errorCode+1])
+                           note = message)
   
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   

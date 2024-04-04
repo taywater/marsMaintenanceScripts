@@ -236,6 +236,16 @@ log_code <- digest(now()) #Unique ID for the log batches
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
+  
+    #Writing file counts
+    if(!kill){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = nrow(output_filetable),
+                           type = "Files",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_baro_writes"), logMessage, append = TRUE, row.names=FALSE)
+    }
 
 ```
 
@@ -352,6 +362,29 @@ log_code <- digest(now()) #Unique ID for the log batches
       )
     }
     
+  }
+  
+  #Writing file counts
+  if(any(newdata_results$outcome) == TRUE){ #If any write succeeded
+    
+    write_outcomes <- group_by(newdata_results, outcome) %>% summarize(count = sum(data_points))
+    successes <- write_outcomes %>% filter(outcome == TRUE) %>% pull(count) %>% sum
+    failures <- write_outcomes %>% filter(outcome == FALSE) %>% pull(count) %>% sum
+
+    
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = successes,
+                         type = "Successes",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_baro_writes"), logMessage, append = TRUE, row.names=FALSE)
+    
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = failures,
+                         type = "Failures",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_baro_writes"), logMessage, append = TRUE, row.names=FALSE)
   }
 
 
