@@ -69,7 +69,6 @@ params:
   
 ```
 
-
 ```{r Section 1 - Checking for new WIC complaints, new WIC comments, and any other changes, include=FALSE}
     
 # gather wic orders and comments from citywork 
@@ -215,8 +214,9 @@ params:
    }
    
 ```
- The cityworks database has been examined for new water-in-cellar work orders, and also any changes that have been made to the existing work orders. There are `r nrow(new_wic)` new work orders and `r nrow(changed_wic_cityworks)` work orders whose fields have changed. There are also `r nrow(changed_comments_cityworks)` work orders whose comments have been modified.  
- 
+
+The cityworks database has been examined for new water-in-cellar work orders, and also any changes that have been made to the existing work orders. There are `r nrow(new_wic)` new work orders and `r nrow(changed_wic_cityworks)` work orders whose fields have changed. There are also `r nrow(changed_comments_cityworks)` work orders whose comments have been modified.
+
 ```{r Section 2- displaying tables of new work orders and changed work orders ,echo=FALSE, results='asis'}
 
   if (nrow(new_wic) > 0) {
@@ -266,7 +266,6 @@ params:
       wic_parcel_attach <- WOID_FAC_UNIQ_REL
       
 ```
-
 
 ```{r Section 4- attach parcels to new and changed workorder based on address ,include=FALSE, eval= nrow(wo_noparcels) > 0}
    
@@ -357,7 +356,6 @@ params:
 
 ```
 
-
 ```{r Section 6- write to DB ,include=FALSE, eval = nrow(wic_parcel_attach)>0}
     ###Log: Start
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
@@ -385,7 +383,6 @@ params:
 
 The new and modified work orders (total = `r nrow(bind_rows(changed_wic_cityworks, new_wic))` ) were searched in GIS database by their facility id, location, and XY coordinate. This has resulted in `r nrow(wic_parcel_attach)` parcel attachment.
 
-
 ```{r Section 7- displaying tables of parcels attached to the new and changed work orders and write to DB ,echo=FALSE, results='asis'}
 
      if ( !is.null(wic_parcels)) {
@@ -404,7 +401,6 @@ The new and modified work orders (total = `r nrow(bind_rows(changed_wic_citywork
       }
 
 ```
-
 
 ```{r Section 8- SMP intersect, include=FALSE, eval= !is.null(wic_parcels) }
 
@@ -725,8 +721,8 @@ The new and modified work orders (total = `r nrow(bind_rows(changed_wic_citywork
 
    
 ```
-Public SMPs were intersected with parcels associated with new/changed WIC work orders within 25, 50, and 100 ft of distance from them. This resulted in `r nrow( smp_milestones %>% filter(phase=="Pre-construction"))` SMP attachment in Pre-construction phase, `r nrow( smp_milestones %>% filter(phase=="During-construction"))` SMP attachment during-construction phase, `r nrow( smp_milestones %>% filter(phase=="Post-construction"))` SMP attachment in Post-construction phase, and `r nrow( smp_milestones %>% filter(phase=="unknown"))` SMP attachment with unknown construction phase.
 
+Public SMPs were intersected with parcels associated with new/changed WIC work orders within 25, 50, and 100 ft of distance from them. This resulted in `r nrow( smp_milestones %>% filter(phase=="Pre-construction"))` SMP attachment in Pre-construction phase, `r nrow( smp_milestones %>% filter(phase=="During-construction"))` SMP attachment during-construction phase, `r nrow( smp_milestones %>% filter(phase=="Post-construction"))` SMP attachment in Post-construction phase, and `r nrow( smp_milestones %>% filter(phase=="unknown"))` SMP attachment with unknown construction phase.
 
 ```{r section 9- SMP map data update, include = FALSE, eval= nrow(fieldwork.tbl_wic_smps)>0}
 
@@ -805,28 +801,63 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
   }
  
  
- #update the footprint polygons
+  #update the footprint polygons
    building_footprint <- st_read(dsn = "\\\\pwdoows\\oows\\Watershed Sciences\\GSI Monitoring\\09 GIS Data\\Building_Footprint_Shapefile", layer = "Building_Footprint")
 
    # create a table with address and wkt for building footprint
   building_footprint <- building_footprint %>%
-    filter(building_footprint$ADDRESS %in% wic_parcels_wkt$address)
+    inner_join(wic_parcels_wkt, by = c("ADDRESS"="address")) %>%
+    filter(!is.na(ADDRESS))
+    
+    
+    #filter(building_footprint$ADDRESS %in% wic_parcels_wkt$address) %>%
+    #ilter(!is.na(ADDRESS))
 
-  building_footprint <- st_transform(building_footprint, 4326)
+  building_footprint <- st_transform(building_footprint, 4326) %>%
+    select(smp_id, address = ADDRESS)
+    
   building_footprint_text <- building_footprint %>%
     st_geometry() %>%
     st_as_text()
   building_footprint_address<- building_footprint %>%
     st_set_geometry(NULL) %>%
-    select(ADDRESS)
-  building_footprint_address['WKT'] <-building_footprint_text
-  names(building_footprint_address) <- c("address","wkt")
-  building_footprint <- building_footprint_address
-  
+    select(smp_id, address)
+  building_footprint_address['wkt'] <-building_footprint_text
+
 # Create a new wkt table for the bulding footprint by updating the WKT column
   parcel_building_footprint <- wic_parcels_wkt %>%
+    select(-smp_id) %>%
     select(-wkt) %>%
-    inner_join(building_footprint, by="address")
+    inner_join(building_footprint_address, by="address") %>%
+    select(-distance_ft)
+
+  
+    # distnace calculation from building footprint
+    
+    new_smp_spatial <- st_transform(new_smp_spatial, 4326)
+    #dist <- as.data.frame (matrix(NA, nrow = nrow(building_footprint), ncol = 1))
+    dist <- rep(0, nrow(building_footprint))
+    names(dist) <- "distance_footprint_ft"
+    
+    for (i in 1:nrow(building_footprint)){
+      
+      dist[i] <- st_distance(building_footprint[i,], new_smp_spatial %>%
+                                 filter(SMP_ID == building_footprint_address %>%
+                                          filter(address == building_footprint_address[i,"address"]) %>%
+                                          select(smp_id) %>%
+                                          distinct %>%
+                                          pull))/0.3048
+      
+    }
+    
+    dist_df <- data.frame (distance_footprint_ft = dist, address = building_footprint_address$address, smp_id =  building_footprint_address$smp_id )
+    
+    parcel_building_footprint <- parcel_building_footprint %>%
+      inner_join(dist_df, by= c("smp_id"="smp_id", "address"="address"))
+
+  
+  
+  
  #write to DB
    if (nrow(parcel_building_footprint) > 0 & params$write == TRUE){
           sql_string <- "delete from fieldwork.tbl_wic_buildingfootprint_wkt WHERE smp_id = '%s' and address = '%s';"
@@ -904,15 +935,12 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
 
 ```
 
-
-
 ```{r section 12- trimming for the showing the table in kable, include = FALSE, eval= nrow(smp_milestones)>0}
 
       smp_milestones <- smp_milestones %>% select(workorder_id, smp_id,  phase, buffer_ft)
 
 ```
 
- 
 ```{r Section 13- showing the table in kable ,echo=FALSE, results='asis'}
 
   if (nrow(smp_milestones)>0) {
@@ -922,7 +950,6 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
   }
 
 ```
-
 
 ```{r section 14- DB disconnect, include=FALSE}
 
