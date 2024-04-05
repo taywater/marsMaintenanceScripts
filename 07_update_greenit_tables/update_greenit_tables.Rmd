@@ -27,8 +27,8 @@ greenit <- dbConnect(odbc(),
                      Driver = "ODBC Driver 17 for SQL Server",  
                      Server = "PWDSQLPLENVPROD", 
                      Database = "GreenIT", 
-                     uid = 'greenitread', 
-                     pwd = 'readit')
+                     uid = Sys.getenv("greenit_uid"), 
+                     pwd = Sys.getenv("greenit_pwd"))
 
 mars_data <- dbConnect(odbc(), "mars14_datav2")
 

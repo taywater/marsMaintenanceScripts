@@ -17,7 +17,7 @@
   options(stringsAsFactors=FALSE)
   
 #DB connection
-  marsDBCon <- odbc::dbConnect(odbc::odbc(), "mars_data_pg14v2")
+  marsDBCon <- odbc::dbConnect(odbc::odbc(), "mars14_datav2")
 
 log_code <- digest(now()) #Unique ID for the log batches
   
