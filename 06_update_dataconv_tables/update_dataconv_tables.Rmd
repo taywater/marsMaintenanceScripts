@@ -27,8 +27,8 @@ dataconv <- dbConnect(odbc(),
     Driver = "ODBC Driver 17 for SQL Server",
     Server = "pwdgissql",
     Database = "DataConv",
-    uid = 'gisread',
-    pwd = 'gisread')
+    uid = Sys.getenv("gis_uid"),
+    pwd= Sys.getenv("gis_pwd"))
 
 mars <- dbConnect(odbc(), "mars14_datav2")
 

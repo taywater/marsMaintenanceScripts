@@ -40,8 +40,8 @@ planreview <- dbConnect(odbc(),
                         Driver = "ODBC Driver 17 for SQL Server", 
                         Server = "PWDSPRA", 
                         Database = "SPRA_ReportingDB", 
-                        uid = 'gisread', 
-                        pwd = 'gisread')
+                        uid = Sys.getenv("gis_uid"),
+                        pwd= Sys.getenv("gis_pwd"))
 
 
 mars_data <- dbConnect(odbc(), params$database)
@@ -93,7 +93,10 @@ mars_data <- dbConnect(odbc(), params$database)
   dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
 
 #Query plan review tables
-view_smp_designation <- dbGetQuery(planreview, "select p.spra_legacyprojectid as \"ProjectID\", s.spra_name as \"SMPID\", p.spra_projectname as \"Projectname\", p.spra_trackingid as \"TrackingNumber\",
+
+  
+  if(nrow(newdata_currentfile) > 0){
+      tryCatch({view_smp_designation <- dbGetQuery(planreview, "select p.spra_legacyprojectid as \"ProjectID\", s.spra_name as \"SMPID\", p.spra_projectname as \"Projectname\", p.spra_trackingid as \"TrackingNumber\",
 	d.Designation as \"Designation\", p.spra_smipfundedname as \"SMIP\", p.spra_garpfundedname as \"GARP\",
 	pt.spra_oowprogramtype as \"OOWProgramType\"
 from spra_project p inner join 
@@ -102,26 +105,24 @@ from spra_project p inner join
 	inner join View_Project_Designation d on p.spra_trackingid = d.TrackingNumber
 	left join spra_programtype pt on p.spra_programtypes = pt.spra_programtypeid
 order by p.spra_trackingid, s.spra_name")
+        }, # append the data
+        error = function(e){
+          kill <<- TRUE
+          errorCode <<- 2
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+          success <<- TRUE
+        }
+      )
 
-
-#Hash plan view tables
-view_smp_designation_hash <- view_smp_designation %>% 
-    rowwise() %>% 
-    mutate("hash_md5" = digest(paste(`ProjectID`, `TrackingNumber`,  `SMPID`, `Designation`, `OOWProgramType`, `SMIP`, `GARP`), algo = "md5")) 
-
-
-  
-#Logical test if queries were successful
-query_test <- nrow(view_smp_designation) > 0
-
-  #################################
-  ####Error check - Did we find anything?
-  #################################
-  if(!query_test)
+  if(!kill)
   {
-    kill = TRUE
-    errorCode = 2
+    #Hash plan view tables
+    view_smp_designation_hash <- view_smp_designation %>% 
+      rowwise() %>% 
+      mutate("hash_md5" = digest(paste(`ProjectID`, `TrackingNumber`,  `SMPID`, `Designation`, `OOWProgramType`, `SMIP`, `GARP`), algo = "md5")) 
   }
+
+
 
 ```
 

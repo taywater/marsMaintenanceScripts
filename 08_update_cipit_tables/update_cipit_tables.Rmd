@@ -26,8 +26,8 @@ cipit <- dbConnect(odbc(),
     Driver = "ODBC Driver 17 for SQL Server", 
     Server = "PWDCIPSQLR", 
     Database = "CIPITREADER", 
-    uid = 'cipreadonly', 
-    pwd = 'cipread')
+    uid = Sys.getenv("cipit_uid"),
+    pwd= Sys.getenv("cipit_pwd"))
 
 mars <- dbConnect(odbc(), "mars14_datav2")
 
