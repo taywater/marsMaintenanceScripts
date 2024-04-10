@@ -9,7 +9,7 @@ datestring = format(current_date, "%Y%m%dT%H%M")
 ###Section 2: Run the R script that will generate the updates for the database
 #We'll be composing a string that will be sent to the command line via a subprocess
 
-folder = "C:/Users/taylor.heffernan.wa/Documents/marsMaintenanceScripts/09_update_smp_tables"
+folder = "C:/Users/mars_db/bin/01-production-scripts/prod-maintenance/09_update_smp_tables"
 r_script = "update_smp_tables.rmd"
 output = paste0("logs/", datestring, "_update_smp_tables.html")
 
