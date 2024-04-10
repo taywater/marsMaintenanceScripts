@@ -4,4 +4,4 @@
 .Ruserdata
 *.html
 marsMaintenanceScripts.Rproj
-*/logs
+*/logs/*
