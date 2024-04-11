@@ -94,8 +94,6 @@ mars_data <- dbConnect(odbc(), params$database)
 
 #Query plan review tables
 
-  
-  if(nrow(newdata_currentfile) > 0){
       tryCatch({view_smp_designation <- dbGetQuery(planreview, "select p.spra_legacyprojectid as \"ProjectID\", s.spra_name as \"SMPID\", p.spra_projectname as \"Projectname\", p.spra_trackingid as \"TrackingNumber\",
 	d.Designation as \"Designation\", p.spra_smipfundedname as \"SMIP\", p.spra_garpfundedname as \"GARP\",
 	pt.spra_oowprogramtype as \"OOWProgramType\"
