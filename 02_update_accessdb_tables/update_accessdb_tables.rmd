@@ -282,7 +282,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
   orphans <- errorTable %>% 
     mutate(orphans = paste(smp_id, ow_suffix)) %>%
     pull(orphans) %>%
-    collapse(sep = ", ")
+    paste(sep = ", ")
   
   message = paste("Orphaned:", orphans)
   
