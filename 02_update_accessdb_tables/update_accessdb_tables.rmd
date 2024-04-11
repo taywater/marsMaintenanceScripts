@@ -269,6 +269,13 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
       kill = TRUE
       errorCode = 3
       errorTable = bind_rows(error_accessdbswithoutow, error_existingdbs_notfound)
+      
+      orphans <- errorTable %>% 
+        mutate(orphans = paste(smp_id, ow_suffix)) %>%
+        pull(orphans) %>%
+        paste(sep = ", ")
+  
+      message = paste("Orphaned:", orphans)
     }
 
 ```
@@ -277,14 +284,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
-  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
-  
-  orphans <- errorTable %>% 
-    mutate(orphans = paste(smp_id, ow_suffix)) %>%
-    pull(orphans) %>%
-    paste(sep = ", ")
-  
-  message = paste("Orphaned:", orphans)
+  knitr::asis_output(paste("## Error Message: ", message))
   
   ###Log: End
   logMessage <- data.frame(date = as.Date(today()), 
@@ -460,6 +460,13 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
       kill = TRUE
       errorCode = 6
       errorTable = bind_rows(error_missedsomething, error_nocanonical)
+      
+      tablesmissing <- errorTable %>% 
+        mutate(orphans = paste(smp_id, ow_suffix)) %>%
+        pull(orphans) %>%
+        paste(sep = ", ")
+  
+      message = paste("Missing Tables:", tablesmissing)
     }
 
 ```
@@ -468,7 +475,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
-  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  knitr::asis_output(paste("## Error Message: ", message))
   
   kable(errorTable)
   
