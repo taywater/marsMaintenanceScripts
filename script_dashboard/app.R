@@ -25,7 +25,7 @@ library(DBI)
 
 #set default page length for datatables
 options(DT.options = list(pageLength = 15))
-version = '1.1.0'
+version = '1.2'
 
 #set db connection
 #using a pool connection so separate connnections are unified
@@ -43,6 +43,8 @@ ui <- navbarPage(paste("Script Dashboard", version), theme = shinytheme("cerulea
     
     tabPanel("Condensed View",
       DTOutput("logs")),
+    tabPanel("Write Log View",
+             DTOutput("writes")),
     tabPanel("Documentation", value = "readme",
       titlePanel("MARS Maintenance Script Dashboard v 1.1.0"),
       column(width = 5,
@@ -92,6 +94,19 @@ ui <- navbarPage(paste("Script Dashboard", version), theme = shinytheme("cerulea
         h3("Plan Review Scrape"),
         h5("Import several tables from the Plan Review DB."),
         a(href="https://github.com/taywater/marsMaintenanceScripts/tree/master/11_update_planreview_tables", "Github Link"),
+
+        h3("Deployment Metadata"),
+        h5("Reconcile HOBO deployment times with construction milestones to establish construction phases of monitoring operations."),
+        a(href="https://github.com/taywater/marsMaintenanceScripts/tree/master/12_update_deployment_metadata", "Github Link"),
+
+        h2("Error Alerts"),
+        
+        h3("Orange: Error"),
+        h5("The script halted mid-execution, or failed at a defined break point. Check the table message, and the server logs."),
+
+        h3("Red: Script Not Run"),
+        h5("The script has not executed between yesterday and today. A scheduled task might be configured wrong, or the server might be down. Log into the server and try to execute the scheduled task in Task Scheduler.")
+
         
       ),
       column(width = 5,
@@ -100,7 +115,14 @@ ui <- navbarPage(paste("Script Dashboard", version), theme = shinytheme("cerulea
         h5("Initial release"),
         
         h3("v1.1.0"),
-        h5("Added documentation page.")
+        h5("Added documentation page."),
+        
+        h3("v1.1.5"),
+        h5("Documentation for error colors and script 12."),
+        
+        h3("v1.2"),
+        h5("Added write log section.")
+        
       )
     )
         
@@ -112,6 +134,12 @@ server <- function(input, output) {
   
   script_table <- dbGetQuery(poolConn, "select * from log.viw_script_dashboard") %>%
     transmute(Script = script, `Task Order` = as.numeric(task_order), `Date` = date, `Exit Code` = coalesce(status, 0), Note = note) %>%
+    arrange(`Task Order`) %>%
+    select(-`Task Order`)
+  script_names <- pull(script_table, Script) %>% unique
+  
+  writes_table <- dbGetQuery(poolConn, "select * from log.viw_writes_dashboard") %>%
+    transmute(Script = script, `Task Order` = as.numeric(task_order), `Date` = date, `Results` = results) %>%
     arrange(`Task Order`) %>%
     select(-`Task Order`)
   script_names <- pull(script_table, Script) %>% unique
@@ -134,6 +162,16 @@ server <- function(input, output) {
       target = 'row',
       backgroundColor = styleInterval(date_cutoff, c('#770000', NA)),
       color = styleInterval(date_cutoff, c('white', 'black'))
+    )
+  )
+  
+  output$writes <- renderDT(
+    DT::datatable(
+      writes_table,
+      rownames = FALSE,
+      options = list(
+        columnDefs = list(list(className = 'dt-center', targets = c(2)))
+      )
     )
   )
 }
