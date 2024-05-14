@@ -225,8 +225,33 @@ log_code <- digest(now()) #Unique ID for the log batches
         }
       )
     }
-    
   }
+  
+    #Site successes
+    success_wells <- sum(owdata_results$outcome)
+    success_points <- filter(owdata_results, outcome == TRUE) %>%
+      pull(data_points) %>%
+      sum
+    
+    #Writing file counts
+    if(success_wells > 0){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = success_wells,
+                           type = "OWs",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+      
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = success_points,
+                           type = "OW Records",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+    }
+    
+    #Refresh matview for QA Shiny app
+    dbGetQuery(marsDBCon, "refresh materialized view data.mat_level_data_quarter;")
 ```
 
 ```{r Break Point 3 - Failure to write to Postgres, echo = FALSE, eval = kill}
@@ -407,6 +432,33 @@ log_code <- digest(now()) #Unique ID for the log batches
     }
     
   }
+  
+    #Site successes
+    success_gwells <- sum(gwdata_results$outcome)
+    success_gpoints <- filter(gwdata_results, outcome == TRUE) %>%
+      pull(data_points) %>%
+      sum
+    
+    #Writing file counts
+    if(success_gwells > 0){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = success_gwells,
+                           type = "GWs",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+      
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = success_gpoints,
+                           type = "GW Records",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+    }
+    
+    #Refresh matview for QA Shiny app
+    dbGetQuery(marsDBCon, "refresh materialized view data.mat_gw_data_quarter;")
+
 ```
 
 ```{r Break Point 6 - Groundwater write failure, echo = FALSE, eval = kill}

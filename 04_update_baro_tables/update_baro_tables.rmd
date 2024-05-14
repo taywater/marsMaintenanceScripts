@@ -244,7 +244,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            type = "Files",
                            hash = log_code)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_baro_writes"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
     }
 
 ```
@@ -377,14 +377,14 @@ log_code <- digest(now()) #Unique ID for the log batches
                          type = "Successes",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_baro_writes"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
     
     logMessage <- data.frame(date = as.Date(today()),
                          records = failures,
                          type = "Failures",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_baro_writes"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
   }
 
 

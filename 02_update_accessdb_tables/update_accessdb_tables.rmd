@@ -326,6 +326,16 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
         }
       )
+    
+    #Writing file counts
+    if(!kill){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = nrow(output_newAccessDBs),
+                           type = "New DBs",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+    }
 
 
 ```

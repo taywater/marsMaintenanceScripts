@@ -262,6 +262,17 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
+
+if(!kill){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(smp_locNewData),
+                         type = "Centroids",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
+}
+
 ```
 
 ```{r Break Point 2 - Bad Write, echo = FALSE, eval = all(kill, !success)}
@@ -352,6 +363,16 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
+  
+  if(!kill){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(smp_loc_nogage),
+                         type = "Gages",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
+}
 ```
 
 ```{r Break Point 3 - Bad Write, echo = FALSE, eval = all(kill, !success)}
@@ -441,6 +462,16 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
+  
+if(!kill){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(smp_loc_noradar),
+                         type = "Cells",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
+}
 ```
 
 ```{r Break Point 4 - Bad Write, echo = FALSE, eval = all(kill, !success)}

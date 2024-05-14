@@ -189,7 +189,18 @@ updated_smps <- view_smp_designation_hash %>%
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
         }
       )
-  
+
+  if(!kill)
+  {
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_smp_hashes),
+                         type = "SMPs",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+  }
+    
 ```
 
 ```{r Break Point 3 - Bad Write, echo = FALSE, eval = kill}
@@ -226,7 +237,7 @@ updated_smps <- view_smp_designation_hash %>%
         tryCatch(
   
         expr = {
-          update_smp <- dbSendQuery(mars_data, 'update external.planreview_view_smp_designation set ProjectID=?, SMPID=?, Projectname =  ?, TrackingNumber=?, Designation=?,  OOWProgramType=?, hash_md5=?, SMIP=?, GARP=? WHERE planreview_view_smp_designation_uid=?')
+          update_smp <- dbSendQuery(mars_data, 'update external.tbl_planreview_private set ProjectID=?, SMPID=?, Projectname =  ?, TrackingNumber=?, Designation=?,  OOWProgramType=?, hash_md5=?, SMIP=?, GARP=? WHERE planreview_private_uid=?')
 
           #send the updated data
           dbBind(update_smp, edited_smps)
@@ -242,6 +253,17 @@ updated_smps <- view_smp_designation_hash %>%
         }
       )
 
+  if(!kill)
+  {
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(edited_smps),
+                         type = "Updates",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+  }
+  
   
 ```
 

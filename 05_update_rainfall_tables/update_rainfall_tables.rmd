@@ -152,6 +152,15 @@ log_code <- digest(now()) #Unique ID for the log batches
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
         }
       )
+    #Writing file counts
+    if(!kill){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = nrow(newgagedata),
+                           type = "Gage Records",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+    }
 
 
 ```
@@ -240,6 +249,15 @@ log_code <- digest(now()) #Unique ID for the log batches
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
         }
       )
+  
+    if(!kill){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = nrow(rain_newevents),
+                           type = "Gage Events",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+    }
 
 
 ```
@@ -351,6 +369,15 @@ log_code <- digest(now()) #Unique ID for the log batches
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
         }
       )
+  
+    if(!kill){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = nrow(new_rawfiles),
+                           type = "Radar Files",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+    }
     
     tryCatch(
   
@@ -365,6 +392,14 @@ log_code <- digest(now()) #Unique ID for the log batches
         }
       )
 
+    if(!kill){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = nrow(newradardata),
+                           type = "Radar Records",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+    }
 
 ```
 
@@ -457,6 +492,14 @@ log_code <- digest(now()) #Unique ID for the log batches
         }
       )
 
+    if(!kill){ #If the write succeeded
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = nrow(rain_newevents),
+                           type = "Radar Records",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+    }
 
 ```
 

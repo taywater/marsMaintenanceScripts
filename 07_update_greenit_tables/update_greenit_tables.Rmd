@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = FALSE)
 library(odbc)
 
 #data manipulation packages
+library(pwdgsi)
 library(tidyverse)
 library(tidyr)
 library(knitr)
@@ -221,6 +222,15 @@ if(newAssets){
   )
 }
 
+if(!kill){
+  new_records <- rbind(new_smps, new_systems, new_projects) %>% nrow
+  logMessage <- data.frame(date = as.Date(today()),
+                     records = new_records,
+                     type = "Records",
+                     hash = log_code)
+
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
+}
 
 ```
 
@@ -332,6 +342,16 @@ if(newUpdates){
       errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
   )
+}
+  
+if(!kill){
+  updated_records <- rbind(update_smps, update_systems, update_projects) %>% nrow
+  logMessage <- data.frame(date = as.Date(today()),
+                     records = updated_records,
+                     type = "Updates",
+                     hash = log_code)
+
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 ```

@@ -146,15 +146,27 @@ params:
   
   dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
    
-   
+success_wo <- FALSE
+     
 # Append the new WIC to wic_workorders
    
-   if( nrow(new_wic) > 0 & params$write == TRUE ){
+if( nrow(new_wic) > 0 & params$write == TRUE ){
   
-  dbWriteTable (MARSDB_con, SQL("fieldwork.tbl_wic_workorders"),new_wic,append= TRUE, row.names = FALSE)
+  success_wo <- dbWriteTable (MARSDB_con, SQL("fieldwork.tbl_wic_workorders"),new_wic,append= TRUE, row.names = FALSE)
      
-  }
-   
+}
+  
+if(success_wo == TRUE){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic),
+                         type = "WICs",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+}
+
+
 # Update the workorders in wic_workorders that have been changed in cityworks DB 
    
   ###Log: Start
@@ -164,13 +176,27 @@ params:
                            note = "Write Updates to MARS")
   
   dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
-  
+
+success_update <- FALSE  
+
    if(nrow(changed_wic_cityworks) > 0 & params$write == TRUE){
      
      sql_string <- "UPDATE fieldwork.tbl_wic_workorders SET wo_initiatedate = '%s', location = '%s',  wo_xcoordinate = %s,wo_ycoordinate= %s,facility_id = '%s' WHERE workorder_id = %s;"
-     dbSendStatement(MARSDB_con, paste(sprintf(sql_string, changed_wic_cityworks$wo_initiatedate, changed_wic_cityworks$location,changed_wic_cityworks$wo_xcoordinate,changed_wic_cityworks$wo_ycoordinate,changed_wic_cityworks$facility_id,changed_wic_cityworks$workorder_id), collapse=""))
+     
+     
+     success_update <- dbSendStatement(MARSDB_con, paste(sprintf(sql_string, changed_wic_cityworks$wo_initiatedate, changed_wic_cityworks$location,changed_wic_cityworks$wo_xcoordinate,changed_wic_cityworks$wo_ycoordinate,changed_wic_cityworks$facility_id,changed_wic_cityworks$workorder_id), collapse=""))
      
    }
+  
+if(success_update == TRUE){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(changed_wic_cityworks),
+                         type = "Updated WICs",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+}
    
 # update comments and add new comments to the new workorders
    
@@ -196,22 +222,44 @@ params:
                            note = "Write Comments to MARS")
   
   dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
-   
+
+  success_comments <- FALSE   
    
     if( nrow(new_wo_comments) > 0 & params$write == TRUE ){
       
-  dbWriteTable (MARSDB_con, SQL("fieldwork.tbl_wic_comments"),new_wo_comments,append= TRUE, row.names = FALSE)
+  success_comments <- dbWriteTable (MARSDB_con, SQL("fieldwork.tbl_wic_comments"),new_wo_comments,append= TRUE, row.names = FALSE)
       
     }
-   
+
+if(success_comments == TRUE){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wo_comments),
+                         type = "Comments",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+}
+  
+success_upcomments <- FALSE
    
    if(nrow(changed_comments_cityworks) > 0 & params$write == TRUE){
     
       sql_string <- "delete from fieldwork.tbl_wic_comments WHERE workorder_id = %s;"
           dbSendStatement(MARSDB_con, paste(sprintf(sql_string, changed_comments_cityworks$workorder_id), collapse=""))
-          dbWriteTable (MARSDB_con , SQL("fieldwork.tbl_wic_comments"),changed_comments_cityworks,append= TRUE, row.names = FALSE)
+          success_upcomments <- dbWriteTable (MARSDB_con , SQL("fieldwork.tbl_wic_comments"),changed_comments_cityworks,append= TRUE, row.names = FALSE)
      
    }
+
+if(success_upcomments == TRUE){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(changed_comments_cityworks),
+                         type = "Updated Comments",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+}
    
 ```
 
@@ -391,14 +439,26 @@ The new and modified work orders (total = `r nrow(bind_rows(changed_wic_citywork
     
       }
 
+success_parcels <- FALSE
+
       if (!is.null(wic_parcels) & params$write == TRUE){
         
         sql_string <- "delete from fieldwork.tbl_wic_parcels WHERE workorder_id = %s;"
         dbSendStatement(MARSDB_con, paste(sprintf(sql_string, wic_parcels$workorder_id), collapse=""))
     
-        dbWriteTable (MARSDB_con, SQL("fieldwork.tbl_wic_parcels"),wic_parcels,append= TRUE, row.names = FALSE)
+        success_parcels <- dbWriteTable (MARSDB_con, SQL("fieldwork.tbl_wic_parcels"),wic_parcels,append= TRUE, row.names = FALSE)
 
       }
+
+if(success_parcels == TRUE){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(wic_parcels),
+                         type = "New/Updated Parcels",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+}
 
 ```
 

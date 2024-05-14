@@ -270,6 +270,16 @@ if(nrow(all_public_deployment_phase) == 0){
         errorCodes$message[errorCode+1] <<- e$message #Error object is a list
       }
     )
+  
+if(!kill){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(all_public_deployment_phase),
+                         type = "Records",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+}
 ```
 
 

@@ -142,6 +142,16 @@ tryCatch(
     errorCodes$message[errorCode+1] <<- e$message #Error object is a list
   }
 )
+  
+if(!kill){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(cipit_project_new),
+                         type = "Records",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
+}
 
 ```
 
@@ -189,7 +199,16 @@ tryCatch(
     errorCodes$message[errorCode+1] <<- e$message #Error object is a list
   }
 )
+  
+if(!kill){
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(cipit_project_update),
+                         type = "Updates",
+                         hash = log_code)
 
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
+}
     
 
 ```

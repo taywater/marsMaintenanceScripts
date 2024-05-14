@@ -542,7 +542,22 @@ if(newAssets){
     }
   )
 }
+  
+    if(!kill){ #If the write succeeded
+      new_footprints <- rbind(new_basin, new_blueroof, new_bumpout, new_cistern, new_drainagewell, new_greenroof, new_permeablepavement, new_planter, new_raingarden, new_swale, new_tree, new_treetrench, new_trench, new_wetland) %>% nrow
+      new_components <- rbind(new_cleanout, new_controlstructure, new_conveyance, new_fitting, new_inlet, new_manhole, new_observationwell, new_structure) %>% nrow
+      
+      logMessage <- data.frame(date = as.Date(today()),
+                           records = new_footprints + new_components,
+                           type = "Records",
+                           hash = log_code)
+  
+      dbWriteTable(marsDBCon, DBI::SQL("log.dataconv_writes"), logMessage, append = TRUE, row.names=FALSE)
+    }
 
+
+    
+    
 
 ```
 
@@ -917,6 +932,18 @@ if(newUpdates){
       errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
   )
+}
+
+#Write records
+if(!kill){ #If the write succeeded
+  updated_records <- rbind(update_basin, update_blueroof, update_bumpout, update_cistern, update_drainagewell, update_greenroof, update_permeablepavement, update_planter, update_raingarden, update_swale, update_tree, update_treetrench, update_trench, update_wetland, update_cleanout, update_controlstructure, update_conveyance, update_fitting, update_inlet, update_manhole, update_observationwell, update_structure) %>% nrow
+  
+  logMessage <- data.frame(date = as.Date(today()),
+                           records = updated_records,
+                           type = "Updates",
+                           hash = log_code)
+  
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 ```
