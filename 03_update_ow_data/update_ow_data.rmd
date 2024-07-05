@@ -183,7 +183,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 ```
 
 
-```{r Section 1B - Writing to the tbl_ow_leveldata_raw table, eval = nrow(display_newdata) > 0}	
+```{r Section 1B - Writing to the tbl_ow_leveldata_raw table, include = FALSE, eval = nrow(display_newdata) > 0}	
   knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new CWL data points"))
 
   kable(display_newdata)
@@ -251,7 +251,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     }
     
     #Refresh matview for QA Shiny app
-    dbGetQuery(marsDBCon, "refresh materialized view data.mat_level_data_quarter;")
+    dbGetQuery(marsDBCon, "refresh materialized view data.mat_level_data_day;")
 ```
 
 ```{r Break Point 3 - Failure to write to Postgres, echo = FALSE, eval = kill}
@@ -382,7 +382,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 ```
 
 
-```{r Section 2B - Writing to the tbl_gw_depthdata table, eval = nrow(display_newdata) > 0}	
+```{r Section 2B - Writing to the tbl_gw_depthdata table, include = FALSE, eval = nrow(display_newdata) > 0}	
   knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new Groundwater data points"))
 
   kable(display_newdata)
@@ -457,7 +457,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     }
     
     #Refresh matview for QA Shiny app
-    dbGetQuery(marsDBCon, "refresh materialized view data.mat_gw_data_quarter;")
+    dbGetQuery(marsDBCon, "refresh materialized view data.mat_gw_data_day;")
 
 ```
 

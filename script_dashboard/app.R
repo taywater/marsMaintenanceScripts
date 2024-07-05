@@ -39,7 +39,7 @@ onStop(function(){
 
 
 # Define UI
-ui <- navbarPage(paste("Script Dashboard", version), theme = shinytheme("cerulean"),
+ui <- navbarPage(paste("Script Dashboard", version), theme = shinytheme("slate"),
     
     tabPanel("Condensed View",
       DTOutput("logs")),
@@ -150,6 +150,7 @@ server <- function(input, output) {
     DT::datatable(
       script_table,
       rownames = FALSE,
+      style = 'bootstrap',
       options = list(
         columnDefs = list(list(className = 'dt-center', targets = c(2)))
       )
@@ -162,9 +163,12 @@ server <- function(input, output) {
       target = 'row',
       backgroundColor = styleInterval(date_cutoff, c('#770000', NA)),
       color = styleInterval(date_cutoff, c('white', 'black'))
-    )
-  )
-  
+    )%>%
+      formatStyle(
+        columns = names(script_table),
+        color = 'white'
+      )
+  ) 
   output$writes <- renderDT(
     DT::datatable(
       writes_table,

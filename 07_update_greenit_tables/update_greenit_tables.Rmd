@@ -229,7 +229,7 @@ if(!kill){
                      type = "Records",
                      hash = log_code)
 
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 ```
@@ -345,13 +345,13 @@ if(newUpdates){
 }
   
 if(!kill){
-  updated_records <- rbind(update_smps, update_systems, update_projects) %>% nrow
+  updated_records <- nrow(update_smps) + nrow(update_systems) + nrow(update_projects)
   logMessage <- data.frame(date = as.Date(today()),
                      records = updated_records,
                      type = "Updates",
                      hash = log_code)
 
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 ```

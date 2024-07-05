@@ -198,7 +198,7 @@ updated_smps <- view_smp_designation_hash %>%
                          type = "SMPs",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+    dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
   }
     
 ```
@@ -237,7 +237,7 @@ updated_smps <- view_smp_designation_hash %>%
         tryCatch(
   
         expr = {
-          update_smp <- dbSendQuery(mars_data, 'update external.tbl_planreview_private set ProjectID=?, SMPID=?, Projectname =  ?, TrackingNumber=?, Designation=?,  OOWProgramType=?, hash_md5=?, SMIP=?, GARP=? WHERE planreview_private_uid=?')
+          update_smp <- dbSendQuery(mars_data, 'update external.tbl_planreview_private set \"ProjectID\"=?, \"SMPID\"=?, \"Projectname\" =  ?, \"TrackingNumber\"=?, \"Designation\"=?, \"SMIP\"=?, \"GARP\"=?, \"OOWProgramType\"=?, hash_md5=? WHERE planreview_private_uid=?')
 
           #send the updated data
           dbBind(update_smp, edited_smps)
@@ -261,7 +261,7 @@ updated_smps <- view_smp_designation_hash %>%
                          type = "Updates",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+    dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
   }
   
   

@@ -104,11 +104,16 @@ log_code <- digest(now()) #Unique ID for the log batches
   
   #Read the rain gage table from the mars database and attach it to the rainfall data
   gage <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_gage")
-  rainfall_gage <- left_join(rainfall_gage, gage, by = "gage_uid") %>% select(gagename, maxtime_edt)
+  rainfall_gage <- right_join(rainfall_gage, gage, by = "gage_uid") %>% 
+    transmute(gagename, 
+              maxtime_edt = coalesce(maxtime_edt, ymd("1900-01-01"))) #If we have no events (following a purge) we need a base date
   
   #Read the rain gage data from the H&H database
   hhrainfall_gage <- dbGetQuery(hhdbcon, "select * from pwdrg.tblModelRain") %>% 
-    transmute(gagename = as.character(GaugeNo), dtime_edt = force_tz(ymd_hms(DateTime), "America/New_York"), rainfall_in = round(Rainfall, 4))
+    transmute(gagename = as.character(GaugeNo), 
+              dtime_edt = force_tz(ymd_hms(DateTime), "America/New_York"), 
+              rainfall_in = round(Rainfall, 4)) %>%
+    filter(!is.na(dtime_edt))
   
   newgagedata <- hhrainfall_gage %>% 
     left_join(rainfall_gage, by = "gagename") %>% 
@@ -119,7 +124,11 @@ log_code <- digest(now()) #Unique ID for the log batches
     left_join(gage, by = "gagename") %>%
     select(gage_uid, dtime_edt, rainfall_in) %>%
     arrange(gage_uid, dtime_edt) %>%
-    mutate(rainfall_in = round(rainfall_in, 4))
+    mutate(rainfall_in = round(rainfall_in, 4)) %>%
+    mutate(dtime_edt = as.character(dtime_edt)) %>%
+    mutate(key = paste(gage_uid, dtime_edt, sep = "_"), dupe = duplicated(key)) %>%
+    filter(!dupe) %>%
+    select(-key, -dupe)
   
   output_newgagedata <- group_by(newgagedata, gage_uid) %>%
     summarize(new_measurements = n(), 
@@ -202,7 +211,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   #So we need to grab the entire data set
   emptytable <- dbGetQuery(marsDBCon, "select count(*) from data.viw_gage_event_latestdates") %>% pull(count)
   if(emptytable == 0){
-    rain_newdata <- dbGetQuery(marsDBCon, "select dtime_edt, gage_uid, rainfall_in from data.tbl_gage_rain")
+    rain_newdata <- dbGetQuery(marsDBCon, "select dtime_edt, gage_uid, rainfall_in from data.tbl_gage_rain order by gage_uid, dtime_edt asc")
   }
   
   #Process the rain data into events, based on a 6 hour interevent time and a minimum depth of 0.1 inches
@@ -221,13 +230,15 @@ log_code <- digest(now()) #Unique ID for the log batches
       eventavgintensity_inhr = marsStormAverageIntensity_inhr(dtime_edt, rainfall_in),
       eventdepth_in = marsStormDepth_in(rainfall_in)) %>%
     select(-event_id)
+  
+  rain_newevents <- mutate(rain_newevents, 
+                           eventdatastart_edt = as.character(eventdatastart_edt),
+                           eventdataend_edt = as.character(eventdataend_edt))
 ```
 
 ```{r Section R2: New Gage Event Output, echo = FALSE, include = TRUE, eval = nrow(rain_newevents) > 0}
     knitr::asis_output(paste("### New Rain Gage events to add to `data.tbl_gage_rain_event`: ", nrow(rain_newevents)))
   
-    kable(rain_newevents)
-    
       ###Log: Start
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 5,
@@ -341,6 +352,8 @@ log_code <- digest(now()) #Unique ID for the log batches
     newradardata <- bind_rows(newradardata, radarfile)
     file.remove(newradarfiles[i])
   }
+  
+  newradardata <- mutate(newradardata, rainfall_in = as.character(rainfall_in))
   
 ```
 
