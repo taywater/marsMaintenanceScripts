@@ -173,9 +173,14 @@ server <- function(input, output) {
     DT::datatable(
       writes_table,
       rownames = FALSE,
+      style = 'bootstrap',
       options = list(
         columnDefs = list(list(className = 'dt-center', targets = c(2)))
       )
+    ) %>%
+      formatStyle(
+        columns = names(writes_table),
+        color = 'white'
     )
   )
 }
