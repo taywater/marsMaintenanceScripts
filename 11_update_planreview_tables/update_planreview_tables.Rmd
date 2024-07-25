@@ -36,6 +36,16 @@ log_code <- digest(now()) #Unique ID for the log batches
 
 #db connections 
 
+mars_data <- dbConnect(odbc(), params$database)
+
+###Log: Start
+logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                         milestone = 1,
+                         exit_code = NA,
+                         note = "Testing DB Connection")
+
+dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+
 planreview <- dbConnect(odbc(), 
                         Driver = "ODBC Driver 17 for SQL Server", 
                         Server = "PWDSPRA", 
@@ -44,15 +54,6 @@ planreview <- dbConnect(odbc(),
                         pwd= Sys.getenv("gis_pwd"))
 
 
-mars_data <- dbConnect(odbc(), params$database)
-
-  ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
-                           milestone = 1,
-                           exit_code = NA,
-                           note = "Testing DB Connection")
-  
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
 
   #################################
   ####Error check - Did we connect?
