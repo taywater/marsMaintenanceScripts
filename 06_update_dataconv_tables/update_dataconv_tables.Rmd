@@ -966,7 +966,7 @@ if(!kill){ #If the write succeeded
                            type = "Updates",
                            hash = log_code)
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, DBI::SQL("log.tbl_writes_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 ```

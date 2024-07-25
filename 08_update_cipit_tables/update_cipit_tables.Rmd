@@ -150,7 +150,7 @@ if(!kill){
                          type = "Records",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(mars, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 ```
@@ -207,7 +207,7 @@ if(!kill){
                          type = "Updates",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(mars, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 
