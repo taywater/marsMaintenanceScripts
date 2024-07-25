@@ -106,7 +106,9 @@ log_code <- digest(now()) #Unique ID for the log batches
   gage <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_gage")
   rainfall_gage <- right_join(rainfall_gage, gage, by = "gage_uid") %>% 
     transmute(gagename, 
-              maxtime_edt = coalesce(maxtime_edt, ymd("1900-01-01"))) #If we have no events (following a purge) we need a base date
+              maxtime_edt = force_tz(coalesce(maxtime_edt, ymd("1900-01-01")), "America/New_York")) 
+  #If we have no events (following a purge) we need a base date
+    
   
   #Read the rain gage data from the H&H database
   hhrainfall_gage <- dbGetQuery(hhdbcon, "select * from pwdrg.tblModelRain") %>% 
@@ -304,10 +306,12 @@ log_code <- digest(now()) #Unique ID for the log batches
   db_rawfiles <- dbGetQuery(marsDBCon, "select * from admin.tbl_radar_rawfile")
   hh_rawfiles <- dbGetQuery(hhdbcon, "select yearmon, path as filepath from radar2sheds.garr_inventory") %>%
     mutate(yearmon = str_replace(yearmon, "-", "")) %>%
-    mutate(filepath = str_replace(filepath, "\\\\", "/")) %>%
-    mutate(filepath = str_replace(filepath, "M:/", "//pwdoows/OOWS/Modeling/")) %>%
     filter(yearmon > "201401") %>%
-    select(-yearmon)
+    mutate(filepath = str_replace(filepath, "M:\\\\", "//pwdoows/OOWS/Modeling/")) %>% #Replace the drive letter
+    mutate(filepath = str_replace(filepath, "M:/", "//pwdoows/OOWS/Modeling/")) %>% #Newer file paths are formatted differently
+    mutate(filepath = str_replace(filepath, "\\\\", "/")) %>% #Replace the generic \ with / for path separation
+    mutate(filepath = str_replace(filepath, "bases\\\\", "bases/")) %>% #This one doesn't match in the above regex, somehow
+    mutate(filepath = str_replace(filepath, "fall\\\\", "fall/")) #Neither does this one
   dbDisconnect(hhdbcon)
 
   #Which files don't we have
@@ -353,7 +357,9 @@ log_code <- digest(now()) #Unique ID for the log batches
     file.remove(newradarfiles[i])
   }
   
-  newradardata <- mutate(newradardata, rainfall_in = as.character(rainfall_in))
+  if(nrow(newradardata) > 0){
+     newradardata <- mutate(newradardata, rainfall_in = as.character(rainfall_in))
+  }
   
 ```
 
