@@ -390,7 +390,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
 ```
 
-```{r Break Point 4 - Write Failure, echo = FALSE, eval = kill}
+```{r Break Point 4 - Write Failure, echo = FALSE, eval = all(kill, !success)}
 
   knitr::asis_output("# Script Results: Error\n")
   knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
@@ -410,7 +410,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
 `r if(nrow(display_filetable > 0)){kable(newdata_results)}`
 
-# Script Results: `r ifelse(kill, "FAILURE", ifelse(success, "SUCCESS", "FAILURE"))`
+# Script Results: `r ifelse(kill, ifelse(success, "SUCCESS", "FAILURE"), "SUCCESS")`
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
