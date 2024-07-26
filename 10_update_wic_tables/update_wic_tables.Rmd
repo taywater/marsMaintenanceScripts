@@ -162,7 +162,7 @@ if(success_wo == TRUE){
                          type = "WICs",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 
@@ -187,14 +187,14 @@ success_update <- FALSE
      
    }
   
-if(success_update == TRUE){
+if(typeof(success_update) != 'logical'){ #The dbSendStatement returns an s4 object
     #Writing file counts
     logMessage <- data.frame(date = as.Date(today()),
                          records = nrow(changed_wic_cityworks),
                          type = "Updated WICs",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
    
 # update comments and add new comments to the new workorders
@@ -237,7 +237,7 @@ if(success_comments == TRUE){
                          type = "Comments",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
   
 success_upcomments <- FALSE
@@ -257,7 +257,7 @@ if(success_upcomments == TRUE){
                          type = "Updated Comments",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
    
 ```
@@ -456,7 +456,7 @@ if(success_parcels == TRUE){
                          type = "New/Updated Parcels",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 ```
