@@ -5,7 +5,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: mars14_datav2
-  write: TRUE
+  write: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -930,6 +930,7 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
 
 ```{r section 11- all parcels (wic and non-wic) map data update, include = FALSE, eval= nrow(fieldwork.tbl_wic_smps)>0 }
 
+   new_smp_spatial <- st_transform(new_smp_spatial, 2272)
    new_smp_spatial_25ft <- st_buffer(new_smp_spatial, 25)
    SMP_inters_allparcels_25 <- st_intersects(new_smp_spatial_25ft, PARCELS_SPATIAL)
    all_parcel_index <- unlist(SMP_inters_allparcels_25) 
