@@ -113,13 +113,63 @@ order by p.spra_trackingid, s.spra_name")
           success <<- TRUE
         }
       )
+  
+   tryCatch({head_vals <- dbGetQuery(planreview, "select       spra_name as 'smp_id',
+                                                  spra_smptypename as 'smp_type',
+                                                  coalesce(spra_depthofmedium_asmaintained, spra_depthofmedium_asbuilt, spra_depthofmedium_approved) as 'medium_depth_ft',
+                                                  coalesce(spra_effectivehead_asmaintained, spra_effectivehead_asbuilt, spra_effectivehead_approved) as 'effective_head_ft',
+                                                  coalesce(spra_stonestoragedepth_asmaintained/12, spra_stonestoragedepth_asbuilt/12, spra_stonestoragedepth_approved/12) as                                                   'stone_storage_depth_ft',
+                                                  coalesce(spra_footprint_asmaintained, spra_footprint_asbuilt, spra_footprint_approved) as 'footprint_ft2',
+                                                  coalesce(spra_staticstorage_asmaintained, spra_staticstorage_asbuilt, spra_staticstorage_approved) as                                                                        'static_storage_vol_ft3',
+                                                  coalesce(spra_waterqualityvolume_asmaintained, spra_waterqualityvolume_asbuilt, spra_waterqualityvolume_approved) as                                                        'water_quality_vol_ft3'
+                                      from spra_projectsmpdetails s")  %>% 
+              dplyr::mutate(water_quality_head_ft = water_quality_vol_ft3/footprint_ft2) %>%
+              dplyr::mutate(static_storage_head_ft = static_storage_vol_ft3/footprint_ft2)  
+    },
+     error = function(e){
+     kill <<- TRUE
+     errorCode <<- 2
+     errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+     success <<- TRUE
+        }
+    )
+  
+    tryCatch({planreview_crosstab <-dbGetQuery(planreview,
+                              "select bv.SMPID as 'smp_id',
+                                      bv.DCIA_best as 'dcia_ft2',
+                                      bv.SlowReleaseVolume_best as 'slow_release_vol_ft3',
+                                      coalesce(bv.SysType_AM,bv.SysType_AB,bv.SysType_AP) as 'system_type'
+                               from View_SMP_BestValues bv")
+    
+    smip_garp_des <- view_smp_designation %>% dplyr::select(SMPID, SMIP, GARP)
+    smip_garp_des <- smip_garp_des %>%
+                        dplyr::mutate(smp_id = SMPID, smip = SMIP, garp = GARP) %>%
+                        dplyr::select(-SMPID, -SMIP, -GARP)
 
+    planreview_crosstab <- planreview_crosstab %>% dplyr::left_join(smip_garp_des, by = "smp_id")
+    planreview_crosstab <- planreview_crosstab %>% dplyr::left_join(head_vals, by = "smp_id")
+    
+    },
+     error = function(e){
+     kill <<- TRUE
+     errorCode <<- 2
+     errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+     success <<- TRUE
+        }
+    )
+  
   if(!kill)
   {
     #Hash plan view tables
     view_smp_designation_hash <- view_smp_designation %>% 
       rowwise() %>% 
       mutate("hash_md5" = digest(paste(`ProjectID`, `TrackingNumber`,  `SMPID`, `Designation`, `OOWProgramType`, `SMIP`, `GARP`), algo = "md5")) 
+    
+    planreview_crosstab_hash <- planreview_crosstab %>%
+      rowwise() %>%
+      mutate("hash_md5" = digest(paste(smp_id, dcia_ft2, slow_release_vol_ft3, system_type, smip, garp,
+                                       smp_type, medium_depth_ft, effective_head_ft, stone_storage_depth_ft, footprint_ft2,
+                                       static_storage_vol_ft3, water_quality_vol_ft3, water_quality_head_ft, static_storage_head_ft)))
   }
 
 
@@ -146,8 +196,9 @@ order by p.spra_trackingid, s.spra_name")
 
 ```{r Section 2: Trimming, Joining, and Writing, echo = FALSE}
 
-#QUery existing table from MARS
+#Query existing table from MARS
 mars_private <- dbGetQuery(mars_data, "select planreview_private_uid, \"SMPID\"::text, hash_md5 from external.tbl_planreview_private")
+mars_crosstab <- dbGetQuery(mars_data, "select planreview_crosstab_uid, smp_id, hash_md5 from external.tbl_planreview_crosstab")
 
 #Trim existing table to just hashes
 
@@ -155,14 +206,24 @@ mars_private <- dbGetQuery(mars_data, "select planreview_private_uid, \"SMPID\":
 new_smp_hashes <- view_smp_designation_hash %>% 
   filter(!(SMPID %in% mars_private$SMPID))
 
+new_crosstab_hashes <- planreview_crosstab_hash %>%
+  filter(!(smp_id %in% mars_crosstab$hash_md5))
+
 #Updated metrics
 updated_smps <- view_smp_designation_hash %>%
   filter(!(SMPID %in% new_smp_hashes$SMPID)) %>%
   anti_join(mars_private, by = "hash_md5")
 
+updated_crosstab <- planreview_crosstab_hash %>%
+  filter(!(smp_id %in% new_crosstab_hashes$smp_id)) %>%
+  anti_join(mars_crosstab, by = "hash_md5")
+
 #Append UIDs for update
   updated_uids <- select(mars_private, SMPID, planreview_private_uid)
   edited_smps <- left_join(updated_smps, updated_uids, by = "SMPID")
+  
+  updated_crosstab_uids <- select(mars_crosstab, smp_id, planreview_crosstab_uid)
+  edited_crosstab_smps <- left_join(updated_crosstab, updated_crosstab_uids, by = "smp_id")
 
 ```
 
@@ -183,6 +244,19 @@ updated_smps <- view_smp_designation_hash %>%
   
         expr = {
           dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_private"), new_smp_hashes, append= TRUE, row.names = FALSE)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 3
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
+  
+      tryCatch(
+  
+        expr = {
+          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_crosstab"), new_crosstab_hashes, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -254,7 +328,27 @@ updated_smps <- view_smp_designation_hash %>%
           errorCodes$message[errorCode+1] <<- e$message #Error object is a list
         }
       )
+        tryCatch(
+  
+        expr = {
+          update_crosstab <- dbSendQuery(mars_data, 'update external.tbl_planreview_private set smp_id= ?, dcia_ft2= ?, slow_release_vol_ft3 =  ?, system_type=?,            smip= ?, garp= ?, smp_type= ?, medium_depth_ft= ?, effective_head_ft= ?, stone_storage_depth_ft=?, footprint_ft2, static_storage_vol_ft3= ?,
+                                         water_quality_vol_ft3= ?, water_quality_head_ft= ?,static_storage_head_ft= ?, hash_md5= ?
+                                         WHERE planreview_crosstab_uid = ?')
 
+          #send the updated data
+          dbBind(updated_crosstab, edited_crosstab_smps)
+          
+          #release the prepared statement
+          dbClearResult(updated_crosstab)
+          success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 3
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
+  
   if(!kill)
   {
     #Writing file counts
