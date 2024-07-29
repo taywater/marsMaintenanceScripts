@@ -50,6 +50,7 @@ planreview <- dbConnect(odbc(),
                         Driver = "ODBC Driver 17 for SQL Server", 
                         Server = "PWDSPRA", 
                         Database = "SPRA_ReportingDB", 
+                        port = 1433,
                         uid = Sys.getenv("gis_uid"),
                         pwd= Sys.getenv("gis_pwd"))
 
