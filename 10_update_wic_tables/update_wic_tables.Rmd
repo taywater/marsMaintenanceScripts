@@ -88,7 +88,7 @@ LEFT JOIN Azteca.WORKORDERENTITY woe ON wo.WORKORDERID = woe.WORKORDERID
 WHERE ((wo.DESCRIPTION = 'A - PROPERTY INVESTIGATION' AND r.DESCRIPTION = 'WATER IN CELLAR') OR
 (wo.DESCRIPTION = 'A - LEAK INVESTIGATION' AND r.DESCRIPTION = 'WATER IN CELLAR'))
     ")
-   cityworks_cm <- dbGetQuery(cityworksDB_con, "SELECT WORKORDERID, COMMENTS from Azteca.WOCOMMENT" )
+   cityworks_cm <- dbGetQuery(cityworksDB_con, "SELECT WORKORDERID, COMMENTS from Azteca.WORKORDERCOMMENT " )
    
 # gather current wic orders and comments from MARS_Data
    
