@@ -873,7 +873,8 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
     #ilter(!is.na(ADDRESS))
 
   building_footprint <- st_transform(building_footprint, 4326) %>%
-    select(smp_id, address = ADDRESS)
+    select(smp_id, address = ADDRESS) %>%
+    distinct()
     
   building_footprint_text <- building_footprint %>%
     st_geometry() %>%
@@ -892,20 +893,23 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
 
   
     # distnace calculation from building footprint
+    new_smp_spatial <- st_transform(new_smp_spatial, 4326) %>%
+      distinct()
     
-    new_smp_spatial <- st_transform(new_smp_spatial, 4326)
     #dist <- as.data.frame (matrix(NA, nrow = nrow(building_footprint), ncol = 1))
     dist <- rep(0, nrow(building_footprint))
     names(dist) <- "distance_footprint_ft"
     
     for (i in 1:nrow(building_footprint)){
       
+          
+      smp_id_temp <- building_footprint[i,] %>%
+        st_set_geometry(NULL) %>%
+        select(smp_id) %>%
+        pull
+      
       dist[i] <- st_distance(building_footprint[i,], new_smp_spatial %>%
-                                 filter(SMP_ID == building_footprint_address %>%
-                                          filter(address == building_footprint_address[i,"address"]) %>%
-                                          select(smp_id) %>%
-                                          distinct %>%
-                                          pull))/0.3048
+                                 filter(SMP_ID == smp_id_temp))/0.3048
       
     }
     
