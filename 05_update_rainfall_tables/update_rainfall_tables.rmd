@@ -37,7 +37,7 @@ errorCodes <- data.frame(code = 0:6,
 kill = FALSE
 errorCode = 0
 
-log_code <- digest(now()) #Unique ID for the log batches
+logCode <- digest(now()) #Unique ID for the log batches
 
 ```
 
@@ -61,7 +61,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   }
   
     ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 1,
                            exit_code = NA,
                            note = "Testing DB connections")
@@ -77,7 +77,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -91,7 +91,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 ```{r Section 1 - Gathering rainfall data, include = FALSE}
 
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 2,
                            exit_code = NA,
                            note = "Gathering Gage Data")
@@ -144,7 +144,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     kable(output_newgagedata)
     
       ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 3,
                            exit_code = NA,
                            note = "Writing Gage Data")
@@ -168,7 +168,7 @@ log_code <- digest(now()) #Unique ID for the log batches
       logMessage <- data.frame(date = as.Date(today()),
                            records = nrow(newgagedata),
                            type = "Gage Records",
-                           hash = log_code)
+                           hash = logCode)
   
       dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
@@ -183,7 +183,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -196,7 +196,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
 ```{r Section 2 - Processing new rain events, include = FALSE}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 4,
                            exit_code = NA,
                            note = "Processing Gage Events")
@@ -242,7 +242,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     knitr::asis_output(paste("### New Rain Gage events to add to `data.tbl_gage_rain_event`: ", nrow(rain_newevents)))
   
       ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 5,
                            exit_code = NA,
                            note = "Writing Gage Events")
@@ -267,7 +267,7 @@ log_code <- digest(now()) #Unique ID for the log batches
       logMessage <- data.frame(date = as.Date(today()),
                            records = nrow(rain_newevents),
                            type = "Gage Events",
-                           hash = log_code)
+                           hash = logCode)
   
       dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
@@ -282,7 +282,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
   
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -295,7 +295,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
 ```{r Section 3 - Gathering radar data, include = FALSE}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 6,
                            exit_code = NA,
                            note = "Gathering Radar Data")
@@ -369,7 +369,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     kable(new_rawfiles)
     
       ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 7,
                            exit_code = NA,
                            note = "Writing Radar Data")
@@ -393,7 +393,7 @@ log_code <- digest(now()) #Unique ID for the log batches
       logMessage <- data.frame(date = as.Date(today()),
                            records = nrow(new_rawfiles),
                            type = "Radar Files",
-                           hash = log_code)
+                           hash = logCode)
   
       dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
@@ -415,7 +415,7 @@ log_code <- digest(now()) #Unique ID for the log batches
       logMessage <- data.frame(date = as.Date(today()),
                            records = nrow(newradardata),
                            type = "Radar Records",
-                           hash = log_code)
+                           hash = logCode)
   
       dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
@@ -429,7 +429,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -442,7 +442,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
 ```{r Section 4 - Processing new rain events for radar data, include = FALSE}
   ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 8,
                            exit_code = NA,
                            note = "Processing Radar Events")
@@ -491,7 +491,7 @@ log_code <- digest(now()) #Unique ID for the log batches
     kable(rain_newevents)
     
       ###Log: Start
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = 9,
                            exit_code = NA,
                            note = "Writing Radar Events")
@@ -515,7 +515,7 @@ log_code <- digest(now()) #Unique ID for the log batches
       logMessage <- data.frame(date = as.Date(today()),
                            records = nrow(rain_newevents),
                            type = "Radar Records",
-                           hash = log_code)
+                           hash = logCode)
   
       dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
@@ -529,7 +529,7 @@ log_code <- digest(now()) #Unique ID for the log batches
   knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
@@ -548,7 +548,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 	#Close database connections
 
   ###Log: End
-  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+  logMessage <- data.frame(date = as.Date(today()), hash = logCode,
                            milestone = NA,
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
