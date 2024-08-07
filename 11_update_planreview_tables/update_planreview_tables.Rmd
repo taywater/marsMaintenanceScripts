@@ -197,7 +197,7 @@ order by p.spra_trackingid, s.spra_name")
 ```{r Section 2: Trimming, Joining, and Writing, echo = FALSE}
 
 #Query existing table from MARS
-mars_private <- dbGetQuery(mars_data, "select planreview_private_uid, \"SMPID\"::text, hash_md5 from external.tbl_planreview_private")
+mars_private <- dbGetQuery(mars_data, "select planreview_private_uid, \"SMPID\", hash_md5 from external.tbl_planreview_private")
 mars_crosstab <- dbGetQuery(mars_data, "select planreview_crosstab_uid, smp_id, hash_md5 from external.tbl_planreview_crosstab")
 
 #Trim existing table to just hashes
@@ -207,7 +207,7 @@ new_smp_hashes <- view_smp_designation_hash %>%
   filter(!(SMPID %in% mars_private$SMPID))
 
 new_crosstab_hashes <- planreview_crosstab_hash %>%
-  filter(!(smp_id %in% mars_crosstab$hash_md5))
+  filter(!(smp_id %in% mars_crosstab$smp_id))
 
 #Updated metrics
 updated_smps <- view_smp_designation_hash %>%
@@ -227,7 +227,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
 
 ```
 
-```{r Section R1: New SMP Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0))}
+```{r Section R1: New SMP Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0, nrow(new_crosstab_hashes) > 0))}
 
   ###Log: Start
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
@@ -243,7 +243,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
       tryCatch(
   
         expr = {
-          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_private"), new_smp_hashes, append= TRUE, row.names = FALSE)
+          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_private_fixed"), new_smp_hashes, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
