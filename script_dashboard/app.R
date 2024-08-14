@@ -25,7 +25,7 @@ library(DBI)
 
 #set default page length for datatables
 options(DT.options = list(pageLength = 15))
-version = '1.2'
+version = '1.2.5'
 
 #set db connection
 #using a pool connection so separate connnections are unified
@@ -121,7 +121,12 @@ ui <- navbarPage(paste("Script Dashboard", version), theme = shinytheme("slate")
         h5("Documentation for error colors and script 12."),
         
         h3("v1.2"),
-        h5("Added write log section.")
+        h5("Added write log section."),
+        
+        h3("v1.2.5"),
+        h5("Dark mode completed.")
+        
+        
         
       )
     )
