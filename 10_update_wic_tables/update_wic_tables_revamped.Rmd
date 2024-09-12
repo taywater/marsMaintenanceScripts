@@ -22,11 +22,29 @@ knitr::opts_chunk$set(echo = TRUE)
   library(sf)
   library(lubridate)
   library(knitr)
+  library(RPostgres)
   #Not in logical
 `%!in%` <- Negate(`%in%`)
 
+  # #replace special characters with friendlier characters
+  special_char_replace <- function(note){
+
+    note_fix <- note %>%
+      str_replace_all(c("•" = "-", "ï‚§" = "-", "“" = '"', '”' = '"'))
+
+    return(note_fix)
+
+  }
+
  # DB connections
-  mars_con <- dbConnect(odbc(), dsn = params$database, uid = Sys.getenv("shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
+  #mars_con <- dbConnect(odbc(), dsn = params$database, uid = Sys.getenv("shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
+  
+  mars_con <- dbConnect(RPostgres::Postgres(),
+                        host = "PWDMARSDBS1.pwd.phila.local",
+                        port = 5434,
+                        dbname = "mars_data",
+                        user = "mars_admin",
+                        password = "lepton-gossip-underreact-polo-chair")
   
   cityworks_con <- dbConnect(odbc(),
                   Driver = "ODBC Driver 17 for SQL Server",
@@ -60,14 +78,12 @@ knitr::opts_chunk$set(echo = TRUE)
    WHERE ((wo.DESCRIPTION = 'A - PROPERTY INVESTIGATION' AND r.DESCRIPTION = 'WATER IN CELLAR') OR
    (wo.DESCRIPTION = 'A - LEAK INVESTIGATION' AND r.DESCRIPTION = 'WATER IN CELLAR'))
       ")
-   cw_comments <- dbGetQuery(cityworks_con, "SELECT WORKORDERID, COMMENTS from Azteca.WORKORDERCOMMENT")
+   cw_comments <- dbGetQuery(cityworks_con, "SELECT COMMENTID, WORKORDERID, COMMENTS from Azteca.WORKORDERCOMMENT")
 
  # Make names & data format consistent 
    names(cw_workorders) <- c("workorder_id","date","address","xcoordinate","ycoordinate","facility_id")
-   names(cw_comments) <- c("workorder_id","comment")
- # Remove {} from facility ids
-   #cw_workorders$facility_id <- gsub("\\{(.*)\\}","\\1",as.character(cw_workorders$facility_id))
-
+   names(cw_comments) <- c("comment_id","workorder_id","comment")
+   
  # cast types    
    cw_workorders$date <- as.Date(cw_workorders$date)
    cw_workorders$workorder_id <- as.numeric(cw_workorders$workorder_id)
@@ -117,7 +133,14 @@ knitr::opts_chunk$set(echo = TRUE)
  # MARS wic and comments
    mars_workorders <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_workorder")
    mars_comments <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_comment")
- 
+   
+ # remove \r & \n for the sake of comparison and replace special char
+   mars_comments$comment <- gsub("[\r\n]", "", mars_comments$comment)
+   cw_comments$comment <- gsub("[\r\n]", "", cw_comments$comment)
+   
+   comment_nobackslash <- gsub('\'', '\'\'',  cw_comments$comment)
+   cw_comments$comment <- special_char_replace(comment_nobackslash)
+
  # New WICs
    new_wic <- cw_workorders %>%
      filter(workorder_id %!in% mars_workorders$workorder_id)
@@ -127,22 +150,15 @@ knitr::opts_chunk$set(echo = TRUE)
      filter(workorder_id %!in% new_wic$workorder_id) %>%
      anti_join(mars_workorders, by = c("date","address","xcoordinate","ycoordinate","facility_id"))
    
- # Combined new and changed WIC dataframe
-   intersecting_wics <- bind_rows(new_wic, changed_wic)
-   
  # New Comments
    new_comment <- cw_comments %>%
-     filter(workorder_id %!in% mars_comments$workorder_id)
-   
- # remove \r & \n for the sake of comparison   
-   mars_comments$comment <- gsub("[\r\n]", "", mars_comments$comment)
-   cw_comments$comment <- gsub("[\r\n]", "", cw_comments$comment)
+     filter(comment_id %!in% mars_comments$comment_id)
    
  # Changed Comments
    changed_comment <- cw_comments %>%
-     filter(workorder_id %!in% new_comment$workorder_id) %>%
+     filter(comment_id %!in% new_comment$comment_id) %>%
      anti_join(mars_comments, by = "comment")
-
+  
 ```
 
 ## 2.2 Write New Work Orders to MARS DB
@@ -179,8 +195,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r 2.5 Updating changed comments to MARS DB, eval= params$write == TRUE & nrow(changed_comment) > 0}
 
  # update changed comments
-   upcomm_sql_string <- "UPDATE fieldwork.beta_tbl_wic_comment set comment = '%s' WHERE workorder_id = %s;"
-   success_upcomments <- dbSendStatement(mars_con, paste(sprintf(upcomm_sql_string, changed_comment$comment, changed_comment$workorder_id), collapse=""))
+   upcomm_sql_string <- "UPDATE fieldwork.beta_tbl_wic_comment set comment = '%s' WHERE workorder_id = %s AND comment_id = %s;"
+   success_upcomments <- dbSendStatement(mars_con, paste(sprintf(upcomm_sql_string, changed_comment$comment, changed_comment$workorder_id, changed_comment$comment_id), collapse=""))
 
 ```
 
@@ -298,89 +314,64 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
-# 4. Add/Update WKT Polygons
+# 4. Add Spatial Polygons
 
-## 4.1 Identify New/Changed WIC Polygons (Property & Footprint)
+## 4.1 Identify New WIC Polygons (Property & Footprint)
 
-```{r 4.1 Identifying New/Changed WIC Polygons}
- # pull mars polygons
- mars_nonsmp_polygon <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_nonsmp_polygon")
+```{r 4.1 Identifying New WIC Polygons}
  # pull footprint parcels    
  footprint_sf <- st_read(dsn = "\\\\pwdoows\\oows\\Watershed Sciences\\GSI Monitoring\\09 GIS Data\\Building_Footprint_Shapefile", layer = "Building_Footprint") 
  footprint_sf <- footprint_sf %>%
    select(address = ADDRESS)
-
- # find wic footprints
- wic_footprint_sf <- footprint_sf %>%
-   filter(address %in% wic_parcels$address) 
  
+ # pull MARS's spatial polygons
+  mars_footprint_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"))
+  mars_propertyline_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"))
+  mars_smp_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_smp_geom"))
+
  # find wic property lines
  wic_propertyline_sf <- pwd_parcels_sf %>%
    filter(gis_address %in% wic_parcels$address) %>%
-   select(address = gis_address)
+   select(address = gis_address, propertyline_geom = geometry)
  
- # convert footprint sf to wkt 
- footprint_address <- wic_footprint_sf %>%
-   st_transform(4326) %>%
-   st_set_geometry(NULL)
+ new_wic_propertyline_sf <- wic_propertyline_sf %>%
+   filter(address %!in% mars_propertyline_sf$address)
  
- footprint_wkt <- wic_footprint_sf %>%
-    st_transform(4326) %>%
-    st_geometry() %>%
-    st_as_text()
+  # find wic footprints
+ wic_footprint_sf <- footprint_sf %>%
+   filter(address %in% wic_parcels$address) %>%
+   select(address, footprint_geom = geometry)
  
- # convert property sf to wkt 
- propertyline_address <- wic_propertyline_sf %>%
-   st_transform(4326) %>%
-   st_set_geometry(NULL)
+ new_wic_footprint_sf <- wic_footprint_sf %>%
+   filter(address %!in% mars_footprint_sf$address) 
  
- propertyline_wkt <- wic_propertyline_sf %>%
-    st_transform(4326) %>%
-    st_geometry() %>%
-    st_as_text()
- 
- # storing the results in dataframe
- footprint_wkt_df <- data.frame(address = footprint_address, footprint_wkt = footprint_wkt) %>%
-   distinct()
- property_wkt_df <- data.frame(address = propertyline_address, propertyline_wkt = propertyline_wkt) %>%
-   distinct()
- wic_polygon_df <- footprint_wkt_df %>%
-   full_join(property_wkt_df, by = "address")
- 
- # new Polygons
- new_wic_polygons <- wic_polygon_df %>%
-   filter(address %!in% mars_nonsmp_polygon$address)
- # changed Polygons
- changed_wic_polygons <- wic_polygon_df %>%
-   filter(address %!in% new_wic_polygons$address) %>%
-   anti_join(mars_nonsmp_polygon, by = c("footprint_wkt","propertyline_wkt"))
-
 ```
 
 ## 4.2 Add WIC Polygons to MARS DB
+### 4.2.1 Add Property Lines
 
-```{r 4.2 Add WIC Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_wic_polygons) > 0}
+```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0}
 
-  # add new wic polygons
-   success_wicpoly <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_nonsmp_polygon"), new_wic_polygons, append= TRUE, row.names = FALSE )
-
-```
-
-## 4.3 Update WIC Polygons in MARS DB
-
-```{r 4.3 Updating WIC Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(changed_wic_polygons) > 0}
-
-  # update changed wic polygons
-   upwicpoly_sql_string <- "UPDATE fieldwork.beta_tbl_wic_nonsmp_polygon set propertyline_wkt = '%s', footprint_wkt = '%s' WHERE address = '%s';"
-   success_upwicpoly <- dbSendStatement(mars_con, paste(sprintf(upwicpoly_sql_string, changed_wic_polygons$propertyline_wkt, changed_wic_polygons$footprint_wkt, changed_wic_polygons$address), collapse=""))
+  # add new wic propertylines
+   success_property_sf <- st_write(obj = wic_propertyline_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"), append = TRUE)
 
 ```
 
-## 4.4 Identify New/Changed SMP Polygons
+### 4.2.2 Add Footprints
 
-```{r 4.4 Identify New/Changed SMP polygons}
+```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0}
+
+  # add new wic footprints
+   success_footprint_sf <- st_write(obj = wic_footprint_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
+
+```
+
+
+## 4.3 Identify New SMP Polygons
+
+```{r 4.3 Identify New SMP polygons}
   # pull mars polygons
-  mars_smp_polygon <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp_polygon")
+  mars_smp_sf <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp_geom")
 
   # SMP Polygons from GIS. all CRS set at 2272 coordinate system to be consistent with pwd_parcels and footprint CRS
   basin <- suppressWarnings(st_read(gisapps_con, "gisad.GSWIBASIN", quiet = TRUE)) %>%
@@ -430,43 +421,18 @@ knitr::opts_chunk$set(echo = TRUE)
     filter(public == TRUE) %>%
     select(-public)
   
-  # convert property sf to wkt 
-  smp_id_col <- smp_sf %>%
-    st_set_geometry(NULL)
-  smp_wkt <- smp_sf %>%
-    st_geometry() %>%
-    st_as_text()
-   
-  # Storing the results in dataframe
-  smp_wkt_df <- data.frame(smp_id = smp_id_col, smp_wkt = smp_wkt) %>%
-     distinct()
-
   # New Polygons
-  new_smp_polygons <- smp_wkt_df %>%
-     filter(smp_id %!in% mars_smp_polygon$smp_id)
-  # Changed Polygons
-  changed_smp_polygons <- smp_wkt_df %>%
-     filter(smp_id %!in% new_smp_polygons$smp_id) %>%
-     anti_join(mars_smp_polygon, by = "smp_wkt")   
+  new_smp_sf <- smp_sf %>%
+     filter(smp_id %!in% mars_smp_sf$smp_id) %>%
+     select(smp_id, smp_geom = SHAPE)
   
 ```
 
-## 4.5 Add New SMP Polygons to MARS DB
+## 4.4 Add New SMP Polygons to MARS DB
 
-```{r 4.5 New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_smp_polygons) > 0}
-
-  # add new wic polygons
-   success_smppoly <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_smp_polygon"), new_smp_polygons, append= TRUE, row.names = FALSE )
-
-```
-
-## 4.6 Update New SMP Polygons in MARS DB
-
-```{r 4.6 Update New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(changed_smp_polygons) > 0}
-
-  # update changed wic polygons
-   upsmppoly_sql_string <- "UPDATE fieldwork.beta_tbl_wic_smp_polygon set smp_wkt = '%s' WHERE smp_id = '%s';"
-   success_upsmppoly <- dbSendStatement(mars_con, paste(sprintf(upsmppoly_sql_string, changed_smp_polygons$smp_wkt, changed_smp_polygons$smp_id), collapse=""))
+```{r 4.4 New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_smp_sf) > 0}
+  # add new smp polygons with postgis
+   success_smppoly <- st_write(obj = new_smp_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_smp_geom"), append = TRUE)
 
 ```
 
@@ -514,7 +480,6 @@ knitr::opts_chunk$set(echo = TRUE)
   
   
 ```
-
 
 ## 5.2 Identify the WIC Construction Status
 
@@ -580,6 +545,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## 5.3 Identify New/Change SMP-WIC
+
 ```{r 5.3 Identify New/Change SMP-WIC}
   mars_wic_smp <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp")
   # New wic_smp
@@ -594,6 +560,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## 5.4 Add New SMP-WIC to MARS DB
+
 ```{r 5.4 Add New SMP-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_smp) > 0}
   # add new wic-smp
    success_wic_smp <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_smp"), new_wic_smp, append= TRUE, row.names = FALSE )
@@ -601,10 +568,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## 5.5 Update Changed SMP-WIC in MARS DB
+
 ```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_smp) > 0}
   # update changed wic-smp
-   upwicsmp_sql_string <- "UPDATE fieldwork.beta_tbl_wic_smp set con_phase_lookup_uid = %s, footprint_dist_ft = %s, property_dist_ft = %s WHERE workorder_id = %s AND smp_id = '%s;"
+   upwicsmp_sql_string <- "UPDATE fieldwork.beta_tbl_wic_smp set con_phase_lookup_uid = %s, footprint_dist_ft = %s, property_dist_ft = %s WHERE workorder_id = %s AND smp_id = '%s';"
    success_upwicsmp <- dbSendStatement(mars_con, paste(sprintf(upwicsmp_sql_string, changed_wic_smp$con_phase_lookup_uid, changed_wic_smp$footprint_dist_ft, changed_wic_smp$property_dist_ft, changed_wic_smp$workorder_id, changed_wic_smp$smp_id), collapse=""))
 
 ```
-
