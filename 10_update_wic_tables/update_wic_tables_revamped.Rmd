@@ -334,7 +334,13 @@ knitr::opts_chunk$set(echo = TRUE)
    filter(gis_address %in% wic_parcels$address) %>%
    select(address = gis_address, propertyline_geom = geometry)
  
- new_wic_propertyline_sf <- wic_propertyline_sf %>%
+ # Combine geometries per address
+ wic_propertyline_combined_sf <- wic_propertyline_sf %>%
+   group_by(address) %>%
+   summarize(propertyline_geom = st_combine(propertyline_geom)) %>%
+   st_as_sf() 
+   
+ new_wic_propertyline_sf <- wic_propertyline_combined_sf %>%
    filter(address %!in% mars_propertyline_sf$address)
  
   # find wic footprints
@@ -342,7 +348,13 @@ knitr::opts_chunk$set(echo = TRUE)
    filter(address %in% wic_parcels$address) %>%
    select(address, footprint_geom = geometry)
  
- new_wic_footprint_sf <- wic_footprint_sf %>%
+  # Combine geometries per address
+ wic_footprint_combined_sf <- wic_footprint_sf %>%
+   group_by(address) %>%
+   summarize(footprint_geom = st_combine(footprint_geom)) %>%
+   st_as_sf() 
+ 
+ new_wic_footprint_sf <- wic_footprint_combined_sf %>%
    filter(address %!in% mars_footprint_sf$address) 
  
 ```
@@ -353,7 +365,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0}
 
   # add new wic propertylines
-   success_property_sf <- st_write(obj = wic_propertyline_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"), append = TRUE)
+   success_property_sf <- st_write(obj = wic_propertyline_combined_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"), append = TRUE)
 
 ```
 
@@ -362,7 +374,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0}
 
   # add new wic footprints
-   success_footprint_sf <- st_write(obj = wic_footprint_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
+   success_footprint_sf <- st_write(obj = wic_footprint_combined_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
 
 ```
 
@@ -413,6 +425,7 @@ knitr::opts_chunk$set(echo = TRUE)
   
   # single sf with no NA
   smp_sf <- bind_rows(basin, blueroof, bumpout, cistern, greenroof, permeablepavement, planter, raingarden, swale, treetrench, trench, wetland) %>%
+    distinct() %>%
     na.omit()
   
   # filter SMPs to public ones
@@ -444,9 +457,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
   # Create buffer 100 ft buffer around SMPs and intersect them with the WIC Parcels
   smp_sf_100ft <- st_buffer(smp_sf, 100)
-  smp_wic_intersect <- st_intersects(smp_sf_100ft, wic_propertyline_sf)
+  smp_wic_intersect <- st_intersects(smp_sf_100ft, wic_propertyline_combined_sf)
   
-  intersecting_addresses <- wic_propertyline_sf %>%
+  intersecting_addresses <- wic_propertyline_combined_sf %>%
     st_set_geometry(NULL)
   intersecting_smps <- smp_sf_100ft %>%
     st_set_geometry(NULL)
@@ -463,12 +476,12 @@ knitr::opts_chunk$set(echo = TRUE)
       for (j in 1:length(smp_wic_intersect[[i]])) {
         wic_sf_index <- as.vector(smp_wic_intersect[[i]])
         # property distance
-        temp_smp_wic_prop_dist <- st_distance(smp_sf[i, ], wic_propertyline_sf[wic_sf_index[j], ])
+        temp_smp_wic_prop_dist <- st_distance(smp_sf[i, ], wic_propertyline_combined_sf[wic_sf_index[j], ])
         # footprint distance
-        temp_smp_wic_footprint_dist <- st_distance(smp_sf[i, ], filter(wic_footprint_sf, address == wic_propertyline_sf[wic_sf_index[j], ]$address))
+        temp_smp_wic_footprint_dist <- st_distance(smp_sf[i, ], filter(wic_footprint_combined_sf, address == wic_propertyline_combined_sf[wic_sf_index[j], ]$address))
         # put the data in a dataframe- using minimum function for footprint in case there are several footprint polygons per address
         temp_smp_wic_df <- data.frame(smp_id = intersecting_smps[i, ], 
-                                      wic_address = intersecting_addresses[smp_wic_intersect[[i]],],
+                                      wic_address = pull(intersecting_addresses[smp_wic_intersect[[i]][j],]),
                                       property_dist_ft = ifelse(length(temp_smp_wic_prop_dist) > 0, as.numeric(temp_smp_wic_prop_dist), NA),
                                       footprint_dist_ft = ifelse(length(temp_smp_wic_footprint_dist) > 0, min(as.numeric(temp_smp_wic_footprint_dist)), NA)
                                       )
@@ -492,7 +505,7 @@ knitr::opts_chunk$set(echo = TRUE)
     inner_join(smp_wic_df, by = "smp_id") %>%
     inner_join(wic_parcels, by = c("wic_address" = "address")) %>%
     inner_join(cw_workorders, by = "workorder_id") %>%
-    select (smp_id, workorder_id, date, property_dist_ft, footprint_dist_ft, construction_start_date, pc_ntp_date, construction_complete_date, contract_closed_date) %>%
+    select (smp_id, wic_address, date, property_dist_ft, footprint_dist_ft, construction_start_date, pc_ntp_date, construction_complete_date, contract_closed_date) %>%
     distinct()
   
   #setting the lookup_id's default in smp milestone to 4
@@ -539,7 +552,7 @@ knitr::opts_chunk$set(echo = TRUE)
   
   # prep the final table for writing in DB
   wic_smp <- smp_milestones %>%
-    select(smp_id, workorder_id, con_phase_lookup_uid, footprint_dist_ft, property_dist_ft) %>%
+    select(smp_id, wic_address, con_phase_lookup_uid, footprint_dist_ft, property_dist_ft) %>%
     distinct()
 
 ```
@@ -550,12 +563,12 @@ knitr::opts_chunk$set(echo = TRUE)
   mars_wic_smp <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp")
   # New wic_smp
   new_wic_smp <- wic_smp %>%
-     anti_join(mars_wic_smp, by = c("smp_id","workorder_id"))
+     anti_join(mars_wic_smp, by = c("smp_id","wic_address"))
   
   # Changed wic_smp
   changed_wic_smp <- wic_smp %>%
-     anti_join(new_wic_smp, by = c("smp_id","workorder_id")) %>%
-     anti_join(mars_wic_smp, by = c("smp_id","workorder_id","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft"))  
+     anti_join(new_wic_smp, by = c("smp_id","wic_address")) %>%
+     anti_join(mars_wic_smp, by = c("smp_id","wic_address","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft"))  
 
 ```
 
@@ -571,7 +584,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_smp) > 0}
   # update changed wic-smp
-   upwicsmp_sql_string <- "UPDATE fieldwork.beta_tbl_wic_smp set con_phase_lookup_uid = %s, footprint_dist_ft = %s, property_dist_ft = %s WHERE workorder_id = %s AND smp_id = '%s';"
-   success_upwicsmp <- dbSendStatement(mars_con, paste(sprintf(upwicsmp_sql_string, changed_wic_smp$con_phase_lookup_uid, changed_wic_smp$footprint_dist_ft, changed_wic_smp$property_dist_ft, changed_wic_smp$workorder_id, changed_wic_smp$smp_id), collapse=""))
+   upwicsmp_sql_string <- "UPDATE fieldwork.beta_tbl_wic_smp set con_phase_lookup_uid = %s, footprint_dist_ft = %s, property_dist_ft = %s WHERE wic_address = '%s' AND smp_id = '%s';"
+   success_upwicsmp <- dbSendStatement(mars_con, paste(sprintf(upwicsmp_sql_string, changed_wic_smp$con_phase_lookup_uid, changed_wic_smp$footprint_dist_ft, changed_wic_smp$property_dist_ft, changed_wic_smp$wic_address, changed_wic_smp$smp_id), collapse=""))
 
 ```
