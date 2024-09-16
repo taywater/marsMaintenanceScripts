@@ -173,11 +173,22 @@ knitr::opts_chunk$set(echo = TRUE)
 ## 2.3 Update Changed Work Orders in MARS DB
 
 ```{r 2.3 Updating changed workorders to MARS DB, eval= params$write == TRUE & nrow(changed_wic) > 0}
-
  # update changed work orders
-   wo_sql_string <- "UPDATE fieldwork.beta_tbl_wic_workorder SET date = '%s', address = '%s',  xcoordinate = %s, ycoordinate= %s,facility_id = '%s' WHERE workorder_id = %s;"
+   for (i in 1:nrow(changed_wic)) {
+     
+      wo_sql_string <- sprintf(
+      "UPDATE fieldwork.beta_tbl_wic_workorder SET date = '%s', address = '%s',  xcoordinate = %s, ycoordinate= %s,facility_id = '%s' WHERE workorder_id = %s;",
+      changed_wic$date[i],
+      changed_wic$address[i],
+      changed_wic$xcoordinate[i],
+      changed_wic$ycoordinate[i],
+      changed_wic$facility_id[i],
+      changed_wic$workorder_id[i]
+   )
 
-   success_upwo <- dbSendStatement(mars_con, paste(sprintf(wo_sql_string, changed_wic$date, changed_wic$address, changed_wic$xcoordinate, changed_wic$ycoordinate, changed_wic$facility_id, changed_wic$workorder_id), collapse=""))
+  # Execute the update statement
+   success_upwo <- dbSendStatement(mars_con, wo_sql_string)
+}
      
 ```
 
@@ -195,8 +206,18 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r 2.5 Updating changed comments to MARS DB, eval= params$write == TRUE & nrow(changed_comment) > 0}
 
  # update changed comments
-   upcomm_sql_string <- "UPDATE fieldwork.beta_tbl_wic_comment set comment = '%s' WHERE workorder_id = %s AND comment_id = %s;"
-   success_upcomments <- dbSendStatement(mars_con, paste(sprintf(upcomm_sql_string, changed_comment$comment, changed_comment$workorder_id, changed_comment$comment_id), collapse=""))
+   for (i in 1:nrow(changed_comment)) {
+     
+      upcomm_sql_string <- sprintf(
+      "UPDATE fieldwork.beta_tbl_wic_comment set comment = '%s' WHERE workorder_id = %s AND comment_id = %s;",
+      changed_comment$comment[i],
+      changed_comment$workorder_id[i],
+      changed_comment$comment_id[i]
+   )
+
+  # Execute the update statement
+  success_upcomments <- dbSendStatement(mars_con, upcomm_sql_string)
+}
 
 ```
 
@@ -308,9 +329,19 @@ knitr::opts_chunk$set(echo = TRUE)
 ## 3.6 Update WIC Parcels in MARS DB
 
 ```{r 3.6 Updating changed wic parcels in MARS DB , eval= params$write == TRUE & nrow(changed_wic_parcel) > 0}
-  # update changed wic parcels
-   upwicparcel_sql_string <- "UPDATE fieldwork.beta_tbl_wic_parcel set address = '%s', facility_id = '%s' WHERE workorder_id = %s;"
-   success_upwicparcel <- dbSendStatement(mars_con, paste(sprintf(upwicparcel_sql_string, changed_wic_parcel$address, changed_wic_parcel$facility_id, changed_wic_parcel$workorder_id), collapse=""))
+   # update changed wic parcels
+   for (i in 1:nrow(changed_wic_parcel)) {
+     
+      upwicparcel_sql_string <- sprintf(
+      "UPDATE fieldwork.beta_tbl_wic_parcel set address = '%s', facility_id = '%s' WHERE workorder_id = %s;",
+      changed_wic_parcel$address[i],
+      changed_wic_parcel$facility_id[i],
+      changed_wic_parcel$workorder_id[i]
+   )
+
+  # Execute the update statement
+  success_upwicparcel <- dbSendStatement(mars_con, upwicparcel_sql_string)
+}
 
 ```
 
@@ -360,6 +391,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## 4.2 Add WIC Polygons to MARS DB
+
 ### 4.2.1 Add Property Lines
 
 ```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0}
@@ -377,7 +409,6 @@ knitr::opts_chunk$set(echo = TRUE)
    success_footprint_sf <- st_write(obj = wic_footprint_combined_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
 
 ```
-
 
 ## 4.3 Identify New SMP Polygons
 
@@ -584,7 +615,22 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_smp) > 0}
   # update changed wic-smp
-   upwicsmp_sql_string <- "UPDATE fieldwork.beta_tbl_wic_smp set con_phase_lookup_uid = %s, footprint_dist_ft = %s, property_dist_ft = %s WHERE wic_address = '%s' AND smp_id = '%s';"
-   success_upwicsmp <- dbSendStatement(mars_con, paste(sprintf(upwicsmp_sql_string, changed_wic_smp$con_phase_lookup_uid, changed_wic_smp$footprint_dist_ft, changed_wic_smp$property_dist_ft, changed_wic_smp$wic_address, changed_wic_smp$smp_id), collapse=""))
+   for (i in 1:nrow(changed_wic_smp)) {
+       upwicsmp_sql_string <- sprintf(
+      "UPDATE fieldwork.beta_tbl_wic_smp
+       SET con_phase_lookup_uid = '%s',
+           footprint_dist_ft = '%s',
+           property_dist_ft = '%s'
+       WHERE wic_address = '%s' AND smp_id = '%s';",
+      changed_wic_smp$con_phase_lookup_uid[i],
+      changed_wic_smp$footprint_dist_ft[i],
+      changed_wic_smp$property_dist_ft[i],
+      changed_wic_smp$wic_address[i],
+      changed_wic_smp$smp_id[i]
+  )
+
+  # Execute the update statement
+  success_upwicsmp <- dbSendStatement(mars_con, upwicsmp_sql_string)
+}
 
 ```
