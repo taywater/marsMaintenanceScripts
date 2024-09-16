@@ -148,7 +148,7 @@ knitr::opts_chunk$set(echo = TRUE)
  # Changed WICs
    changed_wic <- cw_workorders %>%
      filter(workorder_id %!in% new_wic$workorder_id) %>%
-     anti_join(mars_workorders, by = c("date","address","xcoordinate","ycoordinate","facility_id"))
+     anti_join(mars_workorders, by = c("workorder_id", "date","address","xcoordinate","ycoordinate","facility_id"))
    
  # New Comments
    new_comment <- cw_comments %>%
@@ -157,7 +157,7 @@ knitr::opts_chunk$set(echo = TRUE)
  # Changed Comments
    changed_comment <- cw_comments %>%
      filter(comment_id %!in% new_comment$comment_id) %>%
-     anti_join(mars_comments, by = "comment")
+     anti_join(mars_comments, by = c("workorder_id", "comment", "comment_id"))
   
 ```
 
@@ -293,7 +293,7 @@ knitr::opts_chunk$set(echo = TRUE)
  # changed wic parcel
   changed_wic_parcel <- wic_parcels %>%
     filter(workorder_id %!in% new_wic_parcel$workorder_id) %>%
-    anti_join(mars_wic_parcels, by = c("address", "facility_id"))
+    anti_join(mars_wic_parcels, by = c("workorder_id", "address", "facility_id"))
     
 ```
 
@@ -555,7 +555,7 @@ knitr::opts_chunk$set(echo = TRUE)
   # Changed wic_smp
   changed_wic_smp <- wic_smp %>%
      anti_join(new_wic_smp, by = c("smp_id","workorder_id")) %>%
-     anti_join(mars_wic_smp, by = c("con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft"))  
+     anti_join(mars_wic_smp, by = c("smp_id","workorder_id","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft"))  
 
 ```
 
