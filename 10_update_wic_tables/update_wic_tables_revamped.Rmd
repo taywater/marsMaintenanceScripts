@@ -1,5 +1,5 @@
 ---
-title: "Update Water in Cellar Complaints App-Version 2.0"
+title: "Update Water in Cellar (WIC) Complaints App-Version 2.0"
 author: "Farshad Ebrahimi"
 date: "`r lubridate::now()`"
 output: html_document
