@@ -469,8 +469,11 @@ Number of New WIC Footprints Geometry: `r nrow(new_wic_footprint_sf)`
   # single sf with no NA
   smp_sf <- bind_rows(basin, blueroof, bumpout, cistern, greenroof, permeablepavement, planter, raingarden, swale, treetrench, trench, wetland) %>%
     distinct() %>%
-    na.omit()
-  
+    na.omit() %>%
+    group_by(smp_id) %>%
+    summarize(SHAPE = st_combine(SHAPE)) %>%
+    st_as_sf()
+
   # filter SMPs to public ones
   smp_sf["public"] <- grepl ("\\d+-\\d+-\\d+", smp_sf[["smp_id"]])
   smp_sf <- smp_sf %>%
