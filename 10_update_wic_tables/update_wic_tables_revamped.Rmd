@@ -8,9 +8,9 @@ params:
   write: TRUE
 ---
 
-# ----- Set Up
+# 0.0 Set Up {.hidden .unlisted}
 
-```{r setup libraries and place holder data structures}
+```{r setup libraries and place holder data structures, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
   knitr::opts_chunk$set(echo = TRUE)
   knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
@@ -69,7 +69,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 1. Prepping the Raw Cityworks Data
 
-```{r 1. Prepping the data for storage in MARS DB (renaming, deduplicating, type cast etc)}
+```{r 1. Prepping the data for storage in MARS DB (renaming, deduplicating, type cast etc), include=FALSE}
  # cityworks wic orders and comments tables
    cw_workorders <- dbGetQuery(cityworks_con, "SELECT wo.WORKORDERID, wo.INITIATEDATE AS date,     wo.LOCATION, wo.WOXCOORDINATE, wo.WOYCOORDINATE, woe.ENTITYUID AS FACILITYID 
    FROM Azteca.WORKORDER wo INNER JOIN Azteca.ACTIVITYLINK rwo ON wo.WORKORDERID = rwo.DESTACTIVITYSTRINGID and SOURCEACTIVITYTYPE = 'servicerequest' and DESTACTIVITYTYPE = 'workorder'
@@ -128,7 +128,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 2.1 Identifying New/Changed WICs & Comments
 
-```{r 2.1 Checking for new WIC complaints, new WIC comments and changed ones}
+```{r 2.1 Checking for new WIC complaints, new WIC comments and changed ones, include=FALSE}
    
  # MARS wic and comments
    mars_workorders <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_workorder")
@@ -161,18 +161,22 @@ knitr::opts_chunk$set(echo = TRUE)
   
 ```
 
-## 2.2 Write New Work Orders to MARS DB
+Number of New Work Orders: `r nrow(new_wic)` Number of Changed Work Orders: `r nrow(changed_wic)`
 
-```{r 2.2 Writing workorders to MARS DB, eval= params$write == TRUE & nrow(new_wic) > 0}
+Number of New Comments: `r nrow(new_comment)` Number of Changed Comments: `r nrow(changed_comment)`
+
+## 2.2 Write New Work Orders to MARS DB {.hidden .unlisted}
+
+```{r 2.2 Writing workorders to MARS DB, eval= params$write == TRUE & nrow(new_wic) > 0, include=FALSE}
 
  # add new work orders
    success_wo <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_workorder"), new_wic, append= TRUE, row.names = FALSE )
 
 ```
 
-## 2.3 Update Changed Work Orders in MARS DB
+## 2.3 Update Changed Work Orders in MARS DB {.hidden .unlisted}
 
-```{r 2.3 Updating changed workorders to MARS DB, eval= params$write == TRUE & nrow(changed_wic) > 0}
+```{r 2.3 Updating changed workorders to MARS DB, eval= params$write == TRUE & nrow(changed_wic) > 0, include=FALSE}
  # update changed work orders
    for (i in 1:nrow(changed_wic)) {
      
@@ -192,18 +196,18 @@ knitr::opts_chunk$set(echo = TRUE)
      
 ```
 
-## 2.4 Write New Comments to MARS DB
+## 2.4 Write New Comments to MARS DB {.hidden .unlisted}
 
-```{r 2.4 Writing New Comments to MARS DB, eval= params$write == TRUE & nrow(new_comment) > 0}
+```{r 2.4 Writing New Comments to MARS DB, eval= params$write == TRUE & nrow(new_comment) > 0, include=FALSE}
 
  # add new comments
    success_comments <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_comment"), new_comment, append= TRUE, row.names = FALSE )
 
 ```
 
-## 2.5 Update Changed Comments in MARS DB
+## 2.5 Update Changed Comments in MARS DB {.hidden .unlisted}
 
-```{r 2.5 Updating changed comments to MARS DB, eval= params$write == TRUE & nrow(changed_comment) > 0}
+```{r 2.5 Updating changed comments to MARS DB, eval= params$write == TRUE & nrow(changed_comment) > 0, include=FALSE}
 
  # update changed comments
    for (i in 1:nrow(changed_comment)) {
@@ -223,9 +227,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 3. Attaching Parcels to WIC Workorders
 
-## 3.1 Joining by Address
+## 3.1 Joining by Address {.hidden .unlisted}
 
-```{r 3.1 Attaching Parcels to WIC Workorders based on address, eval= nrow(cw_workorders) > 0}
+```{r 3.1 Attaching Parcels to WIC Workorders based on address, eval= nrow(cw_workorders) > 0, include=FALSE}
 
  # pull pwd parcels (a large shapefile on the server which st_read fails to scrape from gis db)
   pwd_parcels_sf <- st_read(dsn = "\\\\pwdoows\\oows\\Watershed Sciences\\GSI Monitoring\\09 GIS Data\\PWD_PARCELS ", layer = "PWD_PARCELS")%>%
@@ -241,9 +245,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
-## 3.2 Joining by Facility IDs
+## 3.2 Joining by Facility IDs {.hidden .unlisted}
 
-```{r 3.2 Attaching Parcels to WIC Workorders based on facility id, eval= nrow(cw_workorders) > 0}
+```{r 3.2 Attaching Parcels to WIC Workorders based on facility id, eval= nrow(cw_workorders) > 0, include=FALSE}
 
  # Join by address (secondary attribute for matching)
   wicparcel_join_facilityid <- cw_workorders %>%
@@ -253,9 +257,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
-## 3.3 Intersect WIC XY Coordinates with PWD Parcels to Detect Parcels
+## 3.3 Intersect WIC XY Coordinates with PWD Parcels to Detect Parcels {.hidden .unlisted}
 
-```{r 3.3 Intersecting WIC XY Coordinates with PWD Parcels, eval= nrow(cw_workorders) > 0}
+```{r 3.3 Intersecting WIC XY Coordinates with PWD Parcels, eval= nrow(cw_workorders) > 0, include=FALSE}
   
   # get remaining unverified work orders
   xy_wics <- cw_workorders %>%
@@ -299,7 +303,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 3.4 Bind WIC Parcels & Find New/Changed WIC Parcels
 
-```{r 3.4 Binding the WIC parcels, pulling wic parcels from MARS DB and compare, eval= nrow(wicparcel_xy) > 0 | nrow(wicparcel_join_facilityid) > 0 | nrow(wicparcel_join_address) > 0}
+```{r 3.4 Binding the WIC parcels, pulling wic parcels from MARS DB and compare, eval= nrow(wicparcel_xy) > 0 | nrow(wicparcel_join_facilityid) > 0 | nrow(wicparcel_join_address) > 0, include=FALSE}
 
  # Bind the WIC parcels
   wic_parcels <- bind_rows(wicparcel_join_address, wicparcel_join_facilityid, wicparcel_xy)
@@ -318,17 +322,21 @@ knitr::opts_chunk$set(echo = TRUE)
     
 ```
 
-## 3.5 Add WIC Parcels to MARS DB
+Number of New WIC Parcels: `r nrow(new_wic_parcel)`
 
-```{r 3.5 Writing new wic parcels to MARS DB , eval= params$write == TRUE & nrow(new_wic_parcel) > 0}
+Number of Changed WIC Parcels: `r nrow(changed_wic_parcel)`
+
+## 3.5 Add WIC Parcels to MARS DB {.hidden .unlisted}
+
+```{r 3.5 Writing new wic parcels to MARS DB , eval= params$write == TRUE & nrow(new_wic_parcel) > 0, include=FALSE}
   # add new wic parcels
    success_wicparcels <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_parcel"), new_wic_parcel, append= TRUE, row.names = FALSE )
 
 ```
 
-## 3.6 Update WIC Parcels in MARS DB
+## 3.6 Update WIC Parcels in MARS DB {.hidden .unlisted}
 
-```{r 3.6 Updating changed wic parcels in MARS DB , eval= params$write == TRUE & nrow(changed_wic_parcel) > 0}
+```{r 3.6 Updating changed wic parcels in MARS DB , eval= params$write == TRUE & nrow(changed_wic_parcel) > 0, include=FALSE}
    # update changed wic parcels
    for (i in 1:nrow(changed_wic_parcel)) {
      
@@ -349,7 +357,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 4.1 Identify New WIC Polygons (Property & Footprint)
 
-```{r 4.1 Identifying New WIC Polygons}
+```{r 4.1 Identifying New WIC Polygons, include=FALSE}
  # pull footprint parcels    
  footprint_sf <- st_read(dsn = "\\\\pwdoows\\oows\\Watershed Sciences\\GSI Monitoring\\09 GIS Data\\Building_Footprint_Shapefile", layer = "Building_Footprint") 
  footprint_sf <- footprint_sf %>%
@@ -390,20 +398,24 @@ knitr::opts_chunk$set(echo = TRUE)
  
 ```
 
-## 4.2 Add WIC Polygons to MARS DB
+Number of New WIC Property Lines Geometry: `r nrow(new_wic_propertyline_sf)`
 
-### 4.2.1 Add Property Lines
+Number of New WIC Footprints Geometry: `r nrow(new_wic_footprint_sf)`
 
-```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0}
+## 4.2 Add WIC Polygons to MARS DB {.hidden .unlisted}
+
+### 4.2.1 Add Property Lines {.hidden .unlisted}
+
+```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0, include=FALSE}
 
   # add new wic propertylines
    success_property_sf <- st_write(obj = wic_propertyline_combined_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"), append = TRUE)
 
 ```
 
-### 4.2.2 Add Footprints
+### 4.2.2 Add Footprints {.hidden .unlisted}
 
-```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0}
+```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0, include=FALSE}
 
   # add new wic footprints
    success_footprint_sf <- st_write(obj = wic_footprint_combined_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
@@ -412,7 +424,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 4.3 Identify New SMP Polygons
 
-```{r 4.3 Identify New SMP polygons}
+```{r 4.3 Identify New SMP polygons, include=FALSE}
   # pull mars polygons
   mars_smp_sf <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp_geom")
 
@@ -472,9 +484,11 @@ knitr::opts_chunk$set(echo = TRUE)
   
 ```
 
-## 4.4 Add New SMP Polygons to MARS DB
+Number of New SMP Geometry: `r nrow(new_smp_sf)`
 
-```{r 4.4 New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_smp_sf) > 0}
+## 4.4 Add New SMP Polygons to MARS DB {.hidden .unlisted}
+
+```{r 4.4 New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_smp_sf) > 0, include=FALSE}
   # add new smp polygons with postgis
    success_smppoly <- st_write(obj = new_smp_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_smp_geom"), append = TRUE)
 
@@ -482,9 +496,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 5. Detect WICs around SMPs
 
-## 5.1 Intersect WIC Parcels with SMP Polygons and Calculate Distance
+## 5.1 Intersect WIC Parcels with SMP Polygons and Calculate Distance {.hidden .unlisted}
 
-```{r 5.1 Intersect WIC Parcels with SMP Polygons and Calculate Distance}
+```{r 5.1 Intersect WIC Parcels with SMP Polygons and Calculate Distance, include=FALSE}
 
   # Create buffer 100 ft buffer around SMPs and intersect them with the WIC Parcels
   smp_sf_100ft <- st_buffer(smp_sf, 100)
@@ -525,9 +539,9 @@ knitr::opts_chunk$set(echo = TRUE)
   
 ```
 
-## 5.2 Identify the WIC Construction Status
+## 5.2 Identify the WIC Construction Status {.hidden .unlisted}
 
-```{r 5.2 Identify the WIC Construction Status}
+```{r 5.2 Identify the WIC Construction Status, include=FALSE}
   # Getting the construction milestones dates
   cipit <- dbGetQuery(mars_con, "SELECT * FROM external.tbl_cipit_project")
   smpbdv <- dbGetQuery(mars_con, "SELECT * FROM  external.tbl_smpbdv")
@@ -590,7 +604,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 5.3 Identify New/Change SMP-WIC
 
-```{r 5.3 Identify New/Change SMP-WIC}
+```{r 5.3 Identify New/Change SMP-WIC, include=FALSE}
   mars_wic_smp <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp")
   # New wic_smp
   new_wic_smp <- wic_smp %>%
@@ -599,21 +613,25 @@ knitr::opts_chunk$set(echo = TRUE)
   # Changed wic_smp
   changed_wic_smp <- wic_smp %>%
      anti_join(new_wic_smp, by = c("smp_id","wic_address")) %>%
-     anti_join(mars_wic_smp, by = c("smp_id","wic_address","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft"))  
-
+     anti_join(mars_wic_smp, by = c("smp_id","wic_address","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
+  
 ```
 
-## 5.4 Add New SMP-WIC to MARS DB
+Number of New WICs within 100 ft of SMPs: `r nrow(new_wic_smp)`
 
-```{r 5.4 Add New SMP-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_smp) > 0}
+Number of Changed WICs within 100 ft of SMPs: `r nrow(changed_wic_smp)`
+
+## 5.4 Add New SMP-WIC to MARS DB {.hidden .unlisted}
+
+```{r 5.4 Add New SMP-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_smp) > 0, include=FALSE}
   # add new wic-smp
    success_wic_smp <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_smp"), new_wic_smp, append= TRUE, row.names = FALSE )
 
 ```
 
-## 5.5 Update Changed SMP-WIC in MARS DB
+## 5.5 Update Changed SMP-WIC in MARS DB {.hidden .unlisted}
 
-```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_smp) > 0}
+```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_smp) > 0, include=FALSE}
   # update changed wic-smp
    for (i in 1:nrow(changed_wic_smp)) {
        upwicsmp_sql_string <- sprintf(
@@ -632,5 +650,29 @@ knitr::opts_chunk$set(echo = TRUE)
   # Execute the update statement
   success_upwicsmp <- dbSendStatement(mars_con, upwicsmp_sql_string)
 }
+
+```
+
+## 5.6 Summary Table of New/Changed WICs within 100 ft of SMPs
+
+### 5.6.1 New WICs around SMPs (100 ft buffer) 
+
+```{r Section 5.6.1- Summary Table of New WICs around SMPs, echo=FALSE, results='asis', eval= nrow(new_wic_smp)>0}
+      # Prep the table
+      new_wic_kable <- new_wic_smp %>%
+        select(`SMP ID` = smp_id, `WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
+      
+      kable(new_wic_kable)
+
+```
+
+### 5.6.2 Changed WICs around SMPs (100 ft buffer) 
+
+```{r Section 5.6.2 - Summary Table of Changed WICs around SMPs, echo=FALSE, results='asis', eval= nrow(changed_wic_smp)>0}
+       # Prep the table
+      changed_wic_kable <- changed_wic_smp %>%
+        select(`SMP ID` = smp_id, `WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
+      
+      kable(changed_wic_kable)
 
 ```
