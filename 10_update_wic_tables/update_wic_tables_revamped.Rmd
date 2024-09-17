@@ -26,7 +26,7 @@ knitr::opts_chunk$set(echo = TRUE)
   #Not in logical
 `%!in%` <- Negate(`%in%`)
 
-  # #replace special characters with friendlier characters
+  # replace special characters with friendlier characters
   special_char_replace <- function(note){
 
     note_fix <- note %>%
@@ -35,6 +35,16 @@ knitr::opts_chunk$set(echo = TRUE)
     return(note_fix)
 
   }
+  
+  # colur in-text numbers
+  colorize <- function(x, color) {
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{%s}{%s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color,
+      x)
+  } else x
+ }
 
  # DB connections
   #mars_con <- dbConnect(odbc(), dsn = params$database, uid = Sys.getenv("shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
@@ -161,9 +171,11 @@ knitr::opts_chunk$set(echo = TRUE)
   
 ```
 
-Number of New Work Orders: `r nrow(new_wic)` Number of Changed Work Orders: `r nrow(changed_wic)`
+Number of New Work Orders: `r colorize(nrow(new_wic), "red")`   
+Number of Changed Work Orders: `r colorize(nrow(changed_wic), "red")`
 
-Number of New Comments: `r nrow(new_comment)` Number of Changed Comments: `r nrow(changed_comment)`
+Number of New Comments: `r colorize(nrow(new_comment), "red")`    
+Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 
 ## 2.2 Write New Work Orders to MARS DB {.hidden .unlisted}
 
@@ -301,7 +313,7 @@ Number of New Comments: `r nrow(new_comment)` Number of Changed Comments: `r nro
 
 ```
 
-## 3.4 Bind WIC Parcels & Find New/Changed WIC Parcels
+## 3.4 Find New/Changed WIC Parcels
 
 ```{r 3.4 Binding the WIC parcels, pulling wic parcels from MARS DB and compare, eval= nrow(wicparcel_xy) > 0 | nrow(wicparcel_join_facilityid) > 0 | nrow(wicparcel_join_address) > 0, include=FALSE}
 
@@ -322,9 +334,9 @@ Number of New Comments: `r nrow(new_comment)` Number of Changed Comments: `r nro
     
 ```
 
-Number of New WIC Parcels: `r nrow(new_wic_parcel)`
+Number of New WIC Parcels: `r colorize(nrow(new_wic_parcel), "red")`
 
-Number of Changed WIC Parcels: `r nrow(changed_wic_parcel)`
+Number of Changed WIC Parcels: `r colorize(nrow(changed_wic_parcel), "red")`
 
 ## 3.5 Add WIC Parcels to MARS DB {.hidden .unlisted}
 
@@ -398,9 +410,9 @@ Number of Changed WIC Parcels: `r nrow(changed_wic_parcel)`
  
 ```
 
-Number of New WIC Property Lines Geometry: `r nrow(new_wic_propertyline_sf)`
+Number of New WIC Property Lines Geometry: `r colorize(nrow(new_wic_propertyline_sf),"red")`
 
-Number of New WIC Footprints Geometry: `r nrow(new_wic_footprint_sf)`
+Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "red")`
 
 ## 4.2 Add WIC Polygons to MARS DB {.hidden .unlisted}
 
@@ -487,7 +499,7 @@ Number of New WIC Footprints Geometry: `r nrow(new_wic_footprint_sf)`
   
 ```
 
-Number of New SMP Geometry: `r nrow(new_smp_sf)`
+Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 
 ## 4.4 Add New SMP Polygons to MARS DB {.hidden .unlisted}
 
@@ -605,7 +617,7 @@ Number of New SMP Geometry: `r nrow(new_smp_sf)`
 
 ```
 
-## 5.3 Identify New/Change SMP-WIC
+## 5.3 Identify New/Change WIC near SMPs
 
 ```{r 5.3 Identify New/Change SMP-WIC, include=FALSE}
   mars_wic_smp <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp")
@@ -620,9 +632,9 @@ Number of New SMP Geometry: `r nrow(new_smp_sf)`
   
 ```
 
-Number of New WICs within 100 ft of SMPs: `r nrow(new_wic_smp)`
+Number of New WICs within 100 ft of SMPs: `r colorize(nrow(new_wic_smp),"red")`
 
-Number of Changed WICs within 100 ft of SMPs: `r nrow(changed_wic_smp)`
+Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp), "red")`
 
 ## 5.4 Add New SMP-WIC to MARS DB {.hidden .unlisted}
 
@@ -656,9 +668,9 @@ Number of Changed WICs within 100 ft of SMPs: `r nrow(changed_wic_smp)`
 
 ```
 
-## 5.6 Summary Table of New/Changed WICs within 100 ft of SMPs
+## 5.6 Summary Table of New/Changed WICs within SMPs
 
-### 5.6.1 New WICs around SMPs (100 ft buffer) 
+### 5.6.1 Table 1. New WICs around SMPs (100 ft buffer) 
 
 ```{r Section 5.6.1- Summary Table of New WICs around SMPs, echo=FALSE, results='asis', eval= nrow(new_wic_smp)>0}
       # Prep the table
@@ -669,7 +681,7 @@ Number of Changed WICs within 100 ft of SMPs: `r nrow(changed_wic_smp)`
 
 ```
 
-### 5.6.2 Changed WICs around SMPs (100 ft buffer) 
+### 5.6.2 Table 2. Changed WICs around SMPs (100 ft buffer) 
 
 ```{r Section 5.6.2 - Summary Table of Changed WICs around SMPs, echo=FALSE, results='asis', eval= nrow(changed_wic_smp)>0}
        # Prep the table
