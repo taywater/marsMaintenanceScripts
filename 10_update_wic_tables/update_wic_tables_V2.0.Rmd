@@ -169,10 +169,12 @@ knitr::opts_chunk$set(echo = TRUE)
   
 ```
 
-Number of New Work Orders: `r colorize(nrow(new_wic), "red")`   
+Number of New Work Orders: `r colorize(nrow(new_wic), "red")`
+
 Number of Changed Work Orders: `r colorize(nrow(changed_wic), "red")`
 
-Number of New Comments: `r colorize(nrow(new_comment), "red")`    
+Number of New Comments: `r colorize(nrow(new_comment), "red")`
+
 Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 
 ## 2.2 Write New Work Orders to MARS DB {.hidden .unlisted}
@@ -668,7 +670,7 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 
 ## 5.6 Summary Table of New/Changed WICs within SMPs
 
-### 5.6.1 Table 1. New WICs around SMPs (100 ft buffer) 
+### 5.6.1 Table 1. New WICs around SMPs (100 ft buffer)
 
 ```{r Section 5.6.1- Summary Table of New WICs around SMPs, echo=FALSE, results='asis', eval= nrow(new_wic_smp)>0}
       # Prep the table
@@ -679,7 +681,7 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 
 ```
 
-### 5.6.2 Table 2. Changed WICs around SMPs (100 ft buffer) 
+### 5.6.2 Table 2. Changed WICs around SMPs (100 ft buffer)
 
 ```{r Section 5.6.2 - Summary Table of Changed WICs around SMPs, echo=FALSE, results='asis', eval= nrow(changed_wic_smp)>0}
        # Prep the table
