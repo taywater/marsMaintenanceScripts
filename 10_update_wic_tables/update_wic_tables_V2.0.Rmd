@@ -494,6 +494,14 @@ Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "
     filter(public == TRUE) %>%
     select(-public)
   
+  # system polygons
+  system_sf <- smp_sf
+  system_sf['system_id'] <- gsub('-\\d+$','', system_sf$smp_id)
+  system_sf <- system_sf %>%
+    group_by(system_id) %>%
+    summarize(SHAPE = st_combine(SHAPE)) %>%
+    st_as_sf()
+  
   # New Polygons
   new_smp_sf <- smp_sf %>%
      filter(smp_id %!in% mars_smp_sf$smp_id) %>%
@@ -511,39 +519,39 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 
 ```
 
-# 5. Detect WICs around SMPs
+# 5. Detect WICs around Systems
 
-## 5.1 Intersect WIC Parcels with SMP Polygons and Calculate Distance {.hidden .unlisted}
+## 5.1 Intersect WIC Parcels with System Polygons and Calculate Distance {.hidden .unlisted}
 
-```{r 5.1 Intersect WIC Parcels with SMP Polygons and Calculate Distance, include=FALSE}
+```{r 5.1 Intersect WIC Parcels with System Polygons and Calculate Distance, include=FALSE}
 
   # Create buffer 100 ft buffer around SMPs and intersect them with the WIC Parcels
-  smp_sf_100ft <- st_buffer(smp_sf, 100)
-  smp_wic_intersect <- st_intersects(smp_sf_100ft, wic_propertyline_combined_sf)
+  system_sf_100ft <- st_buffer(system_sf, 100)
+  system_wic_intersect <- st_intersects(system_sf_100ft, wic_propertyline_combined_sf)
   
   intersecting_addresses <- wic_propertyline_combined_sf %>%
     st_set_geometry(NULL)
-  intersecting_smps <- smp_sf_100ft %>%
+  intersecting_systems <- system_sf_100ft %>%
     st_set_geometry(NULL)
   
   # placeholder
-  smp_wic_df <- data.frame(smp_id = as.character(),
+  smp_wic_df <- data.frame(system_id = as.character(),
                            wic_address = as.character(),
                            property_dist_ft = as.numeric(),
                            footprint_dist_ft = as.numeric())
 
   # Develop a dataframe that associate smp_ids with wic property addresses- calculate wmp-wic distances too 
-  for (i in 1:length(smp_wic_intersect)) {
-    if (length(smp_wic_intersect[[i]]) > 0) {
-      for (j in 1:length(smp_wic_intersect[[i]])) {
-        wic_sf_index <- as.vector(smp_wic_intersect[[i]])
+  for (i in 1:length(system_wic_intersect)) {
+    if (length(system_wic_intersect[[i]]) > 0) {
+      for (j in 1:length(system_wic_intersect[[i]])) {
+        wic_sf_index <- as.vector(system_wic_intersect[[i]])
         # property distance
-        temp_smp_wic_prop_dist <- st_distance(smp_sf[i, ], wic_propertyline_combined_sf[wic_sf_index[j], ])
+        temp_smp_wic_prop_dist <- st_distance(system_sf[i, ], wic_propertyline_combined_sf[wic_sf_index[j], ])
         # footprint distance
-        temp_smp_wic_footprint_dist <- st_distance(smp_sf[i, ], filter(wic_footprint_combined_sf, address == wic_propertyline_combined_sf[wic_sf_index[j], ]$address))
+        temp_smp_wic_footprint_dist <- st_distance(system_sf[i, ], filter(wic_footprint_combined_sf, address == wic_propertyline_combined_sf[wic_sf_index[j], ]$address))
         # put the data in a dataframe- using minimum function for footprint in case there are several footprint polygons per address
-        temp_smp_wic_df <- data.frame(smp_id = intersecting_smps[i, ], 
-                                      wic_address = pull(intersecting_addresses[smp_wic_intersect[[i]][j],]),
+        temp_smp_wic_df <- data.frame(system_id = intersecting_systems[i, ], 
+                                      wic_address = pull(intersecting_addresses[system_wic_intersect[[i]][j],]),
                                       property_dist_ft = ifelse(length(temp_smp_wic_prop_dist) > 0, as.numeric(temp_smp_wic_prop_dist), NA),
                                       footprint_dist_ft = ifelse(length(temp_smp_wic_footprint_dist) > 0, min(as.numeric(temp_smp_wic_footprint_dist)), NA)
                                       )
@@ -564,10 +572,10 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   smpbdv <- dbGetQuery(mars_con, "SELECT * FROM  external.tbl_smpbdv")
   smp_milestones <- smpbdv %>%
     inner_join(cipit, by = "worknumber") %>%
-    inner_join(smp_wic_df, by = "smp_id") %>%
+    inner_join(smp_wic_df, by = "system_id") %>%
     inner_join(wic_parcels, by = c("wic_address" = "address")) %>%
     inner_join(cw_workorders, by = "workorder_id") %>%
-    select (smp_id, workorder_id, wic_address, date, property_dist_ft, footprint_dist_ft, construction_start_date, pc_ntp_date, construction_complete_date, contract_closed_date) %>%
+    select (system_id, workorder_id, wic_address, date, property_dist_ft, footprint_dist_ft, construction_start_date, pc_ntp_date, construction_complete_date, contract_closed_date) %>%
     distinct()
   
   #setting the lookup_id's default in smp milestone to 4
@@ -613,61 +621,61 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   }
   
   # prep the final table for writing in DB
-  wic_smp <- smp_milestones %>%
-    select(smp_id, workorder_id, wic_address, con_phase_lookup_uid, footprint_dist_ft, property_dist_ft) %>%
+  wic_system <- smp_milestones %>%
+    select(system_id, workorder_id, wic_address, con_phase_lookup_uid, footprint_dist_ft, property_dist_ft) %>%
     distinct()
   
-  wic_smp[,"footprint_dist_ft"] <- round(wic_smp[,"footprint_dist_ft"])
-  wic_smp[,"property_dist_ft"] <- round(wic_smp[,"property_dist_ft"])
+  wic_system[,"footprint_dist_ft"] <- round(wic_system[,"footprint_dist_ft"])
+  wic_system[,"property_dist_ft"] <- round(wic_system[,"property_dist_ft"])
   
   
 ```
 
-## 5.3 Identify New/Change WIC near SMPs
+## 5.3 Identify New/Change WIC near Systems
 
 ```{r 5.3 Identify New/Change SMP-WIC, include=FALSE}
-  mars_wic_smp <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp")
-  # New wic_smp
-  new_wic_smp <- wic_smp %>%
-     anti_join(mars_wic_smp, by = c("smp_id","workorder_id"))
+  mars_wic_system <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_system")
+  # New wic_system
+  new_wic_system <- wic_system %>%
+     anti_join(mars_wic_system, by = c("system_id","workorder_id"))
   
-  # Changed wic_smp
-  changed_wic_smp <- wic_smp %>%
-     anti_join(new_wic_smp, by = c("smp_id","workorder_id")) %>%
-     anti_join(mars_wic_smp, by = c("smp_id", "workorder_id", "wic_address", "con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
+  # Changed wic_system
+  changed_wic_system <- wic_system %>%
+     anti_join(new_wic_system, by = c("system_id","workorder_id")) %>%
+     anti_join(mars_wic_system, by = c("system_id", "workorder_id", "wic_address", "con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
 
 ```
 
-Number of New WICs within 100 ft of SMPs: `r colorize(nrow(new_wic_smp),"red")`
+Number of New WICs within 100 ft of Systems: `r colorize(nrow(new_wic_system),"red")`
 
-Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp), "red")`
+Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_system), "red")`
 
 ## 5.4 Add New SMP-WIC to MARS DB {.hidden .unlisted}
 
-```{r 5.4 Add New SMP-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_smp) > 0, include=FALSE}
+```{r 5.4 Add New System-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_system) > 0, include=FALSE}
   # add new wic-smp
-   success_wic_smp <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_smp"), new_wic_smp, append= TRUE, row.names = FALSE )
+   success_wic_system <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_system"), new_wic_system, append= TRUE, row.names = FALSE )
 
 ```
 
 ## 5.5 Update Changed SMP-WIC in MARS DB {.hidden .unlisted}
 
-```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_smp) > 0, include=FALSE}
+```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_system) > 0, include=FALSE}
   # update changed wic-smp
-   for (i in 1:nrow(changed_wic_smp)) {
+   for (i in 1:nrow(changed_wic_system)) {
        upwicsmp_sql_string <- sprintf(
-      "UPDATE fieldwork.beta_tbl_wic_smp
+      "UPDATE fieldwork.beta_tbl_wic_system
        SET con_phase_lookup_uid = %s,
            footprint_dist_ft = %s,
            property_dist_ft = %s,
            wic_address = '%s'
-       WHERE workorder_id = %s AND smp_id = '%s';",
-      changed_wic_smp$con_phase_lookup_uid[i],
-      changed_wic_smp$footprint_dist_ft[i],
-      changed_wic_smp$property_dist_ft[i],
-      changed_wic_smp$wic_address[i],
-      changed_wic_smp$workorder_id[i],
-      changed_wic_smp$smp_id[i]
+       WHERE workorder_id = %s AND system_id = '%s';",
+      changed_wic_system$con_phase_lookup_uid[i],
+      changed_wic_system$footprint_dist_ft[i],
+      changed_wic_system$property_dist_ft[i],
+      changed_wic_system$wic_address[i],
+      changed_wic_system$workorder_id[i],
+      changed_wic_system$system_id[i]
   )
 
   # Execute the update statement
@@ -676,15 +684,15 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 
 ```
 
-## 5.6 Summary Table of New/Changed WICs within SMPs
+## 5.6 Summary Table of New/Changed WICs within Systems
 
-### 5.6.1 Table 1. New WICs around SMPs (100 ft buffer)
+### 5.6.1 Table 1. New WICs around Systems (100 ft buffer)
 
-```{r Section 5.6.1- Summary Table of New WICs around SMPs, echo=FALSE, results='asis', eval= nrow(new_wic_smp)>0}
+```{r Section 5.6.1- Summary Table of New WICs around SMPs, echo=FALSE, results='asis', eval= nrow(new_wic_system)>0}
       # Prep the table
-      new_wic_kable <- new_wic_smp %>%
+      new_wic_kable <- new_wic_system %>%
         inner_join(cw_workorders, by = "workorder_id") %>%
-        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id , Date = date,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft) %>%
+        select(`System ID` = system_id, `Work Order ID` = workorder_id , Date = date,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft) %>%
         arrange(desc(Date)) %>%
         distinct()
      
@@ -692,13 +700,13 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 
 ```
 
-### 5.6.2 Table 2. Changed WICs around SMPs (100 ft buffer)
+### 5.6.2 Table 2. Changed WICs around Systems (100 ft buffer)
 
-```{r Section 5.6.2 - Summary Table of Changed WICs around SMPs, echo=FALSE, results='asis', eval= nrow(changed_wic_smp)>0}
+```{r Section 5.6.2 - Summary Table of Changed WICs around SMPs, echo=FALSE, results='asis', eval= nrow(changed_wic_system)>0}
        # Prep the table
-      changed_wic_kable <- changed_wic_smp %>%
+      changed_wic_kable <- changed_wic_system %>%
         inner_join(cw_workorders, by = "workorder_id") %>%
-        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id , Date = date,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft) %>%
+        select(`System ID` = system_id, `Work Order ID` = workorder_id , Date = date,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft) %>%
         arrange(desc(Date)) %>%
         distinct()
       
