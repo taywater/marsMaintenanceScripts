@@ -630,8 +630,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   # Changed wic_smp
   changed_wic_smp <- wic_smp %>%
      anti_join(new_wic_smp, by = c("smp_id","workorder_id")) %>%
-     anti_join(mars_wic_smp, by = c("smp_id", "workorder_id","wic_address","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
-  
+     anti_join(mars_wic_smp, by = c("smp_id", "workorder_id", "wic_address", "con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
 ```
 
 Number of New WICs within 100 ft of SMPs: `r colorize(nrow(new_wic_smp),"red")`
@@ -683,7 +682,10 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
       
       # Prep the table
       new_wic_kable <- new_wic_smp %>%
-        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id ,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
+        inner_join(cw_workorders, by = "workorder_id") %>%
+        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id , Date = date,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft) %>%
+        arrange(desc(Date)) %>%
+        distinct()
      
       kable(new_wic_kable)
 
@@ -698,7 +700,10 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
       
        # Prep the table
       changed_wic_kable <- changed_wic_smp %>%
-        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id, `WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
+        inner_join(cw_workorders, by = "workorder_id") %>%
+        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id , Date = date,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft) %>%
+        arrange(desc(Date)) %>%
+        distinct()
       
       kable(changed_wic_kable)
 
