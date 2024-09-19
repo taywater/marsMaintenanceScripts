@@ -2,10 +2,12 @@
 title: "Update Water in Cellar (WIC) Complaints App-Version 2.0"
 author: "Farshad Ebrahimi"
 date: "`r lubridate::now()`"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 params:
   database: mars14_datav2
-  write: TRUE
+  write: true
 ---
 
 # 0.0 Set Up {.hidden .unlisted}
@@ -565,7 +567,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
     inner_join(smp_wic_df, by = "smp_id") %>%
     inner_join(wic_parcels, by = c("wic_address" = "address")) %>%
     inner_join(cw_workorders, by = "workorder_id") %>%
-    select (smp_id, wic_address, date, property_dist_ft, footprint_dist_ft, construction_start_date, pc_ntp_date, construction_complete_date, contract_closed_date) %>%
+    select (smp_id, workorder_id, wic_address, date, property_dist_ft, footprint_dist_ft, construction_start_date, pc_ntp_date, construction_complete_date, contract_closed_date) %>%
     distinct()
   
   #setting the lookup_id's default in smp milestone to 4
@@ -612,9 +614,9 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   
   # prep the final table for writing in DB
   wic_smp <- smp_milestones %>%
-    select(smp_id, wic_address, con_phase_lookup_uid, footprint_dist_ft, property_dist_ft) %>%
+    select(smp_id, workorder_id, wic_address, con_phase_lookup_uid, footprint_dist_ft, property_dist_ft) %>%
     distinct()
-
+  
 ```
 
 ## 5.3 Identify New/Change WIC near SMPs
@@ -623,12 +625,12 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   mars_wic_smp <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp")
   # New wic_smp
   new_wic_smp <- wic_smp %>%
-     anti_join(mars_wic_smp, by = c("smp_id","wic_address"))
+     anti_join(mars_wic_smp, by = c("smp_id","workorder_id"))
   
   # Changed wic_smp
   changed_wic_smp <- wic_smp %>%
-     anti_join(new_wic_smp, by = c("smp_id","wic_address")) %>%
-     anti_join(mars_wic_smp, by = c("smp_id","wic_address","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
+     anti_join(new_wic_smp, by = c("smp_id","workorder_id")) %>%
+     anti_join(mars_wic_smp, by = c("smp_id", "workorder_id","wic_address","con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
   
 ```
 
@@ -653,12 +655,14 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
       "UPDATE fieldwork.beta_tbl_wic_smp
        SET con_phase_lookup_uid = '%s',
            footprint_dist_ft = '%s',
-           property_dist_ft = '%s'
-       WHERE wic_address = '%s' AND smp_id = '%s';",
+           property_dist_ft = '%s',
+           wic_address = '%s'
+       WHERE workorder_id = %s AND smp_id = '%s';",
       changed_wic_smp$con_phase_lookup_uid[i],
       changed_wic_smp$footprint_dist_ft[i],
       changed_wic_smp$property_dist_ft[i],
       changed_wic_smp$wic_address[i],
+      changed_wic_smp$workorder_id[i],
       changed_wic_smp$smp_id[i]
   )
 
@@ -673,10 +677,14 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 ### 5.6.1 Table 1. New WICs around SMPs (100 ft buffer)
 
 ```{r Section 5.6.1- Summary Table of New WICs around SMPs, echo=FALSE, results='asis', eval= nrow(new_wic_smp)>0}
+      # round digits
+      new_wic_smp[,"footprint_dist_ft"] <- format(round(new_wic_smp[,"footprint_dist_ft"], 2), nsmall = 2)
+      new_wic_smp[,"property_dist_ft"] <- format(round(new_wic_smp[,"property_dist_ft"], 2), nsmall = 2)
+      
       # Prep the table
       new_wic_kable <- new_wic_smp %>%
-        select(`SMP ID` = smp_id, `WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
-      
+        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id ,`WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
+     
       kable(new_wic_kable)
 
 ```
@@ -684,9 +692,13 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 ### 5.6.2 Table 2. Changed WICs around SMPs (100 ft buffer)
 
 ```{r Section 5.6.2 - Summary Table of Changed WICs around SMPs, echo=FALSE, results='asis', eval= nrow(changed_wic_smp)>0}
+       # round digits
+      changed_wic_smp[,"footprint_dist_ft"] <- format(round(changed_wic_smp[,"footprint_dist_ft"], 2), nsmall = 2)
+      changed_wic_smp[,"property_dist_ft"] <- format(round(changed_wic_smp[,"property_dist_ft"], 2), nsmall = 2)
+      
        # Prep the table
       changed_wic_kable <- changed_wic_smp %>%
-        select(`SMP ID` = smp_id, `WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
+        select(`SMP ID` = smp_id, `Work Order ID` = workorder_id, `WIC Address` = wic_address, `Dist. Footprint (ft)` = footprint_dist_ft, `Dist. Property (ft)` = property_dist_ft)
       
       kable(changed_wic_kable)
 
