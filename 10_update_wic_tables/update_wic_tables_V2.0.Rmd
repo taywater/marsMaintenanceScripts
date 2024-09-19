@@ -573,16 +573,16 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   #setting the lookup_id's default in smp milestone to 4
   smp_milestones['con_phase_lookup_uid'] <- 4
   for(i in 1:nrow(smp_milestones)) {
-    if (!is.na(smp_milestones[i, "construction_start_date"]) && !is.na(smp_milestones[i, "construction_complete_date"]) ) {
-        if (smp_milestones[i, "date"] >= smp_milestones[i, "construction_start_date"] && smp_milestones[i, "date"] <= smp_milestones[i, "construction_complete_date"]  ) {
+    if (!is.na(smp_milestones[i, "construction_start_date"]) & !is.na(smp_milestones[i, "construction_complete_date"]) ) {
+        if (smp_milestones[i, "date"] >= smp_milestones[i, "construction_start_date"] & smp_milestones[i, "date"] <= smp_milestones[i, "construction_complete_date"]  ) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 1
         } else if (smp_milestones[i, "date"] < smp_milestones[i, "construction_start_date"]) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 3
         } else {
           smp_milestones[i, "con_phase_lookup_uid"] <- 2
       }
-    } else if (!is.na(smp_milestones[i, "pc_ntp_date"]) && !is.na(smp_milestones[i, "construction_complete_date"] )) {
-        if (smp_milestones[i, "date"] >= smp_milestones[i, "pc_ntp_date"] && smp_milestones[i, "date"] <= smp_milestones[i, "construction_complete_date"]  ) {
+    } else if (!is.na(smp_milestones[i, "pc_ntp_date"]) & !is.na(smp_milestones[i, "construction_complete_date"] )) {
+        if (smp_milestones[i, "date"] >= smp_milestones[i, "pc_ntp_date"] & smp_milestones[i, "date"] <= smp_milestones[i, "construction_complete_date"]  ) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 1
         } else if (smp_milestones[i, "date"] < smp_milestones[i, "pc_ntp_date"]) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 3
@@ -590,16 +590,16 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
           smp_milestones[i, "con_phase_lookup_uid"] <- 2
       }
       
-    } else if (!is.na(smp_milestones[i, "construction_start_date"]) && !is.na(smp_milestones[i, "contract_closed_date"])) {
-        if (smp_milestones[i, "date"] >= smp_milestones[i, "construction_start_date"] && smp_milestones[i, "date"] <= smp_milestones[i, "contract_closed_date"]  ) {
+    } else if (!is.na(smp_milestones[i, "construction_start_date"]) & !is.na(smp_milestones[i, "contract_closed_date"])) {
+        if (smp_milestones[i, "date"] >= smp_milestones[i, "construction_start_date"] & smp_milestones[i, "date"] <= smp_milestones[i, "contract_closed_date"]  ) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 1
         } else if (smp_milestones[i, "date"] < smp_milestones[i, "construction_start_date"]) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 3
         } else {
           smp_milestones[i, "con_phase_lookup_uid"] <- 2
       }
-    } else if (!is.na(smp_milestones[i, "pc_ntp_date"]) && !is.na(smp_milestones[i, "contract_closed_date"])) {
-        if (smp_milestones[i, "date"] >= smp_milestones[i, "pc_ntp_date"] && smp_milestones[i, "date"] <= smp_milestones[i, "contract_closed_date"]  ) {
+    } else if (!is.na(smp_milestones[i, "pc_ntp_date"]) & !is.na(smp_milestones[i, "contract_closed_date"])) {
+        if (smp_milestones[i, "date"] >= smp_milestones[i, "pc_ntp_date"] & smp_milestones[i, "date"] <= smp_milestones[i, "contract_closed_date"]  ) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 1
         } else if (smp_milestones[i, "date"] < smp_milestones[i, "pc_ntp_date"]) {
           smp_milestones[i, "con_phase_lookup_uid"] <- 3
