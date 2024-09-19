@@ -535,7 +535,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
     st_set_geometry(NULL)
   
   # placeholder
-  smp_wic_df <- data.frame(system_id = as.character(),
+  system_wic_df <- data.frame(system_id = as.character(),
                            wic_address = as.character(),
                            property_dist_ft = as.numeric(),
                            footprint_dist_ft = as.numeric())
@@ -546,17 +546,17 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
       for (j in 1:length(system_wic_intersect[[i]])) {
         wic_sf_index <- as.vector(system_wic_intersect[[i]])
         # property distance
-        temp_smp_wic_prop_dist <- st_distance(system_sf[i, ], wic_propertyline_combined_sf[wic_sf_index[j], ])
+        temp_sys_wic_prop_dist <- st_distance(system_sf[i, ], wic_propertyline_combined_sf[wic_sf_index[j], ])
         # footprint distance
-        temp_smp_wic_footprint_dist <- st_distance(system_sf[i, ], filter(wic_footprint_combined_sf, address == wic_propertyline_combined_sf[wic_sf_index[j], ]$address))
+        temp_sys_wic_footprint_dist <- st_distance(system_sf[i, ], filter(wic_footprint_combined_sf, address == wic_propertyline_combined_sf[wic_sf_index[j], ]$address))
         # put the data in a dataframe- using minimum function for footprint in case there are several footprint polygons per address
-        temp_smp_wic_df <- data.frame(system_id = intersecting_systems[i, ], 
+        temp_system_wic_df <- data.frame(system_id = intersecting_systems[i, ], 
                                       wic_address = pull(intersecting_addresses[system_wic_intersect[[i]][j],]),
-                                      property_dist_ft = ifelse(length(temp_smp_wic_prop_dist) > 0, as.numeric(temp_smp_wic_prop_dist), NA),
-                                      footprint_dist_ft = ifelse(length(temp_smp_wic_footprint_dist) > 0, min(as.numeric(temp_smp_wic_footprint_dist)), NA)
+                                      property_dist_ft = ifelse(length(temp_sys_wic_prop_dist) > 0, as.numeric(temp_sys_wic_prop_dist), NA),
+                                      footprint_dist_ft = ifelse(length(temp_sys_wic_footprint_dist) > 0, min(as.numeric(temp_sys_wic_footprint_dist)), NA)
                                       )
         # bind rows
-        smp_wic_df <- bind_rows(smp_wic_df, temp_smp_wic_df)
+        system_wic_df <- bind_rows(system_wic_df, temp_system_wic_df)
       }
     }
   }
@@ -572,7 +572,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   smpbdv <- dbGetQuery(mars_con, "SELECT * FROM  external.tbl_smpbdv")
   smp_milestones <- smpbdv %>%
     inner_join(cipit, by = "worknumber") %>%
-    inner_join(smp_wic_df, by = "system_id") %>%
+    inner_join(system_wic_df, by = "system_id") %>%
     inner_join(wic_parcels, by = c("wic_address" = "address")) %>%
     inner_join(cw_workorders, by = "workorder_id") %>%
     select (system_id, workorder_id, wic_address, date, property_dist_ft, footprint_dist_ft, construction_start_date, pc_ntp_date, construction_complete_date, contract_closed_date) %>%
