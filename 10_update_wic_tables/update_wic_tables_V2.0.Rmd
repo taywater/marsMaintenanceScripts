@@ -631,7 +631,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   
 ```
 
-## 5.3 Identify New/Change WIC near Systems
+## 5.3 Identify New/Changed WIC near Systems
 
 ```{r 5.3 Identify New/Change SMP-WIC, include=FALSE}
   mars_wic_system <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_system")
