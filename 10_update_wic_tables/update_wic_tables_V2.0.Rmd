@@ -617,6 +617,10 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
     select(smp_id, workorder_id, wic_address, con_phase_lookup_uid, footprint_dist_ft, property_dist_ft) %>%
     distinct()
   
+  wic_smp[,"footprint_dist_ft"] <- round(wic_smp[,"footprint_dist_ft"])
+  wic_smp[,"property_dist_ft"] <- round(wic_smp[,"property_dist_ft"])
+  
+  
 ```
 
 ## 5.3 Identify New/Change WIC near SMPs
@@ -631,6 +635,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
   changed_wic_smp <- wic_smp %>%
      anti_join(new_wic_smp, by = c("smp_id","workorder_id")) %>%
      anti_join(mars_wic_smp, by = c("smp_id", "workorder_id", "wic_address", "con_phase_lookup_uid", "footprint_dist_ft", "property_dist_ft")) 
+
 ```
 
 Number of New WICs within 100 ft of SMPs: `r colorize(nrow(new_wic_smp),"red")`
@@ -652,9 +657,9 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
    for (i in 1:nrow(changed_wic_smp)) {
        upwicsmp_sql_string <- sprintf(
       "UPDATE fieldwork.beta_tbl_wic_smp
-       SET con_phase_lookup_uid = '%s',
-           footprint_dist_ft = '%s',
-           property_dist_ft = '%s',
+       SET con_phase_lookup_uid = %s,
+           footprint_dist_ft = %s,
+           property_dist_ft = %s,
            wic_address = '%s'
        WHERE workorder_id = %s AND smp_id = '%s';",
       changed_wic_smp$con_phase_lookup_uid[i],
@@ -676,10 +681,6 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 ### 5.6.1 Table 1. New WICs around SMPs (100 ft buffer)
 
 ```{r Section 5.6.1- Summary Table of New WICs around SMPs, echo=FALSE, results='asis', eval= nrow(new_wic_smp)>0}
-      # round digits
-      new_wic_smp[,"footprint_dist_ft"] <- format(round(new_wic_smp[,"footprint_dist_ft"], 2), nsmall = 2)
-      new_wic_smp[,"property_dist_ft"] <- format(round(new_wic_smp[,"property_dist_ft"], 2), nsmall = 2)
-      
       # Prep the table
       new_wic_kable <- new_wic_smp %>%
         inner_join(cw_workorders, by = "workorder_id") %>%
@@ -694,10 +695,6 @@ Number of Changed WICs within 100 ft of SMPs: `r colorize(nrow(changed_wic_smp),
 ### 5.6.2 Table 2. Changed WICs around SMPs (100 ft buffer)
 
 ```{r Section 5.6.2 - Summary Table of Changed WICs around SMPs, echo=FALSE, results='asis', eval= nrow(changed_wic_smp)>0}
-       # round digits
-      changed_wic_smp[,"footprint_dist_ft"] <- format(round(changed_wic_smp[,"footprint_dist_ft"], 2), nsmall = 2)
-      changed_wic_smp[,"property_dist_ft"] <- format(round(changed_wic_smp[,"property_dist_ft"], 2), nsmall = 2)
-      
        # Prep the table
       changed_wic_kable <- changed_wic_smp %>%
         inner_join(cw_workorders, by = "workorder_id") %>%
