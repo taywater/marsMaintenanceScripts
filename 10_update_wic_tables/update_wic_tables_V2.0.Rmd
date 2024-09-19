@@ -3,8 +3,8 @@ title: "Update Water in Cellar (WIC) Complaints App-Version 2.0"
 author: "Farshad Ebrahimi"
 date: "`r lubridate::now()`"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 params:
   database: mars14_datav2
   write: true
