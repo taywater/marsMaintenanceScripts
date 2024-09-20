@@ -10,7 +10,7 @@ params:
   write: true
 ---
 
-# 0.0 Set Up {.hidden .unlisted}
+# 0.0 Set Up 
 
 ```{r setup libraries and place holder data structures, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
