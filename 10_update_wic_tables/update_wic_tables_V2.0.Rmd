@@ -684,7 +684,7 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
 
 ```
 
-## 5.6 Summary Table of New/Changed WICs within Systems
+## 5.6 Summary Table of New/Changed WICs near Systems
 
 ### 5.6.1 Table 1. New WICs around Systems (100 ft buffer)
 
