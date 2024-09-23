@@ -423,7 +423,7 @@ Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "
 ```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0, include=FALSE}
 
   # add new wic propertylines
-   success_property_sf <- st_write(obj = wic_propertyline_combined_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"), append = TRUE)
+   success_property_sf <- st_write(obj = new_wic_propertyline_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"), append = TRUE)
 
 ```
 
@@ -432,7 +432,7 @@ Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "
 ```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0, include=FALSE}
 
   # add new wic footprints
-   success_footprint_sf <- st_write(obj = wic_footprint_combined_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
+   success_footprint_sf <- st_write(obj = new_wic_footprint_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
 
 ```
 
