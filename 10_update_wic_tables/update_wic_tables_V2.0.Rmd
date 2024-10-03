@@ -141,8 +141,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r 2.1 Checking for new WIC complaints, new WIC comments and changed ones, include=FALSE}
    
  # MARS wic and comments
-   mars_workorders <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_workorder")
-   mars_comments <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_comment")
+   mars_workorders <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_workorder")
+   mars_comments <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_comment")
    
  # remove \r & \n for the sake of comparison and replace special char
    mars_comments$comment <- gsub("[\r\n]", "", mars_comments$comment)
@@ -184,7 +184,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 ```{r 2.2 Writing workorders to MARS DB, eval= params$write == TRUE & nrow(new_wic) > 0, include=FALSE}
 
  # add new work orders
-   success_wo <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_workorder"), new_wic, append= TRUE, row.names = FALSE )
+   success_wo <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_workorder"), new_wic, append= TRUE, row.names = FALSE )
 
 ```
 
@@ -195,7 +195,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
    for (i in 1:nrow(changed_wic)) {
      
       wo_sql_string <- sprintf(
-      "UPDATE fieldwork.beta_tbl_wic_workorder SET date = '%s', address = '%s',  xcoordinate = %s, ycoordinate= %s,facility_id = '%s' WHERE workorder_id = %s;",
+      "UPDATE fieldwork.tbl_wic_workorder SET date = '%s', address = '%s',  xcoordinate = %s, ycoordinate= %s,facility_id = '%s' WHERE workorder_id = %s;",
       changed_wic$date[i],
       changed_wic$address[i],
       changed_wic$xcoordinate[i],
@@ -215,7 +215,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 ```{r 2.4 Writing New Comments to MARS DB, eval= params$write == TRUE & nrow(new_comment) > 0, include=FALSE}
 
  # add new comments
-   success_comments <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_comment"), new_comment, append= TRUE, row.names = FALSE )
+   success_comments <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_comment"), new_comment, append= TRUE, row.names = FALSE )
 
 ```
 
@@ -227,7 +227,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
    for (i in 1:nrow(changed_comment)) {
      
       upcomm_sql_string <- sprintf(
-      "UPDATE fieldwork.beta_tbl_wic_comment set comment = '%s' WHERE workorder_id = %s AND comment_id = %s;",
+      "UPDATE fieldwork.tbl_wic_comment set comment = '%s' WHERE workorder_id = %s AND comment_id = %s;",
       changed_comment$comment[i],
       changed_comment$workorder_id[i],
       changed_comment$comment_id[i]
@@ -323,7 +323,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
   wic_parcels <- bind_rows(wicparcel_join_address, wicparcel_join_facilityid, wicparcel_xy)
  
  # pull wic parcels from MARS DB
-  mars_wic_parcels <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_parcel")
+  mars_wic_parcels <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_parcel")
   
  # new wic parcel
   new_wic_parcel <- wic_parcels %>%
@@ -344,7 +344,7 @@ Number of Changed WIC Parcels: `r colorize(nrow(changed_wic_parcel), "red")`
 
 ```{r 3.5 Writing new wic parcels to MARS DB , eval= params$write == TRUE & nrow(new_wic_parcel) > 0, include=FALSE}
   # add new wic parcels
-   success_wicparcels <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_parcel"), new_wic_parcel, append= TRUE, row.names = FALSE )
+   success_wicparcels <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_parcel"), new_wic_parcel, append= TRUE, row.names = FALSE )
 
 ```
 
@@ -355,7 +355,7 @@ Number of Changed WIC Parcels: `r colorize(nrow(changed_wic_parcel), "red")`
    for (i in 1:nrow(changed_wic_parcel)) {
      
       upwicparcel_sql_string <- sprintf(
-      "UPDATE fieldwork.beta_tbl_wic_parcel set address = '%s', facility_id = '%s' WHERE workorder_id = %s;",
+      "UPDATE fieldwork.tbl_wic_parcel set address = '%s', facility_id = '%s' WHERE workorder_id = %s;",
       changed_wic_parcel$address[i],
       changed_wic_parcel$facility_id[i],
       changed_wic_parcel$workorder_id[i]
@@ -378,9 +378,9 @@ Number of Changed WIC Parcels: `r colorize(nrow(changed_wic_parcel), "red")`
    select(address = ADDRESS)
  
  # pull MARS's spatial polygons
-  mars_footprint_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"))
-  mars_propertyline_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"))
-  mars_smp_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_smp_geom"))
+  mars_footprint_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_footprint_geom"))
+  mars_propertyline_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_propertyline_geom"))
+  mars_smp_sf  <- st_read(dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_smp_geom"))
 
  # find wic property lines
  wic_propertyline_sf <- pwd_parcels_sf %>%
@@ -423,7 +423,7 @@ Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "
 ```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0, include=FALSE}
 
   # add new wic propertylines
-   success_property_sf <- st_write(obj = new_wic_propertyline_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_propertyline_geom"), append = TRUE)
+   success_property_sf <- st_write(obj = new_wic_propertyline_sf, dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_propertyline_geom"), append = TRUE)
 
 ```
 
@@ -432,7 +432,7 @@ Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "
 ```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0, include=FALSE}
 
   # add new wic footprints
-   success_footprint_sf <- st_write(obj = new_wic_footprint_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_footprint_geom"), append = TRUE)
+   success_footprint_sf <- st_write(obj = new_wic_footprint_sf, dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_footprint_geom"), append = TRUE)
 
 ```
 
@@ -440,7 +440,7 @@ Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "
 
 ```{r 4.3 Identify New SMP polygons, include=FALSE}
   # pull mars polygons
-  mars_smp_sf <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_smp_geom")
+  mars_smp_sf <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_smp_geom")
 
   # SMP Polygons from GIS. all CRS set at 2272 coordinate system to be consistent with pwd_parcels and footprint CRS
   basin <- suppressWarnings(st_read(gisapps_con, "gisad.GSWIBASIN", quiet = TRUE)) %>%
@@ -515,7 +515,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 
 ```{r 4.4 New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_smp_sf) > 0, include=FALSE}
   # add new smp polygons with postgis
-   success_smppoly <- st_write(obj = new_smp_sf, dsn = mars_con, Id(schema="fieldwork", table = "beta_tbl_wic_smp_geom"), append = TRUE)
+   success_smppoly <- st_write(obj = new_smp_sf, dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_smp_geom"), append = TRUE)
 
 ```
 
@@ -634,10 +634,10 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 ## 5.3 Identify New/Changed WIC near Systems
 
 ```{r 5.3 Identify New/Change SMP-WIC, include=FALSE}
-  mars_wic_system <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_system")
+  mars_wic_system <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_system")
   # updating tables with the system ids and workorder ids for status record keeping
-  mars_wic_system_status <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_system_status")
-  mars_wic_wo_status <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.beta_tbl_wic_wo_status")
+  mars_wic_system_status <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_system_status")
+  mars_wic_wo_status <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_wo_status")
 
   # New wic_system
   new_wic_system <- wic_system %>%
@@ -670,7 +670,7 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
 
 ```{r 5.4 Add New System-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_system) > 0, include=FALSE}
   # add new wic-smp
-   success_wic_system <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_system"), new_wic_system, append= TRUE, row.names = FALSE )
+   success_wic_system <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_system"), new_wic_system, append= TRUE, row.names = FALSE )
 
 ```
 
@@ -680,7 +680,7 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
   # update changed wic-smp
    for (i in 1:nrow(changed_wic_system)) {
        upwicsmp_sql_string <- sprintf(
-      "UPDATE fieldwork.beta_tbl_wic_system
+      "UPDATE fieldwork.tbl_wic_system
        SET con_phase_lookup_uid = %s,
            footprint_dist_ft = %s,
            property_dist_ft = %s,
@@ -705,7 +705,7 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
 
 ```{r 5.6 Add New  Unique Systems to MARS DB for Status Record Keeping, eval= params$write == TRUE & nrow(new_wic_system_status) > 0, include=FALSE}
   # add new wic-smp
-   success_wic_system_status <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_system_status"), new_wic_system_status, append= TRUE, row.names = FALSE )
+   success_wic_system_status <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_system_status"), new_wic_system_status, append= TRUE, row.names = FALSE )
 
 ```
 
@@ -713,7 +713,7 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
 
 ```{r 5.7 Add New  Unique Workorder ids to MARS DB for Status Record Keeping, eval= params$write == TRUE & nrow(new_wic_wo_status) > 0, include=FALSE}
   # add new wic-smp
-   success_wic_wo_status <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "beta_tbl_wic_wo_status"), new_wic_wo_status, append= TRUE, row.names = FALSE )
+   success_wic_wo_status <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_wo_status"), new_wic_wo_status, append= TRUE, row.names = FALSE )
 
 ```
 
