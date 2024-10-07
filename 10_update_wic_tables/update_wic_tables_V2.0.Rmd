@@ -131,6 +131,8 @@ knitr::opts_chunk$set(echo = TRUE)
    # filter comments to WIC related ones
    cw_comments <- cw_comments %>%
      filter(workorder_id %in% cw_workorders$workorder_id)
+   # Use sub() to remove everything up to and including the first occurrence of "Comments:". this is to make comments more readable
+   cw_comments$comment <- sub(".*?Comments: ", "", cw_comments$comment)
 
 ```
 
