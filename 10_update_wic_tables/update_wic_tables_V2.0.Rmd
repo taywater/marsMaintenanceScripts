@@ -143,9 +143,10 @@ knitr::opts_chunk$set(echo = TRUE)
    mars_workorders <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_workorder")
    mars_comments <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_comment")
    
- # Remove \r and replace \n with <br> for reactable. Also replace special chars   
+ # Remove \r and replace \n with <br> for reactable. skip any remaining backslash. Also replace special chars   
    cw_comments$comment <- gsub("[\r]", "", cw_comments$comment)
    cw_comments$comment <- gsub("\\n", "<br>", cw_comments$comment)
+   cw_comments$comment <- gsub('\'', '\'\'',  cw_comments$comment)
    cw_comments$comment <- special_char_replace(cw_comments$comment)
 
  # New WICs
