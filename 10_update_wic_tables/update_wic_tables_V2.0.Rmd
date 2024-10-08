@@ -10,7 +10,7 @@ params:
   write: true
 ---
 
-# 0.0 Set Up 
+# 0.0 Set Up
 
 ```{r setup libraries and place holder data structures, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -131,9 +131,6 @@ knitr::opts_chunk$set(echo = TRUE)
    # filter comments to WIC related ones
    cw_comments <- cw_comments %>%
      filter(workorder_id %in% cw_workorders$workorder_id)
-   # Use sub() to remove everything up to and including the first occurrence of "Comments:". this is to make comments more readable
-   cw_comments$comment <- sub(".*?Comments: ", "", cw_comments$comment)
-
 ```
 
 # 2. Processing New/Changed Work Orders and Comments
@@ -146,12 +143,10 @@ knitr::opts_chunk$set(echo = TRUE)
    mars_workorders <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_workorder")
    mars_comments <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_comment")
    
- # remove \r & \n for the sake of comparison and replace special char
-   mars_comments$comment <- gsub("[\r\n]", "", mars_comments$comment)
-   cw_comments$comment <- gsub("[\r\n]", "", cw_comments$comment)
-   
-   comment_nobackslash <- gsub('\'', '\'\'',  cw_comments$comment)
-   cw_comments$comment <- special_char_replace(comment_nobackslash)
+ # Remove \r and replace \n with <br> for reactable. Also replace special chars   
+   cw_comments$comment <- gsub("[\r]", "", cw_comments$comment)
+   cw_comments$comment <- gsub("\\n", "<br>", cw_comments$comment)
+   cw_comments$comment <- special_char_replace(cw_comments$comment)
 
  # New WICs
    new_wic <- cw_workorders %>%
@@ -702,7 +697,6 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
 
 ```
 
-
 ## 5.6 Add New Unique Systems to MARS DB for Status Record Keeping {.hidden .unlisted}
 
 ```{r 5.6 Add New  Unique Systems to MARS DB for Status Record Keeping, eval= params$write == TRUE & nrow(new_wic_system_status) > 0, include=FALSE}
@@ -718,7 +712,6 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
    success_wic_wo_status <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_wo_status"), new_wic_wo_status, append= TRUE, row.names = FALSE )
 
 ```
-
 
 ## 5.8 Summary Table of New/Changed WICs near Systems
 
