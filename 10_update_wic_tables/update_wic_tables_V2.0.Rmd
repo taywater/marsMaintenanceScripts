@@ -538,7 +538,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
                            property_dist_ft = as.numeric(),
                            footprint_dist_ft = as.numeric())
 
-  # Develop a dataframe that associate smp_ids with wic property addresses- calculate wmp-wic distances too 
+  # Develop a dataframe that associate smp_ids with wic property addresses- calculate smp-wic distances too 
   for (i in 1:length(system_wic_intersect)) {
     if (length(system_wic_intersect[[i]]) > 0) {
       for (j in 1:length(system_wic_intersect[[i]])) {
