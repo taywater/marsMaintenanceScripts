@@ -3,6 +3,8 @@
 # Version 3.0
 
 ## Set Up 1.0 ----
+.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
+
 #Dplyr stuff
   library(magrittr)
   library(tidyverse)
@@ -210,3 +212,5 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
                            note = "Execution Successful")
   
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+
+  

@@ -9,6 +9,8 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+#Configure libraries to use script versions and not shiny versions
+.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
 
 #Dplyr stuff
 library(magrittr)
@@ -220,32 +222,32 @@ log_code <- digest(now()) #Unique ID for the log batches
   dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
 
 
-    tryCatch(
+  tryCatch(
 
-      expr = {
-        dbWriteTable(marsDBCon, 
-          DBI::SQL("admin.tbl_baro_rawfile"), 
-          output_filetable, 
-          append= TRUE, 
-          row.names = FALSE)
-        success <<- TRUE
-        },
-      error = function(e) {
-        kill <<- TRUE
-        errorCode <<- 3
-        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-      }
-    )
-  
-    #Writing file counts
-    if(!kill){ #If the write succeeded
-      logMessage <- data.frame(date = as.Date(today()),
-                           records = nrow(output_filetable),
-                           type = "Files",
-                           hash = log_code)
-  
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
+    expr = {
+      dbWriteTable(marsDBCon, 
+        DBI::SQL("admin.tbl_baro_rawfile"), 
+        output_filetable, 
+        append= TRUE, 
+        row.names = FALSE)
+      success <<- TRUE
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 3
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(output_filetable),
+                         type = "Files",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 

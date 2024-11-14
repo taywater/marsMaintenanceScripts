@@ -7,6 +7,9 @@ output: html_document
 ---
 
 ```{r 0.1: Setup and Database Connections, include=FALSE}
+#Configure libraries to use script versions and not shiny versions
+.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
+
 #database packages
 library(odbc)
 
@@ -322,29 +325,29 @@ This script is attempting to update DataConv tables within the `external` schema
 
 ```{r Section 4 - Identify differnces between tables, include=FALSE}
 #Anti join to find what is different
-    anti_basin <- anti_join(db_basin, hash_basin)
-    anti_blueroof <- anti_join(db_blueroof, hash_blueroof)
-    anti_bumpout <- anti_join(db_bumpout, hash_bumpout)
-    anti_cistern <- anti_join(db_cistern, hash_cistern)
-    anti_drainagewell <- anti_join(db_drainagewell, hash_drainagewell)
-    anti_greenroof <- anti_join(db_greenroof, hash_greenroof)
-    anti_permeablepavement <- anti_join(db_permeablepavement, hash_permeablepavement)
-    anti_planter <- anti_join(db_planter, hash_planter)
-    anti_raingarden <- anti_join(db_raingarden, hash_raingarden)
-    anti_swale <- anti_join(db_swale, hash_swale)
-    anti_tree <- anti_join(db_tree, hash_tree)
-    anti_treetrench <- anti_join(db_treetrench, hash_treetrench)
-    anti_trench <- anti_join(db_trench, hash_trench)
-    anti_wetland <- anti_join(db_wetland, hash_wetland)
+    anti_basin <- anti_join(hash_basin, db_basin)
+    anti_blueroof <- anti_join(hash_blueroof, db_blueroof)
+    anti_bumpout <- anti_join(hash_bumpout, db_bumpout)
+    anti_cistern <- anti_join(hash_cistern, db_cistern)
+    anti_drainagewell <- anti_join(hash_drainagewell, db_drainagewell)
+    anti_greenroof <- anti_join(hash_greenroof, db_greenroof)
+    anti_permeablepavement <- anti_join(hash_permeablepavement, db_permeablepavement)
+    anti_planter <- anti_join(hash_planter, db_planter)
+    anti_raingarden <- anti_join(hash_raingarden, db_raingarden)
+    anti_swale <- anti_join(hash_swale, db_swale)
+    anti_tree <- anti_join(hash_tree, db_tree)
+    anti_treetrench <- anti_join(hash_treetrench, db_treetrench)
+    anti_trench <- anti_join(hash_trench, db_trench)
+    anti_wetland <- anti_join(hash_wetland, db_wetland)
 
-    anti_cleanout <- anti_join(db_cleanout, hash_cleanout)
-    anti_controlstructure <- anti_join(db_controlstructure, hash_controlstructure)
-    anti_conveyance <- anti_join(db_conveyance, hash_conveyance)
-    anti_fitting <- anti_join(db_fitting, hash_fitting)
-    anti_inlet <- anti_join(db_inlet, hash_inlet)
-    anti_manhole <- anti_join(db_manhole, hash_manhole)
-    anti_observationwell <- anti_join(db_observationwell, hash_observationwell)
-    anti_structure <- anti_join(db_structure, hash_structure)
+    anti_cleanout <- anti_join(hash_cleanout, db_cleanout)
+    anti_controlstructure <- anti_join(hash_controlstructure, db_controlstructure)
+    anti_conveyance <- anti_join(hash_conveyance, db_conveyance)
+    anti_fitting <- anti_join(hash_fitting, db_fitting)
+    anti_inlet <- anti_join(hash_inlet, db_inlet)
+    anti_manhole <- anti_join(hash_manhole, db_manhole)
+    anti_observationwell <- anti_join(hash_observationwell, db_observationwell)
+    anti_structure <- anti_join(hash_structure, db_structure)
 
 #Filter to detect new items instead of edits
 #New assets will have new facility IDs
@@ -594,93 +597,71 @@ if(newAssets){
 #Set UID to be the last column to facilitate the substitution mechanism in dbSendQuery
    
     update_basin = anti_join(anti_basin, new_basin) %>%
-        left_join(select(db_basin, gswibasin_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_basin, gswibasin_uid, facility_id)) 
 
     update_blueroof = anti_join(anti_blueroof, new_blueroof) %>%
-        left_join(select(db_blueroof, gswiblueroof_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_blueroof, gswiblueroof_uid, facility_id)) 
 
     update_bumpout = anti_join(anti_bumpout, new_bumpout) %>%
-        left_join(select(db_bumpout, gswibumpout_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_bumpout, gswibumpout_uid, facility_id)) 
 
     update_cistern = anti_join(anti_cistern, new_cistern) %>%
-        left_join(select(db_cistern, gswicistern_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_cistern, gswicistern_uid, facility_id)) 
 
     update_drainagewell = anti_join(anti_drainagewell, new_drainagewell) %>%
-        left_join(select(db_drainagewell, gswidrainagewell_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_drainagewell, gswidrainagewell_uid, facility_id)) 
 
     update_greenroof = anti_join(anti_greenroof, new_greenroof) %>%
-        left_join(select(db_greenroof, gswigreenroof_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_greenroof, gswigreenroof_uid, facility_id)) 
 
     update_permeablepavement = anti_join(anti_permeablepavement, new_permeablepavement) %>%
-        left_join(select(db_permeablepavement, gswipermeablepavement_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_permeablepavement, gswipermeablepavement_uid, facility_id)) 
 
     update_planter = anti_join(anti_planter, new_planter) %>%
-        left_join(select(db_planter, gswiplanter_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_planter, gswiplanter_uid, facility_id)) 
 
     update_raingarden = anti_join(anti_raingarden, new_raingarden) %>%
-        left_join(select(db_raingarden, gswiraingarden_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_raingarden, gswiraingarden_uid, facility_id)) 
 
     update_swale = anti_join(anti_swale, new_swale) %>%
-        left_join(select(db_swale, gswiswale_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_swale, gswiswale_uid, facility_id)) 
 
     update_tree = anti_join(anti_tree, new_tree) %>%
-        left_join(select(db_tree, gswitree_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_tree, gswitree_uid, facility_id)) 
 
     update_treetrench = anti_join(anti_treetrench, new_treetrench) %>%
-        left_join(select(db_treetrench, gswitreetrench_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_treetrench, gswitreetrench_uid, facility_id)) 
 
     update_trench = anti_join(anti_trench, new_trench) %>%
-        left_join(select(db_trench, gswitrench_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_trench, gswitrench_uid, facility_id)) 
 
     update_wetland = anti_join(anti_wetland, new_wetland) %>%
-        left_join(select(db_wetland, gswiwetland_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_wetland, gswiwetland_uid, facility_id)) 
 
 
     update_cleanout <- anti_join(anti_cleanout, new_cleanout) %>%
-        left_join(select(db_cleanout, gswicleanout_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_cleanout, gswicleanout_uid, facility_id)) 
 
     update_controlstructure <- anti_join(anti_controlstructure, new_controlstructure) %>%
-        left_join(select(db_controlstructure, gswicontrolstructure_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_controlstructure, gswicontrolstructure_uid, facility_id)) 
 
     update_conveyance <- anti_join(anti_conveyance, new_conveyance) %>%
-        left_join(select(db_conveyance, gswiconveyance_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_conveyance, gswiconveyance_uid, facility_id)) 
 
     update_fitting <- anti_join(anti_fitting, new_fitting) %>%
-        left_join(select(db_fitting, gswifitting_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_fitting, gswifitting_uid, facility_id)) 
 
     update_inlet <- anti_join(anti_inlet, new_inlet) %>%
-        left_join(select(db_inlet, gswiinlet_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_inlet, gswiinlet_uid, facility_id)) 
 
     update_manhole <- anti_join(anti_manhole, new_manhole) %>%
-        left_join(select(db_manhole, gswimanhole_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_manhole, gswimanhole_uid, facility_id)) 
 
     update_observationwell <- anti_join(anti_observationwell, new_observationwell) %>%
-        left_join(select(db_observationwell, gswiobservationwell_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_observationwell, gswiobservationwell_uid, facility_id)) 
 
     update_structure <- anti_join(anti_structure, new_structure) %>%
-        left_join(select(db_structure, gswistructure_uid, facility_id)) %>%
-        select(2:ncol(.), 1)
+        left_join(select(db_structure, gswistructure_uid, facility_id)) 
     
     newUpdates = FALSE #Set true if any of the above objects are
 

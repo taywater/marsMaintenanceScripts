@@ -9,14 +9,19 @@ output: html_document
 
 ```{r setup, include=FALSE}
 
+#Configure libraries to use script versions and not shiny versions
+.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
+
 #Dplyr stuff
 library(magrittr)
 library(tidyverse)
 library(lubridate)
+library(data.table)
 
 #Database Stuff
 library(RODBC)
 library(odbc)
+library(DBI)
 
 #Other stuff
 library(knitr)
@@ -382,7 +387,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 ```
 
 
-```{r Section 2B - Writing to the tbl_gw_depthdata table, include = FALSE, eval = nrow(display_newdata) > 0}	
+```{r Section 2B - Writing to the tbl_gw_depthdata table, echo = FALSE, eval = nrow(display_newdata) > 0}	
   knitr::asis_output(paste0("###The ", nrow(display_newdata), " updated wells contain ", nrow(newdata), " new Groundwater data points"))
 
   kable(display_newdata)
@@ -479,11 +484,125 @@ log_code <- digest(now()) #Unique ID for the log batches
 
 ```
 
+```{r Section 3 - Data Gaps, echo = FALSE}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 8,
+                           exit_code = NA,
+                           note = "Checking for data gaps")
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
+data_gaps_current <- odbc::dbGetQuery(marsDBCon, "SELECT * FROM data.tbl_datagaps")
+
+#query the collection calendar and arrange by deployment_uid
+collect_query <- "select *, admin.fun_smp_to_system(smp_id) as system_id ,data.fun_date_to_fiscal_quarter(cast(date_100percent AS DATE)) as expected_fiscal_quarter, data.fun_date_to_fiscal_quarter(cast(collection_dtime_est AS DATE)) as collected_fiscal_quarter from fieldwork.viw_qaqc_deployments"
+deployments_df <- odbc::dbGetQuery(marsDBCon, collect_query) %>%
+  select(smp_id, deployment_uid ,ow_uid, ow_suffix, deployment_dtime_est, collection_dtime_est, date_100percent, type, term) %>%
+  filter(type == "LEVEL" & (term == "Short" | term == "Long")) %>%
+  na.omit() %>%
+  mutate(dif = as.numeric(collection_dtime_est - date_100percent)) %>%
+  mutate(reference_date = fifelse(dif > 0, as.POSIXct(date_100percent), as.POSIXct(collection_dtime_est)))
+
+# Data day for level
+level_data_day <- odbc::dbGetQuery(marsDBCon, "SELECT * FROM data.mat_level_data_day") %>%
+  mutate(level_data_exist = "Yes")
+# Data day for gw
+gw_data_day <- odbc::dbGetQuery(marsDBCon,"SELECT * FROM data.mat_gw_data_day") %>%
+  mutate(gw_data_exist = "Yes")
+
+deployments_df <- deployments_df %>%
+                    select(deployment_uid ,ow_uid, ow_suffix, deployment_dtime_est, collection_dtime_est, reference_date, type, term) %>%
+                    filter(type == "LEVEL" & (term == "Short" | term == "Long")) %>%
+                    na.omit() %>%
+                    mutate(datagap_days = NA)
+
+# checking the data contunity for collected sensors. long/short level data sensors
+deployments_df <- deployments_df %>%
+                                select(deployment_uid ,ow_uid, ow_suffix, deployment_dtime_est, collection_dtime_est, reference_date, type, term) %>%
+                                filter(type == "LEVEL" & (term == "Short" | term == "Long")) %>%
+                                na.omit() %>%
+                                mutate(datagap_days = NA)
+
+# loop through deployments and assign a boolean datagap status using left-join tool. To do this, a squence of days are created from deployment to collection and is
+# left-joined by the data-day time-series to expose gaps
+  for (i in 1:nrow(deployments_df)) {
+    
+    dates <- seq(from=as.Date(deployments_df$deployment_dtime_est[i]), to=as.Date(deployments_df$reference_date[i]), by = "days")
+    dates <- as.data.frame(dates)
+    
+    if (deployments_df$ow_suffix[i] == "GW1" | deployments_df$ow_suffix[i] == "GW2" | deployments_df$ow_suffix[i] == "GW3" | deployments_df$ow_suffix[i] == "GW4" | deployments_df$ow_suffix[i] == "GW5" | deployments_df$ow_suffix[i] == "CW1"){
+      
+      data_df <- gw_data_day %>%
+        filter(ow_uid == deployments_df$ow_uid[i]) 
+      data_check <- dates %>%
+        left_join(data_df, by = c("dates" = "gw_data_day")) 
+      deployments_df[i,"datagap_days"] <- sum(is.na(data_check$gw_data_exist))
+      
+    } else {
+      
+      data_df <- level_data_day %>%
+        filter(ow_uid == deployments_df$ow_uid[i]) 
+      data_check <- dates %>%
+        left_join(data_df, by = c("dates" = "level_data_day")) 
+      # only flag of there is more than 2 days of data gaps (excluding deployment and collection dates)
+      deployments_df[i,"datagap_days"] <- sum(is.na(data_check$level_data_exist))
+      
+    }
+  }
+
+# prep and write to db, look for new deployments and those with updated gapdays
+datagaps <- deployments_df %>%
+  select(deployment_uid, datagap_days) %>%
+  anti_join(data_gaps_current, by = c("deployment_uid","datagap_days"))
+
+```
+
+```{r Section 3B - Writing data gaps, eval = all(nrow(datagaps) > 0, !kill)}
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 9,
+                           exit_code = NA,
+                           note = "Writing data gaps")
+  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+
+  
+  tryCatch(
+  
+        expr = {
+            # delete values that have changed 
+            sql_string <- "delete from data.tbl_datagaps WHERE deployment_uid = %s;"
+            dbSendStatement(marsDBCon, paste(sprintf(sql_string, datagaps$deployment_uid), collapse=""))
+            
+            # write the new data and data with updated values to DB
+            dbWriteTable(marsDBCon, Id(schema = "data", table = "tbl_datagaps"), datagaps, append= TRUE, row.names = FALSE )
+            success <<- TRUE
+          },
+        error = function(e) {
+          kill <<- TRUE
+          errorCode <<- 4
+          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+        }
+      )
+
+  if(!kill)
+  {
+    #Writing file counts
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(datagaps),
+                         type = "Data gaps",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE) 
+  }
+  
+  
+
+```
 # Script Results: SUCCESS
 ## Exit Code: `r errorCode`
 ## Exit Message: `r errorCodes$message[errorCode+1]`
 
-```{r Section 3 - Close DB connections and render this file, include = FALSE}
+```{r Section 4 - Close DB connections and render this file, include = FALSE}
 	#Close database connections
 
   ###Log: End

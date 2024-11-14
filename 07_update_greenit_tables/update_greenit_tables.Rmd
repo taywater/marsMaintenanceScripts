@@ -11,6 +11,9 @@ knitr::opts_chunk$set(echo = FALSE)
 
 #libraries
 
+#Configure libraries to use script versions and not shiny versions
+.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
+
 #database packages
 library(odbc)
 

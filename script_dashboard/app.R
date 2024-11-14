@@ -25,7 +25,7 @@ library(DBI)
 
 #set default page length for datatables
 options(DT.options = list(pageLength = 15))
-version = '1.2.5'
+version = '1.2.6'
 
 #set db connection
 #using a pool connection so separate connnections are unified

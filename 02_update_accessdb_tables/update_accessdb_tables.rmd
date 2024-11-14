@@ -11,6 +11,10 @@ params:
 
 ```{r setup, include=FALSE}
 
+#Configure libraries to use script versions and not shiny versions
+.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
+
+
 #Dplyr stuff
 library(magrittr)
 library(tidyverse)
