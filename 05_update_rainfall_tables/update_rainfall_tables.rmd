@@ -10,9 +10,6 @@ params:
 ---
 
 ```{r setup, include=FALSE}
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
 #Database Stuff
 library(odbc)
 library(tidyverse)
@@ -69,7 +66,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Testing DB connections")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
 	
 ```
 
@@ -85,7 +82,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -99,7 +96,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Gathering Gage Data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
   
   #Read the rain gage data from the mars database
@@ -152,12 +149,12 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Writing Gage Data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_rain"), newgagedata, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, RPostgres::Id(schema = "data", table = "tbl_gage_rain"), newgagedata, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -173,7 +170,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            type = "Gage Records",
                            hash = logCode)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
 
 
@@ -191,7 +188,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -204,7 +201,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Processing Gage Events")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
 
   #Read the rain gage data from the mars database
   #This query will grab all data from after the end of the latest event for each gage
@@ -250,13 +247,13 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Writing Gage Events")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     
   
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_gage_event"), rain_newevents, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, RPostgres::Id(schema = "data", table = "tbl_gage_event"), rain_newevents, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -272,7 +269,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            type = "Gage Events",
                            hash = logCode)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
 
 
@@ -290,7 +287,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)  
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)  
   
   knitr::knit_exit()
 
@@ -303,7 +300,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Gathering Radar Data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)  
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)  
 
   #Assess raw files in our DB and H&H
   db_rawfiles <- dbGetQuery(marsDBCon, "select * from admin.tbl_radar_rawfile")
@@ -377,12 +374,12 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Writing Radar Data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_radar_rawfile"), new_rawfiles, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, RPostgres::Id(schema = "admin", table = "tbl_radar_rawfile"), new_rawfiles, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -398,13 +395,13 @@ logCode <- digest(now()) #Unique ID for the log batches
                            type = "Radar Files",
                            hash = logCode)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
     
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_radar_rain"), newradardata, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, RPostgres::Id(schema = "data", table = "tbl_radar_rain"), newradardata, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -420,7 +417,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            type = "Radar Records",
                            hash = logCode)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
 
 ```
@@ -437,7 +434,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -450,7 +447,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Processing Radar Events")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
 
   #Read the radar data from the mars database
   #This query will grab all data from after the end of the latest event for each cell
@@ -499,12 +496,12 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Writing Radar Events")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("data.tbl_radar_event"), rain_newevents, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, RPostgres::Id(schema = "data", table = "tbl_radar_event"), rain_newevents, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -520,7 +517,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            type = "Radar Records",
                            hash = logCode)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_rainfall"), logMessage, append = TRUE, row.names=FALSE)
     }
 
 ```
@@ -537,7 +534,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -556,7 +553,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_rainfall"), logMessage, append = TRUE, row.names=FALSE)
 
 	dbDisconnect(marsDBCon)
 ```

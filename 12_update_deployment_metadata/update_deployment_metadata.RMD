@@ -11,9 +11,6 @@ params:
 
 ```{r setup, include=FALSE}
 
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
 #Dplyr stuff
 library(magrittr)
 library(tidyverse)
@@ -66,7 +63,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Checking DB Connection")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
 
 ```
 
@@ -82,7 +79,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -96,7 +93,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Gathering construction data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
 
 #get tables
 # current deployments_con_status table
@@ -255,13 +252,13 @@ if(nrow(all_public_deployment_phase) == 0){
                            exit_code = NA,
                            note = "Writing metadata")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
 
     tryCatch(
 
       expr = {
         dbWriteTable(marsDBCon, 
-          DBI::SQL("fieldwork.tbl_deployment_con_status"), 
+          RPostgres::Id(schema = "fieldwork", table = "tbl_deployment_con_status"), 
           all_public_deployment_phase, 
           append= TRUE, 
           row.names = FALSE)
@@ -281,7 +278,7 @@ if(!kill){
                          type = "Records",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
 }
 ```
 
@@ -299,7 +296,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -317,7 +314,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_deploymentmetadata"), logMessage, append = TRUE, row.names=FALSE)
 
 	#Close database connections
 	dbDisconnect(marsDBCon)

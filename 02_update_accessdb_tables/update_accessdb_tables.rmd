@@ -11,10 +11,6 @@ params:
 
 ```{r setup, include=FALSE}
 
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
-
 #Dplyr stuff
 library(magrittr)
 library(tidyverse)
@@ -22,6 +18,7 @@ library(tidyverse)
 #Database Stuff
 library(odbc)
 library(RODBC)
+library(RPostgres)
 
 #Other stuff
 library(knitr)
@@ -119,7 +116,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Checking DB Connection")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
 
 ```
 
@@ -135,7 +132,7 @@ logCode <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -164,7 +161,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = NA,
                            note = "Searching for AccessDB Files")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   ###Section 1.1 Scan site folders
     #Find public site folders within 02 GSI Monitoring Sites
@@ -210,7 +207,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -224,7 +221,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = NA,
                            note = "Filtering for New Databases")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
     
   ###Section 1.2 Parse new DB names, SMP IDs, and OW suffixes
     #Exclude DBs already in the table
@@ -291,7 +288,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = message)
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -305,7 +302,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = NA,
                            note = "Writing New AccessDB Databases")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
     knitr::asis_output(paste("### New Access DBs to add to `admin.tbl_accessdb`: ",   nrow(output_newAccessDBs)))
   
     filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% 
@@ -316,7 +313,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
     tryCatch(
   
         expr = {
-          dbWriteTable(marsDBCon, DBI::SQL("admin.tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
+          dbWriteTable(marsDBCon, RPostgres::Id(schema = "admin", table = "tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -333,7 +330,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            type = "New DBs",
                            hash = logCode)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_accessdb"), logMessage, append = TRUE, row.names=FALSE)
     }
 
 
@@ -351,7 +348,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -365,7 +362,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = NA,
                            note = "Checking AccessDBs for Canonical Table Names")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
 
   ###Pull Access table again
   accessdbtable_server <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_accessdb")
@@ -415,7 +412,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -428,7 +425,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = NA,
                            note = "Preparing Script Outputs")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
 
   #Create the data frames of results to print/summarize
   #Access DBs where our current stored table names are both correct
@@ -494,7 +491,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -510,7 +507,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = NA,
                            note = "Writing New Canonical Table Names")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
     
     tryCatch(
   
@@ -548,7 +545,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -566,7 +563,7 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
   
 #Close database connections 
 dbDisconnect(marsDBCon)

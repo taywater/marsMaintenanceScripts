@@ -9,9 +9,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
 #Dplyr stuff
 library(magrittr)
 library(tidyverse)
@@ -21,7 +18,7 @@ library(data.table)
 #Database Stuff
 library(RODBC)
 library(odbc)
-library(DBI)
+library(RPostgres)
 
 #Other stuff
 library(knitr)
@@ -67,7 +64,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "DB Connection Successful")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
 ```
 
@@ -83,7 +80,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
   
   knitr::knit_exit()
@@ -98,7 +95,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Gathering OW Data")
 
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
 
   #Read the latest date from each observation well from the mars database
@@ -156,7 +153,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            milestone = 3,
                            exit_code = NA,
                            note = "Processing OW Data")
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
 
   #Some nulls may exist so we purge them
@@ -198,7 +195,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            milestone = 4,
                            exit_code = NA,
                            note = "Writing New OW Data")
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
   #Create a data frame of file-by-file writing results
   owdata_results <- newdata %>% 
@@ -217,7 +214,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
     if(nrow(newdata_currentfile) > 0){
       tryCatch({owdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
-          DBI::SQL("data.tbl_ow_leveldata_raw"), 
+          RPostgres::Id(schema = "data", table = "tbl_ow_leveldata_raw"), 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
@@ -245,14 +242,14 @@ log_code <- digest(now()) #Unique ID for the log batches
                            type = "OWs",
                            hash = log_code)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
       
       logMessage <- data.frame(date = as.Date(today()),
                            records = success_points,
                            type = "OW Records",
                            hash = log_code)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
     }
     
     #Refresh matview for QA Shiny app
@@ -271,7 +268,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -283,7 +280,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            milestone = 5,
                            exit_code = NA,
                            note = "Gathering GW Data")
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
 
   #Read the latest date from each observation well from the mars database
@@ -346,7 +343,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -359,7 +356,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            milestone = 6,
                            exit_code = NA,
                            note = "Processing GW Data")
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
   
   #Some nulls may exist so we purge them
   newdata %<>% filter(complete.cases(newdata))
@@ -397,7 +394,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            milestone = 7,
                            exit_code = NA,
                            note = "Writing GW Data")
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
   
 
   #Create a data frame of file-by-file writing results
@@ -422,7 +419,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
     if(nrow(newdata_currentfile) > 0){
       tryCatch({gwdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
-          DBI::SQL("data.tbl_gw_depthdata_raw"), 
+          RPostgres::Id(schema = "data", table = "tbl_gw_depthdata_raw"), 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
@@ -451,14 +448,14 @@ log_code <- digest(now()) #Unique ID for the log batches
                            type = "GWs",
                            hash = log_code)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
       
       logMessage <- data.frame(date = as.Date(today()),
                            records = success_gpoints,
                            type = "GW Records",
                            hash = log_code)
   
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE)
     }
     
     #Refresh matview for QA Shiny app
@@ -478,7 +475,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -490,7 +487,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            milestone = 8,
                            exit_code = NA,
                            note = "Checking for data gaps")
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
 data_gaps_current <- odbc::dbGetQuery(marsDBCon, "SELECT * FROM data.tbl_datagaps")
 
@@ -557,13 +554,13 @@ datagaps <- deployments_df %>%
 
 ```
 
-```{r Section 3B - Writing data gaps, eval = all(nrow(datagaps) > 0, !kill)}
+```{r Section 3B - Writing data gaps, echo  eval = all(nrow(datagaps) > 0, !kill)}
   ###Log: Start
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 9,
                            exit_code = NA,
                            note = "Writing data gaps")
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
   
   tryCatch(
@@ -592,7 +589,7 @@ datagaps <- deployments_df %>%
                          type = "Data gaps",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE) 
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_ow"), logMessage, append = TRUE, row.names=FALSE) 
   }
   
   
@@ -611,7 +608,7 @@ datagaps <- deployments_df %>%
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_ow"), logMessage, append = TRUE, row.names=FALSE)
 
 	dbDisconnect(marsDBCon)
 ```

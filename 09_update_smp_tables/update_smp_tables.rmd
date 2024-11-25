@@ -8,10 +8,6 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
 #GIS stuff
 #library(rgdal)
 library(sf)
@@ -62,7 +58,7 @@ errorCode = 0
                            exit_code = NA,
                            note = "Testing DB Connection")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
 #################################
 ####Error check - Did we connect?
@@ -95,7 +91,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -110,7 +106,7 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
                            exit_code = NA,
                            note = "Gathering location data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
 ###Section 1: Update smp_loc table
 ###Check GIS data for any new SMPs, and insert them into smp_loc
@@ -247,13 +243,13 @@ This script is attempting to update the `admin.tbl_smp_loc`, `admin.tbl_smp_rada
                            exit_code = NA,
                            note = "Writing centroids")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
     tryCatch(
 
       expr = {
         dbWriteTable(marsDBCon, 
-          DBI::SQL("admin.tbl_smp_loc"), 
+          RPostgres::Id(schema = "admin", table = "tbl_smp_loc"), 
           smp_locNewData, 
           append= TRUE, 
           row.names = FALSE)
@@ -273,7 +269,7 @@ if(!kill){
                          type = "Centroids",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 ```
@@ -290,7 +286,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -303,7 +299,7 @@ if(!kill){
                            exit_code = NA,
                            note = "Gathering gages")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
 ###Section 2: Update smp_gage table
 ###If there are any SMPs with locations that do not have rain gage associations, apply those now
@@ -348,13 +344,13 @@ if(!kill){
                            exit_code = NA,
                            note = "Writing gages")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
     tryCatch(
 
       expr = {
         dbWriteTable(marsDBCon, 
-          DBI::SQL("admin.tbl_smp_gage"), 
+          RPostgres::Id(schema = "admin", table = "tbl_smp_gage"), 
           smp_loc_nogage, 
           append= TRUE, 
           row.names = FALSE)
@@ -374,7 +370,7 @@ if(!kill){
                          type = "Gages",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
 }
 ```
 
@@ -390,7 +386,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -404,7 +400,7 @@ if(!kill){
                            exit_code = NA,
                            note = "Gathering grid cells")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
   
 ###Section 3: Update smp_radar table
 ###If there are any SMPs with locations that do not have radar associations, apply those now
@@ -447,13 +443,13 @@ if(!kill){
                            exit_code = NA,
                            note = "Writing grid cells")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
     tryCatch(
 
       expr = {
         dbWriteTable(marsDBCon, 
-          DBI::SQL("admin.tbl_smp_radar"), 
+          RPostgres::Id(schema = "admin", table = "tbl_smp_radar"), 
           smp_loc_noradar, 
           append= TRUE, 
           row.names = FALSE)
@@ -473,7 +469,7 @@ if(!kill){
                          type = "Cells",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_smp"), logMessage, append = TRUE, row.names=FALSE)
 }
 ```
 
@@ -489,7 +485,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -507,7 +503,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_smp"), logMessage, append = TRUE, row.names=FALSE)
 
 	#Close database connections
 	dbDisconnect(marsDBCon)

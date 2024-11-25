@@ -8,12 +8,6 @@ params:
 ---
 
 ```{r Section 0.1 Setup and DB connections, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
-#libraries
 
 #database packages
 library(odbc)
@@ -47,7 +41,7 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "Testing DB Connection")
 
-dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
 
 planreview <- dbConnect(odbc(), 
                         Driver = "ODBC Driver 17 for SQL Server", 
@@ -81,7 +75,7 @@ planreview <- dbConnect(odbc(),
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -95,7 +89,7 @@ planreview <- dbConnect(odbc(),
                            exit_code = NA,
                            note = "Querying new data")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
 
 #Query plan review tables
 
@@ -199,7 +193,7 @@ order by p.spra_trackingid, s.spra_name")
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -246,7 +240,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = NA,
                            note = "Writing new updates")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
 #Write to mars_data
   
@@ -254,7 +248,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
       tryCatch(
   
         expr = {
-          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_private_fixed"), new_smp_hashes, append= TRUE, row.names = FALSE)
+          dbWriteTable(mars_data, RPostgres::Id(schema = "external", table = "tbl_planreview_private_fixed"), new_smp_hashes, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -267,7 +261,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
       tryCatch(
   
         expr = {
-          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_crosstab"), new_crosstab_hashes, append= TRUE, row.names = FALSE)
+          dbWriteTable(mars_data, RPostgres::Id(schema = "external", table = "tbl_planreview_crosstab"), new_crosstab_hashes, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -285,7 +279,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                          type = "SMPs",
                          hash = log_code)
 
-    dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+    dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
   }
     
 ```
@@ -302,7 +296,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -316,7 +310,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = NA,
                            note = "Writing new edits")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
 #Write to mars_data
   
@@ -368,7 +362,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                          type = "Updates",
                          hash = log_code)
 
-    dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+    dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
   }
   
   
@@ -386,7 +380,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -404,7 +398,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
 
 dbDisconnect(planreview)

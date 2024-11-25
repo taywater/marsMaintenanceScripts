@@ -7,9 +7,6 @@ output: html_document
 ---
 
 ```{r 0.1: Setup and Database Connections, include=FALSE}
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
 #database packages
 library(odbc)
 
@@ -54,7 +51,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Testing DB connections")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
   #################################
   ####Error check - Did we connect?
@@ -80,7 +77,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -96,7 +93,7 @@ This script is attempting to update DataConv tables within the `external` schema
                            exit_code = NA,
                            note = "Gathering new data")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
 # Queries to populate the tables
     #SMP tables
@@ -159,7 +156,7 @@ This script is attempting to update DataConv tables within the `external` schema
                            exit_code = NA,
                            note = "Hashing new data")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
 # hash the tables
     hash_basin <- basin %>%
@@ -507,36 +504,36 @@ kable(head(new_structure))
                            exit_code = NA,
                            note = "Writing new data")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
 #Write new assets
 if(newAssets){
   
   tryCatch(
     expr = {
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswibasin"), new_basin, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiblueroof"), new_blueroof, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswibumpout"), new_bumpout, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswicistern"), new_cistern, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswidrainagewell"), new_drainagewell, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswigreenroof"), new_greenroof, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswipermeablepavement"), new_permeablepavement, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiplanter"), new_planter, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiraingarden"), new_raingarden, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiswale"), new_swale, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswitree"), new_tree, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswitreetrench"), new_treetrench, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswitrench"), new_trench, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiwetland"), new_wetland, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswibasin"), new_basin, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiblueroof"), new_blueroof, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswibumpout"), new_bumpout, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswicistern"), new_cistern, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswidrainagewell"), new_drainagewell, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswigreenroof"), new_greenroof, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswipermeablepavement"), new_permeablepavement, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiplanter"), new_planter, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiraingarden"), new_raingarden, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiswale"), new_swale, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswitree"), new_tree, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswitreetrench"), new_treetrench, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswitrench"), new_trench, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiwetland"), new_wetland, append = TRUE)
 
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswicleanout"), new_cleanout, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswicontrolstructure"), new_controlstructure, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiconveyance"), new_conveyance, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswifitting"), new_fitting, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiinlet"), new_inlet, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswimanhole"), new_manhole, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswiobservationwell"), new_observationwell, append = TRUE)
-      dbWriteTable(mars, DBI::SQL("external.tbl_gswistructure"), new_structure, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswicleanout"), new_cleanout, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswicontrolstructure"), new_controlstructure, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiconveyance"), new_conveyance, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswifitting"), new_fitting, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiinlet"), new_inlet, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswimanhole"), new_manhole, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswiobservationwell"), new_observationwell, append = TRUE)
+      dbWriteTable(mars, RPostgres::Id(schema = "external", table = "tbl_gswistructure"), new_structure, append = TRUE)
     },
     error = function(e){
       kill <<- TRUE
@@ -577,7 +574,7 @@ if(newAssets){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -591,7 +588,7 @@ if(newAssets){
                            exit_code = NA,
                            note = "Searching for updates")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
   
 # Old facility = update the row
 #Set UID to be the last column to facilitate the substitution mechanism in dbSendQuery
@@ -789,7 +786,7 @@ kable(head(update_structure))
                            exit_code = NA,
                            note = "Writing new updates")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
 #Write new assets
 if(newUpdates){
@@ -947,7 +944,7 @@ if(!kill){ #If the write succeeded
                            type = "Updates",
                            hash = log_code)
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_writes_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_writes_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 ```
@@ -964,7 +961,7 @@ if(!kill){ #If the write succeeded
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -982,7 +979,7 @@ if(!kill){ #If the write succeeded
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_dataconv"), logMessage, append = TRUE, row.names=FALSE)
 
 dbDisconnect(dataconv)
 dbDisconnect(mars)

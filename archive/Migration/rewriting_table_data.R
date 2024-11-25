@@ -36,12 +36,12 @@
     #con phase
     old_con_phase <- dbGetQuery(mars_testing, "select * from fieldwork.con_phase_lookup")
   
-    # dbWriteTable(mars_data, DBI::SQL("fieldwork.con_phase_lookup"), old_con_phase, append = TRUE)
+    # dbWriteTable(mars_data, RPostgres::Id(schema = "fieldwork", table = "con_phase_lookup"), old_con_phase, append = TRUE)
     
     #est high flow efficiency 
     old_est_high_flow_efficiency <- dbGetQuery(mars_testing, "select * from fieldwork.est_high_flow_efficiency_lookup")
     
-    # dbWriteTable(mars_data, DBI::SQL("fieldwork.est_high_flow_efficiency_lookup"), old_est_high_flow_efficiency, append = TRUE)
+    # dbWriteTable(mars_data, RPostgres::Id(schema = "fieldwork", table = "est_high_flow_efficiency_lookup"), old_est_high_flow_efficiency, append = TRUE)
     
     #long term 
     old_long_term <- dbGetQuery(mars_testing, "select * from fieldwork.long_term_lookup")
@@ -80,7 +80,7 @@
     #srt type
     old_srt_type_lookup <- dbGetQuery(mars_testing, "select * from fieldwork.srt_type_lookup")
     
-    # dbWriteTable(mars_data, DBI::SQL("fieldwork.srt_type_lookup"), old_srt_type_lookup, append = TRUE)
+    # dbWriteTable(mars_data, RPostgres::Id(schema = "fieldwork", table = "srt_type_lookup"), old_srt_type_lookup, append = TRUE)
     
     #field test priority
     old_field_test_priority_lookup <- dbGetQuery(mars_testing, "select * from fieldwork.field_test_priority_lookup")
@@ -408,7 +408,7 @@
       dplyr::filter(complete.cases(.)) %>% 
       distinct()
     
-    # dbWriteTable(mars_data, DBI::SQL("admin.smp_gage"), updated_smp_gage, append = TRUE)
+    # dbWriteTable(mars_data, RPostgres::Id(schema = "admin", table = "smp_gage"), updated_smp_gage, append = TRUE)
     
     # j.	smp_loc
     old_smp_loc <- dbGetQuery(mars_testing, "select * from smp_loc")
@@ -418,7 +418,7 @@
       dplyr::filter(complete.cases(.)) %>% 
       distinct()
     
-    # dbWriteTable(mars_data, DBI::SQL("admin.smp_loc"), updated_smp_loc, append = TRUE)
+    # dbWriteTable(mars_data, RPostgres::Id(schema = "admin", table = "smp_loc"), updated_smp_loc, append = TRUE)
     
     # k.	smp_radarcell, as smp_radar
     old_smp_radar <- dbGetQuery(mars_testing, "select * from smp_radarcell")
@@ -430,7 +430,7 @@
       dplyr::filter(complete.cases(.)) %>% 
       distinct()
     
-    # dbWriteTable(mars_data, DBI::SQL("admin.smp_radar"), updated_smp_radar, append = TRUE)
+    # dbWriteTable(mars_data, RPostgres::Id(schema = "admin", table = "smp_radar"), updated_smp_radar, append = TRUE)
     
 
     

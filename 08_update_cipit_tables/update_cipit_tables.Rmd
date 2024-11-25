@@ -6,11 +6,6 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-#Configure libraries to use script versions and not shiny versions
-.libPaths(c(Sys.getenv("maintenance_libraries"), Sys.getenv("shiny_libraries")))
-
 #database packages
 library(odbc)
 
@@ -53,7 +48,7 @@ errorCode = 0
                            exit_code = NA,
                            note = "Testing DB Connection")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
 
 
   #################################
@@ -78,7 +73,7 @@ errorCode = 0
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -95,7 +90,7 @@ This script is attempting to connect to the database `CIPITREADER` on the `PWDCI
                            exit_code = NA,
                            note = "Querying CIPIT")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
 
 cipit_project_query <- 'select _Work_Number as worknumber, _Project_Phase as project_phase, _Project_Phase_Status as project_phase_status, _Project_Title as project_title, _Targeted_Bid_FY as targeted_bid_fy, PC_NTP_Date as pc_ntp_date, CONST_Construction_Start_Date as construction_start_date, DESIGN_Design_Engineer as design_engineer, CONST_Division_Engineer as division_engineer, CONST_Contractor as contractor, ProjectAutoID as projectautoid, CONST_Substantially_Complete_Date as construction_complete_date, CONST_Contract_Close_Date as contract_closed_date from Project'
 cipit_project <- dbGetQuery(cipit, cipit_project_query)
@@ -118,7 +113,7 @@ cipit_project_update = anti_join(cipit_project_anti, cipit_project_new) %>%
 ```
 
 ```{r Section 2 - Comparing Databases and Writing to Databases, echo = FALSE, eval = all(!kill, nrow(cipit_project_new) > 0)}
-knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_new), " new projects."))
+knitr::asis_output(paste0("### CIPIT contains ", nrow(cipit_project_new), " new projects."))
 kable(head(cipit_project_new))
 
   ###Log: Start
@@ -127,13 +122,13 @@ kable(head(cipit_project_new))
                            exit_code = NA,
                            note = "Writing New Data")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
 
 tryCatch(
 
   expr = {
     dbWriteTable(mars, 
-      DBI::SQL("external.tbl_cipit_project"), 
+      RPostgres::Id(schema = "external", table = "tbl_cipit_project"), 
       cipit_project_new, 
       append= TRUE, 
       row.names = FALSE)
@@ -153,7 +148,7 @@ if(!kill){
                          type = "Records",
                          hash = log_code)
 
-    dbWriteTable(mars, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 ```
@@ -170,14 +165,14 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
 ```
 
 ```{r Section 3: Updating existing records, echo = FALSE, eval = all(!kill, nrow(cipit_project_update) > 0)}
-knitr::asis_output(paste0("###CIPIT contains ", nrow(cipit_project_update), " updated projects."))
+knitr::asis_output(paste0("### CIPIT contains ", nrow(cipit_project_update), " updated projects."))
 kable(head(cipit_project_update))
 
   ###Log: Start
@@ -186,7 +181,7 @@ kable(head(cipit_project_update))
                            exit_code = NA,
                            note = "Updating changed data")
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
 
 tryCatch(
 
@@ -210,7 +205,7 @@ if(!kill){
                          type = "Updates",
                          hash = log_code)
 
-    dbWriteTable(mars, DBI::SQL("log.tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_writes_cipit"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 
@@ -228,7 +223,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -247,7 +242,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars, DBI::SQL("log.tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars, RPostgres::Id(schema = "log", table = "tbl_script_cipit"), logMessage, append = TRUE, row.names=FALSE)
 
 dbDisconnect(mars)
 dbDisconnect(cipit)
