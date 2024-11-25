@@ -13,9 +13,7 @@ params:
 # 0.0 Set Up
 
 ```{r setup libraries and place holder data structures, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-  knitr::opts_chunk$set(echo = TRUE)
-  knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+  knitr::opts_chunk$set(warning = FALSE, message = FALSE)   
 
  # Install required package
   library(DBI)
@@ -24,6 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
   library(sf)
   library(lubridate)
   library(knitr)
+  library(digest)
   library(RPostgres)
   #Not in logical
 `%!in%` <- Negate(`%in%`)
@@ -74,12 +73,69 @@ knitr::opts_chunk$set(echo = TRUE)
                             "database=GIS_APPS;",
                             "UID=", Sys.getenv("gis_uid"), ";",
                             "PWD=", Sys.getenv("gis_pwd"), ";")
+  
+  errorCodes <- data.frame(code = 0:4,
+  message = c("Execution successful.",
+              "Could not connect to Postgres DB. Is Postgres down?",
+              "No baro files found in site folders. Are we connected to Active Directory?",
+              NA, #Write error from TryCatch will be used
+              NA #Write error from TryCatch will be used
+               ), stringsAsFactors=FALSE)
+
+kill = FALSE
+errorCode = 0
+
+log_code <- digest(now()) #Unique ID for the log batches
+
+ #################################
+  ####Error check - Did we connect?
+  #################################
+  if(!RPostgres::dbIsValid(mars_con))
+  {
+    kill = TRUE
+    errorCode = 1
+  }
+
+  ###Log: Start
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 1,
+                           exit_code = NA,
+                           note = "DB Connection Successful")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+```
+
+```{r Break Point 1 - Bad Connection, echo = FALSE, eval = kill}
+
+  knitr::asis_output("# Script Results: Error\n")
+  knitr::asis_output(paste("## Error Code:", errorCode, "\n"))
+  knitr::asis_output(paste("## Error Message: ", errorCodes$message[errorCode+1]))
+  
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  
+  knitr::knit_exit()
 
 ```
 
 # 1. Prepping the Raw Cityworks Data
 
-```{r 1. Prepping the data for storage in MARS DB (renaming, deduplicating, type cast etc), include=FALSE}
+```{r 1. Prepping the data for storage in MARS DB (renaming, deduplicating, type cast etc), include=FALSE, eval=!kill}
+
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 2,
+                           exit_code = NA,
+                           note = "Searching Cityworks for WIC records")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
  # cityworks wic orders and comments tables
    cw_workorders <- dbGetQuery(cityworks_con, "SELECT wo.WORKORDERID, wo.INITIATEDATE AS date,     wo.LOCATION, wo.WOXCOORDINATE, wo.WOYCOORDINATE, woe.ENTITYUID AS FACILITYID 
    FROM Azteca.WORKORDER wo INNER JOIN Azteca.ACTIVITYLINK rwo ON wo.WORKORDERID = rwo.DESTACTIVITYSTRINGID and SOURCEACTIVITYTYPE = 'servicerequest' and DESTACTIVITYTYPE = 'workorder'
@@ -137,8 +193,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 2.1 Identifying New/Changed WICs & Comments
 
-```{r 2.1 Checking for new WIC complaints, new WIC comments and changed ones, include=FALSE}
+```{r 2.1 Checking for new WIC complaints, new WIC comments and changed ones, include=FALSE, eval=!kill}
    
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 3,
+                           exit_code = NA,
+                           note = "Processing Raw WIC Data")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
  # MARS wic and comments
    mars_workorders <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_workorder")
    mars_comments <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_comment")
@@ -179,16 +243,61 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 
 ## 2.2 Write New Work Orders to MARS DB {.hidden .unlisted}
 
-```{r 2.2 Writing workorders to MARS DB, eval= params$write == TRUE & nrow(new_wic) > 0, include=FALSE}
+```{r 2.2 Writing workorders to MARS DB, eval= params$write == TRUE & nrow(new_wic) > 0 & !kill, include=FALSE}
 
- # add new work orders
-   success_wo <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_workorder"), new_wic, append= TRUE, row.names = FALSE )
+ # # add new work orders
+ #   success_wo <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_workorder"), new_wic, append= TRUE, row.names = FALSE )
+
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 4,
+                           exit_code = NA,
+                           note = "Writing new WICs to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+tryCatch(
+
+    expr = {
+      success_wo <- dbWriteTable(mars_con, 
+        Id(schema = "fieldwork", table = "tbl_wic_workorder"), 
+        new_wic, 
+        append= TRUE, 
+        row.names = FALSE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 2
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic),
+                         type = "New WICs",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
 ## 2.3 Update Changed Work Orders in MARS DB {.hidden .unlisted}
 
-```{r 2.3 Updating changed workorders to MARS DB, eval= params$write == TRUE & nrow(changed_wic) > 0, include=FALSE}
+```{r 2.3 Updating changed workorders to MARS DB, eval= params$write == TRUE & nrow(changed_wic) > 0 & !kill, include=FALSE}
+
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 5,
+                           exit_code = NA,
+                           note = "Writing updated WICs to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  
+  successful_updates <- 0
+
  # update changed work orders
    for (i in 1:nrow(changed_wic)) {
      
@@ -202,27 +311,95 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
       changed_wic$workorder_id[i]
    )
 
-  # Execute the update statement
-   success_upwo <- dbSendStatement(mars_con, wo_sql_string)
-}
+  # # Execute the update statement
+  #  success_upwo <- dbSendStatement(mars_con, wo_sql_string)
+   
+   tryCatch(
+
+    expr = {
+      success_upwo <- dbSendStatement(mars_con, wo_sql_string)
+      successful_updates <- successful_updates + 1
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 3
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    })
+   }
+  
+  #Writing file counts
+  if(successful_updates > 0){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = successful_updates,
+                         type = "Updated WICs",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
      
 ```
 
 ## 2.4 Write New Comments to MARS DB {.hidden .unlisted}
 
-```{r 2.4 Writing New Comments to MARS DB, eval= params$write == TRUE & nrow(new_comment) > 0, include=FALSE}
+```{r 2.4 Writing New Comments to MARS DB, eval= params$write == TRUE & nrow(new_comment) > 0 & !kill, include=FALSE}
+# 
+#  # add new comments
+#    success_comments <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_comment"), new_comment, append= TRUE, row.names = FALSE )
 
- # add new comments
-   success_comments <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_comment"), new_comment, append= TRUE, row.names = FALSE )
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 6,
+                           exit_code = NA,
+                           note = "Writing new comments to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+tryCatch(
+
+    expr = {
+      success_wocomment <- dbWriteTable(mars_con, 
+        Id(schema = "fieldwork", table = "tbl_wic_comment"), 
+        new_comment, 
+        append= TRUE, 
+        row.names = FALSE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 4
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_comment),
+                         type = "New Comments",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
+
 
 ```
 
 ## 2.5 Update Changed Comments in MARS DB {.hidden .unlisted}
 
-```{r 2.5 Updating changed comments to MARS DB, eval= params$write == TRUE & nrow(changed_comment) > 0, include=FALSE}
+```{r 2.5 Updating changed comments to MARS DB, eval= params$write == TRUE & nrow(changed_comment) > 0 & !kill, include=FALSE}
+
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 7,
+                           exit_code = NA,
+                           note = "Writing updated comments to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+  successful_upcomms <- 0
 
  # update changed comments
    for (i in 1:nrow(changed_comment)) {
+     if(nrow(changed_comment) == 0) {break} #SKip this in case we are running chunks that wouldn't usually execute in debug mode
      
       upcomm_sql_string <- sprintf(
       "UPDATE fieldwork.tbl_wic_comment set comment = '%s' WHERE workorder_id = %s AND comment_id = %s;",
@@ -230,10 +407,29 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
       changed_comment$workorder_id[i],
       changed_comment$comment_id[i]
    )
+  
+  tryCatch(
 
-  # Execute the update statement
-  success_upcomments <- dbSendStatement(mars_con, upcomm_sql_string)
-}
+    expr = {
+      success_upcomments <- dbSendStatement(mars_con, upcomm_sql_string)
+      successful_upcomms <- successful_upcomms + 1
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 5
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    })
+   }
+
+  #Writing file counts
+  if(successful_upcomms > 0){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = successful_upcomms,
+                         type = "Updated Comments",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
@@ -241,7 +437,15 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 
 ## 3.1 Joining by Address {.hidden .unlisted}
 
-```{r 3.1 Attaching Parcels to WIC Workorders based on address, eval= nrow(cw_workorders) > 0, include=FALSE}
+```{r 3.1 Attaching Parcels to WIC Workorders based on address, eval= nrow(cw_workorders) > 0, include=FALSE, eval=!kill}
+
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 8,
+                           exit_code = NA,
+                           note = "Reading parcel data")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
  # pull pwd parcels (a large shapefile on the server which st_read fails to scrape from gis db)
   pwd_parcels_sf <- st_read(dsn = "\\\\pwdoows\\oows\\Watershed Sciences\\GSI Monitoring\\09 GIS Data\\PWD_PARCELS ", layer = "PWD_PARCELS")%>%
@@ -259,7 +463,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 
 ## 3.2 Joining by Facility IDs {.hidden .unlisted}
 
-```{r 3.2 Attaching Parcels to WIC Workorders based on facility id, eval= nrow(cw_workorders) > 0, include=FALSE}
+```{r 3.2 Attaching Parcels to WIC Workorders based on facility id, eval= nrow(cw_workorders) > 0, include=FALSE, eval=!kill}
 
  # Join by address (secondary attribute for matching)
   wicparcel_join_facilityid <- cw_workorders %>%
@@ -271,7 +475,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 
 ## 3.3 Intersect WIC XY Coordinates with PWD Parcels to Detect Parcels {.hidden .unlisted}
 
-```{r 3.3 Intersecting WIC XY Coordinates with PWD Parcels, eval= nrow(cw_workorders) > 0, include=FALSE}
+```{r 3.3 Intersecting WIC XY Coordinates with PWD Parcels, eval= nrow(cw_workorders) > 0, include=FALSE, eval=!kill}
   
   # get remaining unverified work orders
   xy_wics <- cw_workorders %>%
@@ -315,7 +519,7 @@ Number of Changed Comments: `r colorize(nrow(changed_comment), "red")`
 
 ## 3.4 Find New/Changed WIC Parcels
 
-```{r 3.4 Binding the WIC parcels, pulling wic parcels from MARS DB and compare, eval= nrow(wicparcel_xy) > 0 | nrow(wicparcel_join_facilityid) > 0 | nrow(wicparcel_join_address) > 0, include=FALSE}
+```{r 3.4 Binding the WIC parcels, pulling wic parcels from MARS DB and compare, eval= nrow(wicparcel_xy) > 0 | nrow(wicparcel_join_facilityid) > 0 | nrow(wicparcel_join_address) > 0, include=FALSE, eval=!kill}
 
  # Bind the WIC parcels
   wic_parcels <- bind_rows(wicparcel_join_address, wicparcel_join_facilityid, wicparcel_xy)
@@ -340,15 +544,59 @@ Number of Changed WIC Parcels: `r colorize(nrow(changed_wic_parcel), "red")`
 
 ## 3.5 Add WIC Parcels to MARS DB {.hidden .unlisted}
 
-```{r 3.5 Writing new wic parcels to MARS DB , eval= params$write == TRUE & nrow(new_wic_parcel) > 0, include=FALSE}
-  # add new wic parcels
-   success_wicparcels <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_parcel"), new_wic_parcel, append= TRUE, row.names = FALSE )
+```{r 3.5 Writing new wic parcels to MARS DB , eval= params$write == TRUE & nrow(new_wic_parcel) > 0 & !kill, include=FALSE}
+
+  ###Log: Writing new WIC Parcels to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 8,
+                           exit_code = NA,
+                           note = "Writing new WIC Parcels to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+  tryCatch(
+
+    expr = {
+      success_wicparcel <- dbWriteTable(mars_con, 
+        Id(schema = "fieldwork", table = "tbl_wic_parcel"), 
+        new_wic_parcel, 
+        append= TRUE, 
+        row.names = FALSE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 6
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic_parcel),
+                         type = "New WIC Parcels",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
+
 
 ```
 
 ## 3.6 Update WIC Parcels in MARS DB {.hidden .unlisted}
 
-```{r 3.6 Updating changed wic parcels in MARS DB , eval= params$write == TRUE & nrow(changed_wic_parcel) > 0, include=FALSE}
+```{r 3.6 Updating changed wic parcels in MARS DB , eval= params$write == TRUE & nrow(changed_wic_parcel) > 0 & !kill, include=FALSE}
+  successful_upparcels <- 0
+
+  ###Log: Writing updated WIC Parcels to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 9,
+                           exit_code = NA,
+                           note = "Writing updated WIC Parcels to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+
    # update changed wic parcels
    for (i in 1:nrow(changed_wic_parcel)) {
      
@@ -358,10 +606,30 @@ Number of Changed WIC Parcels: `r colorize(nrow(changed_wic_parcel), "red")`
       changed_wic_parcel$facility_id[i],
       changed_wic_parcel$workorder_id[i]
    )
+  
+    tryCatch(
+  
+      expr = {
+      # Execute the update statement
+      success_upwicparcel <- dbSendStatement(mars_con, upwicparcel_sql_string)
+      successful_upparcels <- successful_upparcels + 1
+        },
+      error = function(e) {
+        kill <<- TRUE
+        errorCode <<- 7
+        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+      })
+   }
 
-  # Execute the update statement
-  success_upwicparcel <- dbSendStatement(mars_con, upwicparcel_sql_string)
-}
+  #Writing file counts
+  if(successful_upparcels > 0){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = successful_upparcels,
+                         type = "Updated WIC Parcels",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
@@ -369,7 +637,13 @@ Number of Changed WIC Parcels: `r colorize(nrow(changed_wic_parcel), "red")`
 
 ## 4.1 Identify New WIC Polygons (Property & Footprint)
 
-```{r 4.1 Identifying New WIC Polygons, include=FALSE}
+```{r 4.1 Identifying New WIC Polygons, include=FALSE, eval=!kill}
+###Log: Identifying new WIC polygons
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 10,
+                           exit_code = NA,
+                           note = "Identifying new WIC polygons")
+
  # pull footprint parcels    
  footprint_sf <- st_read(dsn = "\\\\pwdoows\\oows\\Watershed Sciences\\GSI Monitoring\\09 GIS Data\\Building_Footprint_Shapefile", layer = "Building_Footprint") 
  footprint_sf <- footprint_sf %>%
@@ -418,25 +692,85 @@ Number of New WIC Footprints Geometry: `r colorize(nrow(new_wic_footprint_sf), "
 
 ### 4.2.1 Add Property Lines {.hidden .unlisted}
 
-```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0, include=FALSE}
+```{r 4.2.1 Add WIC Property Lines in MARS DB, eval= params$write == TRUE & nrow(new_wic_propertyline_sf) > 0 & !kill, include=FALSE}
 
-  # add new wic propertylines
-   success_property_sf <- st_write(obj = new_wic_propertyline_sf, dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_propertyline_geom"), append = TRUE)
+  ###Log: Writing WIC Property Lines to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 11,
+                           exit_code = NA,
+                           note = "Writing WIC Property Lines to MARS")
+  tryCatch(
+
+    expr = {
+      success_woprop <- st_write(obj = new_wic_propertyline_sf,
+        dsn = mars_con,
+        Id(schema = "fieldwork", table = "tbl_wic_propertyline_geom"), 
+        append= TRUE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 8
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic_propertyline_sf),
+                         type = "New WIC Property Lines",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
 ### 4.2.2 Add Footprints {.hidden .unlisted}
 
-```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0, include=FALSE}
+```{r 4.2.2 Add WIC Footprints in MARS DB, eval= params$write == TRUE & nrow(new_wic_footprint_sf) > 0 & !kill, include=FALSE}
 
-  # add new wic footprints
-   success_footprint_sf <- st_write(obj = new_wic_footprint_sf, dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_footprint_geom"), append = TRUE)
+  ###Log: Writing WIC Footprints to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 12,
+                           exit_code = NA,
+                           note = "Writing WIC Footprints to MARS")
+  tryCatch(
+
+    expr = {
+      success_wo <- st_write(obj = new_wic_footprint_sf,
+        dsn = mars_con,
+        Id(schema = "fieldwork", table = "tbl_wic_footprint_geom"), 
+        append= TRUE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 9
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic_footprint_sf),
+                         type = "New WIC Footprints",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
 ## 4.3 Identify New SMP Polygons
 
-```{r 4.3 Identify New SMP polygons, include=FALSE}
+```{r 4.3 Identify New SMP polygons, include=FALSE, eval=!kill}
+    ###Log: Identifying new SMP polygons
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 13,
+                           exit_code = NA,
+                           note = "Identifying new SMP polygons")
+
   # pull mars polygons
   mars_smp_sf <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_smp_geom")
 
@@ -511,9 +845,37 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 
 ## 4.4 Add New SMP Polygons to MARS DB {.hidden .unlisted}
 
-```{r 4.4 New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_smp_sf) > 0, include=FALSE}
-  # add new smp polygons with postgis
-   success_smppoly <- st_write(obj = new_smp_sf, dsn = mars_con, Id(schema="fieldwork", table = "tbl_wic_smp_geom"), append = TRUE)
+```{r 4.4 New SMP Polygons WKTs in MARS DB, eval= params$write == TRUE & nrow(new_smp_sf) > 0 & !kill, include=FALSE}
+
+  ###Log: Writing SMP Polygons to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 14,
+                           exit_code = NA,
+                           note = "Writing SMP Polygons to MARS")
+  tryCatch(
+
+    expr = {
+      success_wo <- st_write(obj = new_smp_sf,
+        dsn = mars_con,
+        Id(schema = "fieldwork", table = "tbl_wic_smp_geom"), 
+        append= TRUE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 10
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_smp_sf),
+                         type = "New SMP Polygons",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
@@ -521,7 +883,13 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 
 ## 5.1 Intersect WIC Parcels with System Polygons and Calculate Distance {.hidden .unlisted}
 
-```{r 5.1 Intersect WIC Parcels with System Polygons and Calculate Distance, include=FALSE}
+```{r 5.1 Intersect WIC Parcels with System Polygons and Calculate Distance, include=FALSE, eval=!kill}
+
+  ###Log: Intersecting WIC Parcels with System Polygons
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 15,
+                           exit_code = NA,
+                           note = "Intersecting WIC Parcels with System Polygons")
 
   # Create buffer 100 ft buffer around SMPs and intersect them with the WIC Parcels
   system_sf_100ft <- st_buffer(system_sf, 100)
@@ -564,7 +932,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 
 ## 5.2 Identify the WIC Construction Status {.hidden .unlisted}
 
-```{r 5.2 Identify the WIC Construction Status, include=FALSE}
+```{r 5.2 Identify the WIC Construction Status, include=FALSE, eval=!kill}
   # Getting the construction milestones dates
   cipit <- dbGetQuery(mars_con, "SELECT * FROM external.tbl_cipit_project")
   smpbdv <- dbGetQuery(mars_con, "SELECT * FROM  external.tbl_smpbdv")
@@ -631,7 +999,7 @@ Number of New SMP Geometry: `r colorize(nrow(new_smp_sf),"red")`
 
 ## 5.3 Identify New/Changed WIC near Systems
 
-```{r 5.3 Identify New/Change SMP-WIC, include=FALSE}
+```{r 5.3 Identify New/Change SMP-WIC, include=FALSE, eval=!kill}
   mars_wic_system <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_system")
   # updating tables with the system ids and workorder ids for status record keeping
   mars_wic_system_status <- dbGetQuery(mars_con, "SELECT * FROM fieldwork.tbl_wic_system_status")
@@ -666,18 +1034,63 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
 
 ## 5.4 Add New SMP-WIC to MARS DB {.hidden .unlisted}
 
-```{r 5.4 Add New System-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_system) > 0, include=FALSE}
-  # add new wic-smp
-   success_wic_system <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_system"), new_wic_system, append= TRUE, row.names = FALSE )
+```{r 5.4 Add New System-WIC to MARS DB, eval= params$write == TRUE & nrow(new_wic_system) > 0 & !kill, include=FALSE}
+
+  ###Log: Writing new WIC Parcels to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 16,
+                           exit_code = NA,
+                           note = "Writing new WIC-System Intersections to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+  tryCatch(
+
+    expr = {
+      success_wo <- dbWriteTable(mars_con, 
+        Id(schema = "fieldwork", table = "tbl_wic_system"), 
+        new_wic_system, 
+        append= TRUE, 
+        row.names = FALSE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 11
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic_system),
+                         type = "New WIC-System Intersections",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
+
 
 ```
 
 ## 5.5 Update Changed SMP-WIC in MARS DB {.hidden .unlisted}
 
-```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_system) > 0, include=FALSE}
-  # update changed wic-smp
+```{r Update Changed SMP-WIC in MARS DB, eval= params$write == TRUE & nrow(changed_wic_system) > 0 & !kill, include=FALSE}
+  ###Log: Gathering Baro Data
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 17,
+                           exit_code = NA,
+                           note = "Writing updated WIC-System Intersections to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+  successful_upwicsmps <- 0
+
+ # update changed wic-smp
    for (i in 1:nrow(changed_wic_system)) {
-       upwicsmp_sql_string <- sprintf(
+      if(nrow(changed_wic_system) == 0) {break} #SKip this in case we are running chunks that wouldn't usually execute in debug mode
+
+      upwicsmp_sql_string <- sprintf(
       "UPDATE fieldwork.tbl_wic_system
        SET con_phase_lookup_uid = %s,
            footprint_dist_ft = %s,
@@ -692,25 +1105,108 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
       changed_wic_system$system_id[i]
   )
 
-  # Execute the update statement
-  success_upwicsmp <- dbSendStatement(mars_con, upwicsmp_sql_string)
-}
+  
+  tryCatch(
+
+    expr = {
+      success_upwicsmp <- dbSendStatement(mars_con, upwicsmp_sql_string)
+      successful_upwicsmps <- successful_upwicsmps + 1
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 12
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    })
+   }
+
+  #Writing file counts
+  if(successful_upwicsmps > 0){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = successful_upwicsmps,
+                         type = "Updated WIC-System Intersections",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
 ## 5.6 Add New Unique Systems to MARS DB for Status Record Keeping {.hidden .unlisted}
 
-```{r 5.6 Add New  Unique Systems to MARS DB for Status Record Keeping, eval= params$write == TRUE & nrow(new_wic_system_status) > 0, include=FALSE}
-  # add new wic-smp
-   success_wic_system_status <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_system_status"), new_wic_system_status, append= TRUE, row.names = FALSE )
+```{r 5.6 Add New  Unique Systems to MARS DB for Status Record Keeping, eval= params$write == TRUE & nrow(new_wic_system_status) > 0 & !kill, include=FALSE}
+  ###Log: Writing new WIC Parcels to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 18,
+                           exit_code = NA,
+                           note = "Writing new WIC-System Intersections to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+  tryCatch(
+
+    expr = {
+      success_wic_system_status <- dbWriteTable(mars_con, 
+        Id(schema = "fieldwork", table = "tbl_wic_system_status"), 
+        new_wic_system_status, 
+        append= TRUE, 
+        row.names = FALSE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 13
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic_system_status),
+                         type = "New Unique WIC Systems",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
+
 
 ```
 
 ## 5.7 Add New Unique Workorder ids to MARS DB for Status Record Keeping {.hidden .unlisted}
 
-```{r 5.7 Add New  Unique Workorder ids to MARS DB for Status Record Keeping, eval= params$write == TRUE & nrow(new_wic_wo_status) > 0, include=FALSE}
-  # add new wic-smp
-   success_wic_wo_status <- dbWriteTable(mars_con, Id(schema = "fieldwork", table = "tbl_wic_wo_status"), new_wic_wo_status, append= TRUE, row.names = FALSE )
+```{r 5.7 Add New  Unique Workorder ids to MARS DB for Status Record Keeping, eval= params$write == TRUE & nrow(new_wic_wo_status) > 0 & !kill, include=FALSE}
+  ###Log: Writing new WIC Parcels to MARS
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = 19,
+                           exit_code = NA,
+                           note = "Writing new unique Workorder IDs to MARS")
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+  tryCatch(
+
+    expr = {
+      success_wic_wo_status <- dbWriteTable(mars_con, 
+        Id(schema = "fieldwork", table = "tbl_wic_wo_status"), 
+        new_wic_wo_status, 
+        append= TRUE, 
+        row.names = FALSE)
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 14
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+    }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(new_wic_system_status),
+                         type = "New Unique Workorder IDs",
+                         hash = log_code)
+
+    dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
@@ -741,5 +1237,26 @@ Number of Changed WICs within 100 ft of Systems: `r colorize(nrow(changed_wic_sy
         distinct()
       
       kable(changed_wic_kable)
+
+```
+
+# Script Results: `r ifelse(kill, "FAILURE", "SUCCESS")`
+## Exit Code: `r errorCode`
+## Exit Message: `r errorCodes$message[errorCode+1]`
+
+```{r Section 6: Close Out Our Database, echo = FALSE}
+
+  ###Log: End
+  logMessage <- data.frame(date = as.Date(today()), hash = log_code,
+                           milestone = NA,
+                           exit_code = errorCode,
+                           note = errorCodes$message[errorCode+1])
+  
+  dbWriteTable(mars_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+
+dbDisconnect(cityworks_con)
+dbDisconnect(mars_con)
+dbDisconnect(gisdata_con)
+dbDisconnect(gisapps_con)
 
 ```
