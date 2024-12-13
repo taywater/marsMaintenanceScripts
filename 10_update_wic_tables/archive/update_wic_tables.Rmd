@@ -5,7 +5,7 @@ date: "`r lubridate::now()`"
 output: html_document
 params:
   database: mars14_datav2
-  write: FALSE
+  write: TRUE
 ---
 
 ```{r setup, include=FALSE}
@@ -64,7 +64,7 @@ params:
                            exit_code = NA,
                            note = "Checking DB Connections")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
       
   
 ```
@@ -79,7 +79,7 @@ params:
                            exit_code = NA,
                            note = "Gathering WIC records")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
    cityworks_workorders <- dbGetQuery(cityworksDB_con, "SELECT wo.WORKORDERID, wo.INITIATEDATE AS WO_INITIATEDATE, wo.LOCATION, wo.WOXCOORDINATE, wo.WOYCOORDINATE, woe.ENTITYUID AS FACILITYID 
 FROM Azteca.WORKORDER wo INNER JOIN Azteca.ACTIVITYLINK rwo ON wo.WORKORDERID = rwo.DESTACTIVITYSTRINGID and SOURCEACTIVITYTYPE = 'servicerequest' and DESTACTIVITYTYPE = 'workorder'
@@ -88,7 +88,7 @@ LEFT JOIN Azteca.WORKORDERENTITY woe ON wo.WORKORDERID = woe.WORKORDERID
 WHERE ((wo.DESCRIPTION = 'A - PROPERTY INVESTIGATION' AND r.DESCRIPTION = 'WATER IN CELLAR') OR
 (wo.DESCRIPTION = 'A - LEAK INVESTIGATION' AND r.DESCRIPTION = 'WATER IN CELLAR'))
     ")
-   cityworks_cm <- dbGetQuery(cityworksDB_con, "SELECT WORKORDERID, COMMENTS from Azteca.WOCOMMENT" )
+   cityworks_cm <- dbGetQuery(cityworksDB_con, "SELECT WORKORDERID, COMMENTS from Azteca.WORKORDERCOMMENT " )
    
 # gather current wic orders and comments from MARS_Data
    
@@ -128,7 +128,7 @@ WHERE ((wo.DESCRIPTION = 'A - PROPERTY INVESTIGATION' AND r.DESCRIPTION = 'WATER
                            exit_code = NA,
                            note = "Check for Updates")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
    
    new_wic <- cityworks_workorders %>% filter(!(workorder_id %in% wic_workorders$workorder_id))
    cityworks_workorders_old <- anti_join(cityworks_workorders, new_wic, by = "workorder_id")
@@ -143,7 +143,7 @@ WHERE ((wo.DESCRIPTION = 'A - PROPERTY INVESTIGATION' AND r.DESCRIPTION = 'WATER
                            exit_code = NA,
                            note = "Write new WICs to MARS")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
    
 success_wo <- FALSE
      
@@ -162,7 +162,7 @@ if(success_wo == TRUE){
                          type = "WICs",
                          hash = log_code)
 
-    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 
@@ -174,7 +174,7 @@ if(success_wo == TRUE){
                            exit_code = NA,
                            note = "Write Updates to MARS")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
 success_update <- FALSE  
 
@@ -194,7 +194,7 @@ if(typeof(success_update) != 'logical'){ #The dbSendStatement returns an s4 obje
                          type = "Updated WICs",
                          hash = log_code)
 
-    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
    
 # update comments and add new comments to the new workorders
@@ -220,7 +220,7 @@ if(typeof(success_update) != 'logical'){ #The dbSendStatement returns an s4 obje
                            exit_code = NA,
                            note = "Write Comments to MARS")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
   success_comments <- FALSE   
    
@@ -237,7 +237,7 @@ if(success_comments == TRUE){
                          type = "Comments",
                          hash = log_code)
 
-    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
   
 success_upcomments <- FALSE
@@ -257,7 +257,7 @@ if(success_upcomments == TRUE){
                          type = "Updated Comments",
                          hash = log_code)
 
-    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
    
 ```
@@ -288,7 +288,7 @@ The cityworks database has been examined for new water-in-cellar work orders, an
                            exit_code = NA,
                            note = "Attaching parcels")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
      Parcels_Frame <- dbGetQuery(GISDB_con, "SELECT * from GISDATA.GISAD.PWD_PARCELS")
      Parcels_facility_id <- select(Parcels_Frame, FACILITYID)
@@ -410,7 +410,7 @@ The cityworks database has been examined for new water-in-cellar work orders, an
                            exit_code = NA,
                            note = "Write parcels to MARS")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
        
     # union the matching tables-Final output is in FACID_ADD_XY
@@ -456,7 +456,7 @@ if(success_parcels == TRUE){
                          type = "New/Updated Parcels",
                          hash = log_code)
 
-    dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_writes_wic"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 ```
@@ -469,7 +469,7 @@ if(success_parcels == TRUE){
                            exit_code = NA,
                            note = "SMP Intersections")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
       basin <- suppressWarnings(st_read(gis_apps_con, "gisad.GSWIBASIN", quiet = TRUE)) 
       blueroof <- suppressWarnings(st_read(gis_apps_con, "gisad.GSWIBLUEROOF", quiet = TRUE)) 
@@ -791,7 +791,7 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
                            exit_code = NA,
                            note = "Write SMP Intersections")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
   new_smp_list <- fieldwork.tbl_wic_smps %>% 
   select(smp_id) %>%
@@ -1023,7 +1023,7 @@ Public SMPs were intersected with parcels associated with new/changed WIC work o
                            exit_code = 0,
                            note = "Execution successful")
   
-  dbWriteTable(MARSDB_con, DBI::SQL("log.tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(MARSDB_con, RPostgres::Id(schema = "log", table = "tbl_script_wic"), logMessage, append = TRUE, row.names=FALSE)
 
       dbDisconnect(MARSDB_con)
       dbDisconnect(cityworksDB_con)

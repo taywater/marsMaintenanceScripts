@@ -3,6 +3,8 @@
 # Version 3.0
 
 ## Set Up 1.0 ----
+#
+
 #Dplyr stuff
   library(magrittr)
   library(tidyverse)
@@ -10,6 +12,7 @@
 
 #Database Stuff
   library(odbc)
+  library(RPostgres)
 
 #Other stuff
   library(openssl)
@@ -27,14 +30,14 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "DB Connection Successful")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
   
 logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          milestone = 2,
                          exit_code = NA,
                          note = "Purging test database")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
 
 purge_str <- "drop database if exists backuptest;"
 purge_result <- dbSendQuery(marsDBCon, purge_str)
@@ -75,7 +78,7 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "Initiating DB Backup")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
   
 #Assemble the entire pg_dump string	
   pgdumpstring <- paste(pg_dump,
@@ -98,7 +101,7 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "DB Backup Complete")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
   
 ## Create a database to host the test DB 3.0 ----  
 
@@ -108,7 +111,7 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "Creating Restoration DB")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
 
   #If a test database exists, drop it
   testdbname <- "backuptest" #must use generic name
@@ -147,14 +150,14 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "Restoration DB populated")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
   
 logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          milestone = 8,
                          exit_code = NA,
                          note = "Purging test database")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
 
 purge_str <- "drop database if exists backuptest;"
 purge_result <- dbSendQuery(marsDBCon, purge_str)
@@ -164,7 +167,7 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "Test Database Purged")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE)
 
 ## Pruning old back ups
 ###Log: Prune Start
@@ -173,7 +176,7 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "Pruning old backups")
 
-dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
 
 
   #get a list of backup files  from the backup directory
@@ -201,7 +204,7 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
                            exit_code = NA,
                            note = "Old backups pruned")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+  dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
   
   ###Log: Complete
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
@@ -209,4 +212,6 @@ dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = 
                            exit_code = 0,
                            note = "Execution Successful")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+  dbWriteTable(marsDBCon, Id(schema = "log", table = "tbl_script_backup"), logMessage, append = TRUE, row.names=FALSE) 
+
+  

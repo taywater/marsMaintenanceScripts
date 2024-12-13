@@ -9,8 +9,6 @@ output: html_document
 ```{r Section 0.1 Setup and DB connections, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 
-#libraries
-
 #database packages
 library(odbc)
 
@@ -50,7 +48,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Checking DB connections")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
 
 
 kill = FALSE
@@ -80,7 +78,7 @@ if(any(!odbc::dbIsValid(mars_data), !odbc::dbIsValid(greenit)))
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -95,14 +93,77 @@ if(any(!odbc::dbIsValid(mars_data), !odbc::dbIsValid(greenit)))
                            exit_code = NA,
                            note = "Querying GreenIT")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  
+  #The following query sequence is our latest workarounf for the "Invalid Descriptor Index bug when querying SQL Server via ODBC.
+  #The process was adapted from here: https://github.com/r-dbi/odbc/issues/309#issuecomment-617846668
+  
+  #The nvarchar data types with length 0 (aka arbitrary length) choke a direct query because of a bug in SQL Server's ODBC implementation
+  #It has something to do with columns with a large maximum length needing to come last in the query order
+  #By attempting to query other columns after querying them, something breaks
+  
+  #By using dplyr as an intermediary in the process, this problem can be avoided
+  #We can query the normal stuff without the long stuff, then the long stuff separately
+  
+  #This works with SQL Server ODBC driver 17, odbc package 1.2.2, and the data types in the GreenIT Best Data Views as of November 2024
+  
+  #Raw table query
+  smp_query <- "select ProjectID as project_id, SMP_DataPhase as smp_dataphase, WorkNumber as worknumber, Status as cipit_status, StatusCategory as cipit_statuscategory, SystemNumber as system_id, SMPNumber as smp_id, SMP_SMPType as smp_smptype, SMP_FootPrint as smp_footprint_ft2, SMP_SMPTrees as smp_smptrees, SMP_PerviousArea as smp_perviousarea_ft2, SMP_VegetatedArea as smp_vegetatedarea_ft2, SMP_StorageDepth as smp_storagedepth_ft, SMP_PondingDepth as smp_pondingdepth_in, SMP_StorageType as smp_storagetype, SMP_Pretreatment as smp_pretreatment, SMP_NotBuiltRetired as smp_notbuiltretired, SMP_NotBuiltRetiredReason as smp_notbuiltretiredreason from vw_GreenIT_SMPBestData"
+  
+  #Fetch the column names and data types/lengths, but no data (doesn't choke)
+  long_cols <- odbc::odbcConnectionColumns(greenit, "vw_GreenIT_SMPBestData") %>%
+    dplyr::select(name, data_type, column_size) %>% 
+    dplyr::filter(data_type == -9,
+                  column_size == 0) %>%
+    dplyr::arrange(column_size) %>%
+    dplyr::pull(name)
 
-#Query GreenIT
-smpbestdata <- dbGetQuery(greenit, "select ProjectID as project_id, SMP_DataPhase as smp_dataphase, WorkNumber as worknumber, Status as cipit_status, StatusCategory as cipit_statuscategory, SystemNumber as system_id, SMPNumber as smp_id, SMP_SMPType as smp_smptype, SMP_FootPrint as smp_footprint_ft2, SMP_SMPTrees as smp_smptrees, SMP_PerviousArea as smp_perviousarea_ft2, SMP_VegetatedArea as smp_vegetatedarea_ft2, SMP_StorageDepth as smp_storagedepth_ft, SMP_PondingDepth as smp_pondingdepth_in, SMP_StorageType as smp_storagetype, SMP_Pretreatment as smp_pretreatment, SMP_NotBuiltRetired as smp_notbuiltretired, SMP_NotBuiltRetiredReason as smp_notbuiltretiredreason from vw_GreenIT_SMPBestData")
+  smpbestdata <- dplyr::tbl(greenit, dplyr::sql(smp_query)) %>%
+    dplyr::select(-tidyselect::all_of(tolower(long_cols)), #Delete the long columns from the query
+                  tidyselect::everything(),
+                  tidyselect::all_of(tolower(long_cols))) %>% #Add them back at the end
+    as.data.frame #Make it a regular data frame instead of the dbplyr lazy table
   
-systembestdata <- dbGetQuery(greenit, "select Sys_DataPhase as sys_dataphase, WorkNumber as worknumber, Status as cipit_status, StatusCategory as cipit_statuscategory, ProjectID as project_id, SystemNumber as system_id, Sys_PrimaryProgram as sys_primaryprogram, Sys_SecondaryPrograms as sys_secondaryprograms, Sys_SewerType as sys_sewertype, Sys_OverFlowType as sys_overflowtype, Sys_SysFunction as sys_sysfunction, Sys_ModelInputCategory as sys_modelinputcategory, Sys_ImpervDA as sys_impervda_ft2, Sys_SurfaceDCIA as sys_surfacedcia_ft2, Sys_SubsurfaceDCIA as sys_subsurfacedcia_ft2, Sys_PerviousDA as sys_perviousda_ft2, Sys_TotalDA as sys_totalda_ft2, Sys_DisconnectedArea as sys_disconnectedarea_ft2, Sys_StorageVolume as sys_storagevolume_ft3, Sys_TotalSysVolume as sys_totalsysvolume_ft3, Sys_SoilStorageVolume as sys_soilstoragevolume_ft3, Sys_PondedStorageVolume as sys_pondedstoragevolume_ft3, Sys_VolumeBelowOrifice as sys_volumebeloworifice_ft3, Sys_CreditedGA as sys_creditedga, Sys_RawGA as sys_rawga, Sys_InfilDepth as sys_infildepth_ft, Sys_SlowReleaseHead as sys_slowreleasehead_ft, Sys_StorageFootPrint as sys_storagefootprint_ft2, Sys_InfilFootPrint as sys_infilfootprint_ft2, Sys_PondingSurfaceArea as sys_pondingsurfacearea_ft2, Sys_OrificeDia as sys_orificedia_in, Sys_Underdrain as sys_underdrain, Sys_PeakReleaseRate as sys_peakreleaserate_cfs, Sys_RawStormSizeManaged as sys_rawstormsizemanaged_in, Sys_ModeledStormSizeManaged as sys_modeledstormsizemanaged_in, Sys_CreditedStormSizeManaged as sys_creditedstormsizemanaged_in, Sys_LRimpervDA as sys_lrimpervda_ft2, Sys_LRtotalDA as sys_lrtotalda_ft2, Sys_LRSurfaceDCIA as sys_lrsurfacedcia_ft2, Sys_LRSubsurfaceDCIA as sys_lrsubsurfacedcia_ft2, Sys_NotBuiltRetired as sys_notbuiltretired, Sys_NotBuiltRetiredReason as sys_notbuiltretiredreason, Infil_Dsg_TestDate as infil_dsg_testdate, Infil_Dsg_TestType as infil_dsg_testtype, Infil_Dsg_BoringDepth as infil_dsg_boringdepth_ft, Infil_Dsg_DepthtoGW as infil_dsg_depthtogw_ft, Infil_Dsg_DepthtoBedrock as infil_dsg_depthtobedrock_ft, Infil_Dsg_Rate as infil_dsg_rate_inhr, Infil_Constr_TestDate as infil_constr_testdate, Infil_Constr_TestType as infil_constr_testtype, Infil_Constr_Rate as infil_constr_rate_inhr from vw_greenit_systembestdata")
   
-projectbestdata <- dbGetQuery(greenit, "select ProjectID as project_id, WorkNumber as worknumber, Proj_ProjectName as proj_projectname, Status as cipit_status, StatusCategory as cipit_statuscategory, Proj_PrimaryProgram as proj_primaryprogram, ProjSysSum_PrimaryProgram as projsyssum_primaryprogram, Proj_PilotFactor as proj_pilotfactor, Proj_X as proj_x, Proj_Y as proj_y, Proj_DataPhase as proj_dataphase, Proj_SewerType as proj_sewertype, ProjSysSum_SewerTypes as projsyssum_sewertypes, Proj_BestGA as proj_bestga, Proj_BestDA as proj_bestda_ft2, Proj_EstimatedGA as proj_estimatedga, Proj_EstimatedDA as proj_estimatedda_ft2, ProjSysSum_CreditedGA as projsyssum_creditedga, ProjSysSum_RawGA as projsyssum_rawga, ProjSysSum_ImpervDA as projsyssum_impervda_ft2, ProjSysSum_StorageVolume as projsyssum_storagevolume_ft3, ProjSMPSum_PerviousArea as projsmpsum_perviousarea_ft2, Proj_NonSMPTrees as proj_nonsmptrees, ProjSMPSum_SMPTrees as projsmpsum_smptrees, ProjSMPSum_Basins as projsmpsum_basins, ProjSMPSum_BlueRoofs as projsmpsum_blueroofs, ProjSMPSum_Bumpouts as projsmpsum_bumpouts, ProjSMPSum_Cisterns as projsmpsum_cisterns, ProjSMPSum_Depaving as projsmpsum_depaving, ProjSMPSum_DrainageWells as projsmpsum_drainagewells, ProjSMPSum_GreenGutters as projsmpsum_greengutters, ProjSMPSum_GreenRoofs as projsmpsum_greenroofs, ProjSMPSum_InfilTrenches as projsmpsum_infiltrenches, ProjSMPSum_PerviousPaving as projsmpsum_perviouspaving, ProjSMPSum_Planters as projsmpsum_planters, ProjSMPSum_RainGardens as projsmpsum_raingardens, ProjSMPSum_StormwaterTrees as projsmpsum_stormwatertrees, ProjSMPSum_Swales as projsmpsum_swales, ProjSMPSum_TreeTrenches as projsmpsum_treetrenches, ProjSMPSum_Wetlands as projsmpsum_wetlands from vw_greenit_projectbestdata")
+  
+  #We need to repeat this process for the other two BDVs 
+  
+  
+  
+  #Raw table query
+  system_query <- "select Sys_DataPhase as sys_dataphase, WorkNumber as worknumber, Status as cipit_status, StatusCategory as cipit_statuscategory, ProjectID as project_id, SystemNumber as system_id, Sys_PrimaryProgram as sys_primaryprogram, Sys_SecondaryPrograms as sys_secondaryprograms, Sys_SewerType as sys_sewertype, Sys_OverFlowType as sys_overflowtype, Sys_SysFunction as sys_sysfunction, Sys_ModelInputCategory as sys_modelinputcategory, Sys_ImpervDA as sys_impervda_ft2, Sys_SurfaceDCIA as sys_surfacedcia_ft2, Sys_SubsurfaceDCIA as sys_subsurfacedcia_ft2, Sys_PerviousDA as sys_perviousda_ft2, Sys_TotalDA as sys_totalda_ft2, Sys_DisconnectedArea as sys_disconnectedarea_ft2, Sys_StorageVolume as sys_storagevolume_ft3, Sys_TotalSysVolume as sys_totalsysvolume_ft3, Sys_SoilStorageVolume as sys_soilstoragevolume_ft3, Sys_PondedStorageVolume as sys_pondedstoragevolume_ft3, Sys_VolumeBelowOrifice as sys_volumebeloworifice_ft3, Sys_CreditedGA as sys_creditedga, Sys_RawGA as sys_rawga, Sys_InfilDepth as sys_infildepth_ft, Sys_SlowReleaseHead as sys_slowreleasehead_ft, Sys_StorageFootPrint as sys_storagefootprint_ft2, Sys_InfilFootPrint as sys_infilfootprint_ft2, Sys_PondingSurfaceArea as sys_pondingsurfacearea_ft2, Sys_OrificeDia as sys_orificedia_in, Sys_Underdrain as sys_underdrain, Sys_PeakReleaseRate as sys_peakreleaserate_cfs, Sys_RawStormSizeManaged as sys_rawstormsizemanaged_in, Sys_ModeledStormSizeManaged as sys_modeledstormsizemanaged_in, Sys_CreditedStormSizeManaged as sys_creditedstormsizemanaged_in, Sys_LRimpervDA as sys_lrimpervda_ft2, Sys_LRtotalDA as sys_lrtotalda_ft2, Sys_LRSurfaceDCIA as sys_lrsurfacedcia_ft2, Sys_LRSubsurfaceDCIA as sys_lrsubsurfacedcia_ft2, Sys_NotBuiltRetired as sys_notbuiltretired, Sys_NotBuiltRetiredReason as sys_notbuiltretiredreason, Infil_Dsg_TestDate as infil_dsg_testdate, Infil_Dsg_TestType as infil_dsg_testtype, Infil_Dsg_BoringDepth as infil_dsg_boringdepth_ft, Infil_Dsg_DepthtoGW as infil_dsg_depthtogw_ft, Infil_Dsg_DepthtoBedrock as infil_dsg_depthtobedrock_ft, Infil_Dsg_Rate as infil_dsg_rate_inhr, Infil_Constr_TestDate as infil_constr_testdate, Infil_Constr_TestType as infil_constr_testtype, Infil_Constr_Rate as infil_constr_rate_inhr from vw_greenit_systembestdata"
+  
+  #Fetch the column names and data types/lengths, but no data (doesn't choke)
+  long_cols <- odbc::odbcConnectionColumns(greenit, "vw_greenit_systembestdata") %>%
+    dplyr::select(name, data_type, column_size) %>% 
+    dplyr::filter(data_type == -9,
+                  name != "GreenContact", #We don't pull these (we should, to fix soon)
+                  column_size == 0) %>%
+    dplyr::arrange(column_size) %>%
+    dplyr::pull(name)
+  
+  systembestdata <- dplyr::tbl(greenit, dplyr::sql(system_query)) %>%
+    dplyr::select(-tidyselect::all_of(tolower(long_cols)), #Delete the long columns from the query
+                  tidyselect::everything(),
+                  tidyselect::all_of(tolower(long_cols))) %>% #Add them back at the end
+    as.data.frame #Make it a regular data frame instead of the fancy dbplyr lazy table
+  
+
+  project_query <- "select ProjectID as project_id, WorkNumber as worknumber, Proj_ProjectName as proj_projectname, Status as cipit_status, StatusCategory as cipit_statuscategory, Proj_PrimaryProgram as proj_primaryprogram, ProjSysSum_PrimaryProgram as projsyssum_primaryprogram, Proj_PilotFactor as proj_pilotfactor, Proj_X as proj_x, Proj_Y as proj_y, Proj_DataPhase as proj_dataphase, Proj_SewerType as proj_sewertype, ProjSysSum_SewerTypes as projsyssum_sewertypes, Proj_BestGA as proj_bestga, Proj_BestDA as proj_bestda_ft2, Proj_EstimatedGA as proj_estimatedga, Proj_EstimatedDA as proj_estimatedda_ft2, ProjSysSum_CreditedGA as projsyssum_creditedga, ProjSysSum_RawGA as projsyssum_rawga, ProjSysSum_ImpervDA as projsyssum_impervda_ft2, ProjSysSum_StorageVolume as projsyssum_storagevolume_ft3, ProjSMPSum_PerviousArea as projsmpsum_perviousarea_ft2, Proj_NonSMPTrees as proj_nonsmptrees, ProjSMPSum_SMPTrees as projsmpsum_smptrees, ProjSMPSum_Basins as projsmpsum_basins, ProjSMPSum_BlueRoofs as projsmpsum_blueroofs, ProjSMPSum_Bumpouts as projsmpsum_bumpouts, ProjSMPSum_Cisterns as projsmpsum_cisterns, ProjSMPSum_Depaving as projsmpsum_depaving, ProjSMPSum_DrainageWells as projsmpsum_drainagewells, ProjSMPSum_GreenGutters as projsmpsum_greengutters, ProjSMPSum_GreenRoofs as projsmpsum_greenroofs, ProjSMPSum_InfilTrenches as projsmpsum_infiltrenches, ProjSMPSum_PerviousPaving as projsmpsum_perviouspaving, ProjSMPSum_Planters as projsmpsum_planters, ProjSMPSum_RainGardens as projsmpsum_raingardens, ProjSMPSum_StormwaterTrees as projsmpsum_stormwatertrees, ProjSMPSum_Swales as projsmpsum_swales, ProjSMPSum_TreeTrenches as projsmpsum_treetrenches, ProjSMPSum_Wetlands as projsmpsum_wetlands from vw_greenit_projectbestdata"
+
+  long_cols <- odbc::odbcConnectionColumns(greenit, "vw_greenit_projectbestdata") %>%
+    dplyr::select(name, data_type, column_size) %>% 
+    dplyr::filter(data_type == -9,
+                  name != "ProjSysSum_SecondaryProgram", #We don't pull these (we should, to fix soon)
+                  column_size == 0) %>%
+    dplyr::arrange(column_size) %>%
+    dplyr::pull(name)
+  
+  projectbestdata <- dplyr::tbl(greenit, dplyr::sql(project_query)) %>%
+    dplyr::select(-tidyselect::all_of(tolower(long_cols)), #Delete the long columns from the query
+                  tidyselect::everything(),
+                  tidyselect::all_of(tolower(long_cols))) %>% #Add them back at the end
+    as.data.frame #Make it a regular data frame instead of the fancy dbplyr lazy table
 
 ###Error Check: Did we fail to download any tables from GreenIT?
 if(any(!exists("smpbestdata"), !exists("systembestdata"), !exists("projectbestdata"))){
@@ -124,7 +185,7 @@ if(any(!exists("smpbestdata"), !exists("systembestdata"), !exists("projectbestda
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -138,7 +199,7 @@ if(any(!exists("smpbestdata"), !exists("systembestdata"), !exists("projectbestda
                            exit_code = NA,
                            note = "Hashing GreenIT Data")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
 
 #Hash what we got from GreenIT
 smp_hash <- smpbestdata %>%
@@ -202,16 +263,16 @@ kable(head(new_projects))
                            exit_code = NA,
                            note = "Writing New Data")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
 
 #Write new assets
 if(newAssets){
   
   tryCatch(
     expr = {
-      dbWriteTable(mars_data, DBI::SQL("external.tbl_smpbdv"), new_smps, append = TRUE)
-      dbWriteTable(mars_data, DBI::SQL("external.tbl_systembdv"), new_systems, append = TRUE)
-      dbWriteTable(mars_data, DBI::SQL("external.tbl_projectbdv"), new_projects, append = TRUE)
+      dbWriteTable(mars_data, RPostgres::Id(schema = "external", table = "tbl_smpbdv"), new_smps, append = TRUE)
+      dbWriteTable(mars_data, RPostgres::Id(schema = "external", table = "tbl_systembdv"), new_systems, append = TRUE)
+      dbWriteTable(mars_data, RPostgres::Id(schema = "external", table = "tbl_projectbdv"), new_projects, append = TRUE)
       # success = TRUE
     },
     error = function(e){
@@ -229,7 +290,7 @@ if(!kill){
                      type = "Records",
                      hash = log_code)
 
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
 }
 
 ```
@@ -246,7 +307,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -310,7 +371,7 @@ kable(head(update_projects))
                            exit_code = NA,
                            note = "Updating GreenIT Data")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
 
 #Write new assets
 if(newUpdates){
@@ -319,19 +380,19 @@ if(newUpdates){
     expr = {
         #Update old assets
         if(nrow(update_smps) > 0){
-          update_smpquery <- dbSendQuery(mars_data, 'update external.tbl_smpbdv set project_id=?, smp_dataphase=?, worknumber=?, cipit_status=?, cipit_statuscategory=?, system_id=?, smp_id=?, smp_smptype=?, smp_footprint_ft2=?, smp_smptrees=?, smp_perviousarea_ft2=?, smp_vegetatedarea_ft2=?, smp_storagedepth_ft=?, smp_pondingdepth_in=?, smp_storagetype=?, smp_pretreatment=?, smp_notbuiltretired=?, smp_notbuiltretiredreason=?, hash_md5=? WHERE smpbdv_uid=?')
+          update_smpquery <- dbSendQuery(mars_data, 'update external.tbl_smpbdv set project_id=?, smp_dataphase=?, worknumber=?, cipit_status=?, cipit_statuscategory=?, system_id=?, smp_id=?, smp_smptype=?, smp_footprint_ft2=?, smp_smptrees=?, smp_perviousarea_ft2=?, smp_vegetatedarea_ft2=?, smp_storagedepth_ft=?, smp_pondingdepth_in=?, smp_notbuiltretired=?, smp_notbuiltretiredreason=?, smp_storagetype=?, smp_pretreatment=?, hash_md5=? WHERE smpbdv_uid=?')
             dbBind(update_smpquery, update_smps)
             dbClearResult(update_smpquery)
         }
 
         if(nrow(update_systems) > 0){
-            update_systemquery <- dbSendQuery(mars_data, 'update external.tbl_systembdv set sys_dataphase=?, worknumber=?, cipit_status=?, cipit_statuscategory=?, project_id=?, system_id=?, sys_primaryprogram=?, sys_secondaryprograms=?, sys_sewertype=?, sys_overflowtype=?, sys_sysfunction=?, sys_modelinputcategory=?, sys_impervda_ft2=?, sys_surfacedcia_ft2=?, sys_subsurfacedcia_ft2=?, sys_perviousda_ft2=?, sys_totalda_ft2=?, sys_disconnectedarea_ft2=?, sys_storagevolume_ft3=?, sys_totalsysvolume_ft3=?, sys_soilstoragevolume_ft3=?, sys_pondedstoragevolume_ft3=?, sys_volumebeloworifice_ft3=?, sys_creditedga=?, sys_rawga=?, sys_infildepth_ft=?, sys_slowreleasehead_ft=?, sys_storagefootprint_ft2=?, sys_infilfootprint_ft2=?, sys_pondingsurfacearea_ft2=?, sys_orificedia_in=?, sys_underdrain=?, sys_peakreleaserate_cfs=?, sys_rawstormsizemanaged_in=?, sys_modeledstormsizemanaged_in=?, sys_creditedstormsizemanaged_in=?, sys_lrimpervda_ft2=?, sys_lrtotalda_ft2=?, sys_lrsurfacedcia_ft2=?, sys_lrsubsurfacedcia_ft2=?, sys_notbuiltretired=?, sys_notbuiltretiredreason=?, infil_dsg_testdate=?, infil_dsg_testtype=?, infil_dsg_boringdepth_ft=?, infil_dsg_depthtogw_ft=?, infil_dsg_depthtobedrock_ft=?, infil_dsg_rate_inhr=?, infil_constr_testdate=?, infil_constr_testtype=?, infil_constr_rate_inhr=?, hash_md5=? WHERE systembdv_uid =?')
+            update_systemquery <- dbSendQuery(mars_data, 'update external.tbl_systembdv set sys_dataphase=?, worknumber=?, cipit_status=?, cipit_statuscategory=?, project_id=?, system_id=?, sys_primaryprogram=?, sys_sewertype=?, sys_overflowtype=?, sys_sysfunction=?, sys_modelinputcategory=?, sys_impervda_ft2=?, sys_surfacedcia_ft2=?, sys_subsurfacedcia_ft2=?, sys_perviousda_ft2=?, sys_totalda_ft2=?, sys_disconnectedarea_ft2=?, sys_storagevolume_ft3=?, sys_totalsysvolume_ft3=?, sys_soilstoragevolume_ft3=?, sys_pondedstoragevolume_ft3=?, sys_volumebeloworifice_ft3=?, sys_creditedga=?, sys_rawga=?, sys_infildepth_ft=?, sys_slowreleasehead_ft=?, sys_storagefootprint_ft2=?, sys_infilfootprint_ft2=?, sys_pondingsurfacearea_ft2=?, sys_orificedia_in=?, sys_underdrain=?, sys_peakreleaserate_cfs=?, sys_rawstormsizemanaged_in=?, sys_modeledstormsizemanaged_in=?, sys_creditedstormsizemanaged_in=?, sys_lrimpervda_ft2=?, sys_lrtotalda_ft2=?, sys_lrsurfacedcia_ft2=?, sys_lrsubsurfacedcia_ft2=?, sys_notbuiltretired=?, sys_notbuiltretiredreason=?, infil_dsg_testdate=?, infil_dsg_testtype=?, infil_dsg_boringdepth_ft=?, infil_dsg_depthtogw_ft=?, infil_dsg_depthtobedrock_ft=?, infil_dsg_rate_inhr=?, infil_constr_testdate=?, infil_constr_testtype=?, infil_constr_rate_inhr=?, sys_secondaryprograms=?, hash_md5=? WHERE systembdv_uid =?')
             dbBind(update_systemquery, update_systems)
             dbClearResult(update_systemquery)
         }
 
         if(nrow(update_projects) > 0){
-            update_projectquery <- dbSendQuery(mars_data, 'update external.tbl_projectbdv set project_id=?, worknumber=?, proj_projectname=?, cipit_status=?, cipit_statuscategory=?, proj_primaryprogram=?, projsyssum_primaryprogram=?, proj_pilotfactor=?, proj_x=?, proj_y=?, proj_dataphase=?, proj_sewertype=?, projsyssum_sewertypes=?, proj_bestga=?, proj_bestda_ft2=?, proj_estimatedga=?, proj_estimatedda_ft2=?, projsyssum_creditedga=?, projsyssum_rawga=?, projsyssum_impervda_ft2=?, projsyssum_storagevolume_ft3=?, projsmpsum_perviousarea_ft2=?, proj_nonsmptrees=?, projsmpsum_smptrees=?, projsmpsum_basins=?, projsmpsum_blueroofs=?, projsmpsum_bumpouts=?, projsmpsum_cisterns=?, projsmpsum_depaving=?, projsmpsum_drainagewells=?, projsmpsum_greengutters=?, projsmpsum_greenroofs=?, projsmpsum_infiltrenches=?, projsmpsum_perviouspaving=?, projsmpsum_planters=?, projsmpsum_raingardens=?, projsmpsum_stormwatertrees=?, projsmpsum_swales=?, projsmpsum_treetrenches=?, projsmpsum_wetlands=?, hash_md5=? WHERE projectbdv_uid=?')
+            update_projectquery <- dbSendQuery(mars_data, 'update external.tbl_projectbdv set project_id=?, worknumber=?, proj_projectname=?, cipit_status=?, cipit_statuscategory=?, proj_pilotfactor=?, proj_x=?, proj_y=?, proj_dataphase=?, proj_bestga=?, proj_bestda_ft2=?, proj_estimatedga=?, proj_estimatedda_ft2=?, projsyssum_creditedga=?, projsyssum_rawga=?, projsyssum_impervda_ft2=?, projsyssum_storagevolume_ft3=?, projsmpsum_perviousarea_ft2=?, proj_nonsmptrees=?, projsmpsum_smptrees=?, projsmpsum_basins=?, projsmpsum_blueroofs=?, projsmpsum_bumpouts=?, projsmpsum_cisterns=?, projsmpsum_depaving=?, projsmpsum_drainagewells=?, projsmpsum_greengutters=?, projsmpsum_greenroofs=?, projsmpsum_infiltrenches=?, projsmpsum_perviouspaving=?, projsmpsum_planters=?, projsmpsum_raingardens=?, projsmpsum_stormwatertrees=?, projsmpsum_swales=?, projsmpsum_treetrenches=?, projsmpsum_wetlands=?, proj_primaryprogram=?, projsyssum_primaryprogram=?, proj_sewertype=?, projsyssum_sewertypes=?, hash_md5=? WHERE projectbdv_uid=?')
             dbBind(update_projectquery, update_projects)
             dbClearResult(update_projectquery)
         }
@@ -351,7 +412,7 @@ if(!kill){
                      type = "Updates",
                      hash = log_code)
 
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_writes_greenit"), logMessage, append = TRUE, row.names=FALSE)
 }
     
 ```
@@ -368,7 +429,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -385,7 +446,7 @@ if(!kill){
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_greenit"), logMessage, append = TRUE, row.names=FALSE)
 
 dbDisconnect(greenit)
 dbDisconnect(mars_data)

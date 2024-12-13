@@ -9,7 +9,6 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-
 #Dplyr stuff
 library(magrittr)
 library(tidyverse)
@@ -61,7 +60,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "DB Connection Successful")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
 
 ###Section 0.3: Helper function to find the first date in a file
   #firstDate function reads a few lines of the file and finds a date at (or near) the top of the file
@@ -90,7 +89,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -104,7 +103,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Searching for Baro Files")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
 
   #Fetch all host folders for baro data
   baro_rawfolders <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_baro_rawfolder")
@@ -199,7 +198,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -217,35 +216,35 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Writing Baro Files")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
 
 
-    tryCatch(
+  tryCatch(
 
-      expr = {
-        dbWriteTable(marsDBCon, 
-          DBI::SQL("admin.tbl_baro_rawfile"), 
-          output_filetable, 
-          append= TRUE, 
-          row.names = FALSE)
-        success <<- TRUE
-        },
-      error = function(e) {
-        kill <<- TRUE
-        errorCode <<- 3
-        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-      }
-    )
-  
-    #Writing file counts
-    if(!kill){ #If the write succeeded
-      logMessage <- data.frame(date = as.Date(today()),
-                           records = nrow(output_filetable),
-                           type = "Files",
-                           hash = log_code)
-  
-      dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
+    expr = {
+      dbWriteTable(marsDBCon, 
+        RPostgres::Id(schema = "admin", table = "tbl_baro_rawfile"), 
+        output_filetable, 
+        append= TRUE, 
+        row.names = FALSE)
+      success <<- TRUE
+      },
+    error = function(e) {
+      kill <<- TRUE
+      errorCode <<- 3
+      errorCodes$message[errorCode+1] <<- e$message #Error object is a list
     }
+  )
+
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(output_filetable),
+                         type = "Files",
+                         hash = log_code)
+
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 ```
 
@@ -261,7 +260,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -275,7 +274,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Gathering Baro Data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
 
   #Collect the table of baro files again to find their UID
   existingfiletable <- dbGetQuery(marsDBCon, "SELECT * FROM admin.tbl_baro_rawfile")
@@ -323,7 +322,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = NA,
                            note = "Writing Baro Data")
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
 
   #Create a data frame of file-by-file writing results
   if(nrow(newdata) > 0){
@@ -348,7 +347,7 @@ log_code <- digest(now()) #Unique ID for the log batches
 
     if(nrow(newdata_currentfile) > 0){
       tryCatch({newdata_results$outcome[i] <- dbWriteTable(marsDBCon, 
-          DBI::SQL("data.tbl_baro"), 
+          RPostgres::Id(schema = "data", table = "tbl_baro"), 
           newdata_currentfile, 
           append= TRUE, 
           row.names = FALSE)
@@ -377,14 +376,14 @@ log_code <- digest(now()) #Unique ID for the log batches
                          type = "Successes",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
     
     logMessage <- data.frame(date = as.Date(today()),
                          records = failures,
                          type = "Failures",
                          hash = log_code)
 
-    dbWriteTable(marsDBCon, DBI::SQL("log.tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_baro"), logMessage, append = TRUE, row.names=FALSE)
   }
 
 
@@ -402,7 +401,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -422,7 +421,7 @@ log_code <- digest(now()) #Unique ID for the log batches
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(marsDBCon, DBI::SQL("log.tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_baro"), logMessage, append = TRUE, row.names=FALSE)
 
 	#Close database connections
 	dbDisconnect(marsDBCon)

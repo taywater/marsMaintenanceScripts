@@ -8,9 +8,6 @@ params:
 ---
 
 ```{r Section 0.1 Setup and DB connections, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-#libraries
 
 #database packages
 library(odbc)
@@ -44,7 +41,7 @@ logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                          exit_code = NA,
                          note = "Testing DB Connection")
 
-dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
 
 planreview <- dbConnect(odbc(), 
                         Driver = "ODBC Driver 17 for SQL Server", 
@@ -78,7 +75,7 @@ planreview <- dbConnect(odbc(),
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -92,7 +89,7 @@ planreview <- dbConnect(odbc(),
                            exit_code = NA,
                            note = "Querying new data")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
 
 #Query plan review tables
 
@@ -114,15 +111,22 @@ order by p.spra_trackingid, s.spra_name")
         }
       )
   
-   tryCatch({head_vals <- dbGetQuery(planreview, "select       spra_name as 'smp_id',
+   tryCatch({head_vals <- dbGetQuery(planreview, "select spra_name as 'smp_id',
                                                   spra_smptypename as 'smp_type',
-                                                  coalesce(spra_depthofmedium_asmaintained, spra_depthofmedium_asbuilt, spra_depthofmedium_approved) as 'medium_depth_ft',
-                                                  coalesce(spra_effectivehead_asmaintained, spra_effectivehead_asbuilt, spra_effectivehead_approved) as 'effective_head_ft',
-                                                  coalesce(spra_stonestoragedepth_asmaintained/12, spra_stonestoragedepth_asbuilt/12, spra_stonestoragedepth_approved/12) as                                                   'stone_storage_depth_ft',
-                                                  coalesce(spra_footprint_asmaintained, spra_footprint_asbuilt, spra_footprint_approved) as 'footprint_ft2',
-                                                  coalesce(spra_staticstorage_asmaintained, spra_staticstorage_asbuilt, spra_staticstorage_approved) as                                                                        'static_storage_vol_ft3',
-                                                  coalesce(spra_waterqualityvolume_asmaintained, spra_waterqualityvolume_asbuilt, spra_waterqualityvolume_approved) as                                                        'water_quality_vol_ft3'
-                                      from spra_projectsmpdetails s")  %>% 
+                                                  coalesce(spra_depthofmedium_asmaintained, spra_depthofmedium_asbuilt,
+                                                    spra_depthofmedium_approved) as 'medium_depth_ft',
+                                                  coalesce(spra_effectivehead_asmaintained, spra_effectivehead_asbuilt,
+                                                    spra_effectivehead_approved) as 'effective_head_ft',
+                                                  coalesce(spra_stonestoragedepth_asmaintained/12, spra_stonestoragedepth_asbuilt/12, 
+                                                    spra_stonestoragedepth_approved/12) as 'stone_storage_depth_ft',
+                                                  coalesce(spra_footprint_asmaintained, spra_footprint_asbuilt, spra_footprint_approved)
+                                                    as 'footprint_ft2',
+                                                  coalesce(spra_staticstorage_asmaintained, spra_staticstorage_asbuilt,
+                                                    spra_staticstorage_approved) as 'static_storage_vol_ft3',
+                                                  coalesce(spra_waterqualityvolume_asmaintained, spra_waterqualityvolume_asbuilt,
+                                                    spra_waterqualityvolume_approved) as 'water_quality_vol_ft3',
+                                                  coalesce(spra_orificediameter_asmaintained, spra_orificediameter_asbuilt,                                                                 spra_orificediameter_approved) as 'orifice_diameter_in',                                                                              coalesce(spra_testinfiltrationrate_asmaintained, spra_testinfiltrationrate_asbuilt,                                                       spra_testinfiltrationrate_approved) as 'infil_dsg_rate_inhr'
+                                                  from spra_projectsmpdetails s")  %>% 
               dplyr::mutate(water_quality_head_ft = water_quality_vol_ft3/footprint_ft2) %>%
               dplyr::mutate(static_storage_head_ft = static_storage_vol_ft3/footprint_ft2)  
     },
@@ -138,7 +142,8 @@ order by p.spra_trackingid, s.spra_name")
                               "select bv.SMPID as 'smp_id',
                                       bv.DCIA_best as 'dcia_ft2',
                                       bv.SlowReleaseVolume_best as 'slow_release_vol_ft3',
-                                      coalesce(bv.SysType_AM,bv.SysType_AB,bv.SysType_AP) as 'system_type'
+                                      coalesce(bv.SysType_AM,bv.SysType_AB,bv.SysType_AP) as 'system_type',
+                                      coalesce(bv.Loca_AM, bv.Loca_AB, bv.Loca_AP) as 'location'
                                from View_SMP_BestValues bv")
     
     smip_garp_des <- view_smp_designation %>% dplyr::select(SMPID, SMIP, GARP)
@@ -188,7 +193,7 @@ order by p.spra_trackingid, s.spra_name")
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -197,7 +202,7 @@ order by p.spra_trackingid, s.spra_name")
 ```{r Section 2: Trimming, Joining, and Writing, echo = FALSE}
 
 #Query existing table from MARS
-mars_private <- dbGetQuery(mars_data, "select planreview_private_uid, \"SMPID\"::text, hash_md5 from external.tbl_planreview_private")
+mars_private <- dbGetQuery(mars_data, "select planreview_private_uid, \"SMPID\", hash_md5 from external.tbl_planreview_private")
 mars_crosstab <- dbGetQuery(mars_data, "select planreview_crosstab_uid, smp_id, hash_md5 from external.tbl_planreview_crosstab")
 
 #Trim existing table to just hashes
@@ -207,7 +212,7 @@ new_smp_hashes <- view_smp_designation_hash %>%
   filter(!(SMPID %in% mars_private$SMPID))
 
 new_crosstab_hashes <- planreview_crosstab_hash %>%
-  filter(!(smp_id %in% mars_crosstab$hash_md5))
+  filter(!(smp_id %in% mars_crosstab$smp_id))
 
 #Updated metrics
 updated_smps <- view_smp_designation_hash %>%
@@ -227,7 +232,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
 
 ```
 
-```{r Section R1: New SMP Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0))}
+```{r Section R1: New SMP Output, echo = FALSE, include = TRUE, eval = all(!kill, any(nrow(new_smp_hashes) > 0, nrow(new_crosstab_hashes) > 0))}
 
   ###Log: Start
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
@@ -235,7 +240,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = NA,
                            note = "Writing new updates")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
 #Write to mars_data
   
@@ -243,7 +248,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
       tryCatch(
   
         expr = {
-          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_private"), new_smp_hashes, append= TRUE, row.names = FALSE)
+          dbWriteTable(mars_data, RPostgres::Id(schema = "external", table = "tbl_planreview_private_fixed"), new_smp_hashes, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -256,7 +261,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
       tryCatch(
   
         expr = {
-          dbWriteTable(mars_data, DBI::SQL("external.tbl_planreview_crosstab"), new_crosstab_hashes, append= TRUE, row.names = FALSE)
+          dbWriteTable(mars_data, RPostgres::Id(schema = "external", table = "tbl_planreview_crosstab"), new_crosstab_hashes, append= TRUE, row.names = FALSE)
           success <<- TRUE
           },
         error = function(e) {
@@ -274,7 +279,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                          type = "SMPs",
                          hash = log_code)
 
-    dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+    dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
   }
     
 ```
@@ -291,7 +296,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -305,7 +310,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = NA,
                            note = "Writing new edits")
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
 #Write to mars_data
   
@@ -357,7 +362,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                          type = "Updates",
                          hash = log_code)
 
-    dbWriteTable(mars_data, DBI::SQL("log.tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
+    dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_writes_planreview"), logMessage, append = TRUE, row.names=FALSE) 
   }
   
   
@@ -375,7 +380,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
   knitr::knit_exit()
 
@@ -393,7 +398,7 @@ updated_crosstab <- planreview_crosstab_hash %>%
                            exit_code = errorCode,
                            note = errorCodes$message[errorCode+1])
   
-  dbWriteTable(mars_data, DBI::SQL("log.tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
+  dbWriteTable(mars_data, RPostgres::Id(schema = "log", table = "tbl_script_planreview"), logMessage, append = TRUE, row.names=FALSE)
   
 
 dbDisconnect(planreview)
