@@ -296,42 +296,45 @@ This script is attempting to update the `admin.tbl_accessdb` and `fieldwork.tbl_
 
 
 ```{r Section R1: New Databases Output, echo = FALSE, include = TRUE, eval = nrow(output_newAccessDBs) > 0}
-  ###Log: Writing New Databases
-  logMessage <- data.frame(date = as.Date(today()), 
-                           milestone = 4,
-                           exit_code = NA,
-                           note = "Writing New AccessDB Databases")
-  
-  dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
-    knitr::asis_output(paste("### New Access DBs to add to `admin.tbl_accessdb`: ",   nrow(output_newAccessDBs)))
-  
-    filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% 
-        transmute(smp_id, ow = ow_suffix, uid = ow_uid, 
-                  filepath = paste(basename(dirname(filepath_server)), basename(filepath_server), sep = "/")) %>%
-        kable()
-  
-    tryCatch(
-  
-        expr = {
-          dbWriteTable(marsDBCon, RPostgres::Id(schema = "admin", table = "tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
-          success <<- TRUE
-          },
-        error = function(e) {
-          kill <<- TRUE
-          errorCode <<- 4
-          errorCodes$message[errorCode+1] <<- e$message #Error object is a list
-        }
-      )
+      
+    ###Log: Writing New Databases
+      logMessage <- data.frame(date = as.Date(today()), 
+                               milestone = 4,
+                               exit_code = NA,
+                               note = "Writing New AccessDB Databases")
+      
+      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_script_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+      
+      
+      knitr::asis_output(paste("### New Access DBs to add to `admin.tbl_accessdb`: ",   nrow(output_newAccessDBs)))
     
-    #Writing file counts
-    if(!kill){ #If the write succeeded
-      logMessage <- data.frame(date = as.Date(today()),
-                           records = nrow(output_newAccessDBs),
-                           type = "New DBs",
-                           hash = logCode)
+      filter(allnewaccessdbs_ow, !is.na(ow_uid)) %>% 
+          transmute(smp_id, ow = ow_suffix, uid = ow_uid, 
+                    filepath = paste(basename(dirname(filepath_server)), basename(filepath_server), sep = "/")) %>%
+          kable()
+
+  tryCatch(
+
+      expr = {
+        dbWriteTable(marsDBCon, RPostgres::Id(schema = "admin", table = "tbl_accessdb"), output_newAccessDBs, append= TRUE, row.names = FALSE)
+        success <<- TRUE
+        },
+      error = function(e) {
+        kill <<- TRUE
+        errorCode <<- 4
+        errorCodes$message[errorCode+1] <<- e$message #Error object is a list
+      }
+    )
   
-      dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_accessdb"), logMessage, append = TRUE, row.names=FALSE)
-    }
+  #Writing file counts
+  if(!kill){ #If the write succeeded
+    logMessage <- data.frame(date = as.Date(today()),
+                         records = nrow(output_newAccessDBs),
+                         type = "New DBs",
+                         hash = logCode)
+
+    dbWriteTable(marsDBCon, RPostgres::Id(schema = "log", table = "tbl_writes_accessdb"), logMessage, append = TRUE, row.names=FALSE)
+  }
 
 
 ```

@@ -554,7 +554,7 @@ datagaps <- deployments_df %>%
 
 ```
 
-```{r Section 3B - Writing data gaps, echo  eval = all(nrow(datagaps) > 0, !kill)}
+```{r Section 3B - Writing data gaps, echo=FALSE, eval = all(nrow(datagaps) > 0, !kill)}
   ###Log: Start
   logMessage <- data.frame(date = as.Date(today()), hash = log_code,
                            milestone = 9,
